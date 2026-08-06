@@ -14,6 +14,13 @@ struct MenuBarStatusView: View {
             Divider()
 
             Button {
+                model.scanNow()
+            } label: {
+                Label(model.isScanning ? "Scanning" : "Scan Now", systemImage: "waveform.badge.magnifyingglass")
+            }
+            .disabled(model.isScanning)
+
+            Button {
                 model.refresh()
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")

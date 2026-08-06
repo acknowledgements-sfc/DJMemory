@@ -13,6 +13,15 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    model.scanNow()
+                } label: {
+                    Label(model.isScanning ? "Scanning" : "Scan Now", systemImage: "waveform.badge.magnifyingglass")
+                }
+                .disabled(model.isScanning)
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
                     model.refresh()
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
@@ -125,6 +134,8 @@ private struct AdapterDetailView: View {
 
                 FolderSetupView(result: result)
 
+                ScanResultsView(results: model.scanResults(for: result.software.id))
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Setup")
                         .font(.headline)
@@ -164,6 +175,43 @@ private struct AdapterDetailView: View {
                 "Coming after Serato and rekordbox MVP support.",
                 "Manual folder selection will be used before deeper integration."
             ]
+        }
+    }
+}
+
+private struct ScanResultsView: View {
+    let results: [FolderScanResult]
+
+    var body: some View {
+        if !results.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Latest Scan")
+                    .font(.headline)
+
+                ForEach(results, id: \.folderURL) { result in
+                    HStack(spacing: 10) {
+                        Image(systemName: result.errorDescription == nil ? "checkmark.circle" : "exclamationmark.triangle")
+                            .foregroundStyle(result.errorDescription == nil ? .green : .orange)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(result.folderURL.path)
+                                .font(.caption.monospaced())
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+
+                            if let errorDescription = result.errorDescription {
+                                Text(errorDescription)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("\(result.archivedSessions.count) new recording\(result.archivedSessions.count == 1 ? "" : "s") archived")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
         }
     }
 }

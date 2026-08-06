@@ -7,6 +7,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var probeResults: [SoftwareProbeResult] = []
     @Published private(set) var sessions: [ArchiveMetadata] = []
     @Published private(set) var folderAccesses: [FolderAccess] = []
+    @Published private(set) var lastScanResults: [FolderScanResult] = []
+    @Published private(set) var isScanning = false
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
 
@@ -14,9 +16,15 @@ final class AppModel: ObservableObject {
     private let probe = SoftwareProbe()
     private let library = SessionLibrary()
     private let folderAccessStore = FolderAccessStore()
+    private var scanTask: Task<Void, Never>?
 
     init() {
         refresh()
+        startBackgroundScanning()
+    }
+
+    deinit {
+        scanTask?.cancel()
     }
 
     var protectedAdapterCount: Int {
@@ -103,5 +111,66 @@ final class AppModel: ObservableObject {
         } catch {
             statusMessage = "Could not remove folder access: \(error.localizedDescription)"
         }
+    }
+
+    func scanNow() {
+        guard !isScanning else { return }
+
+        isScanning = true
+        let requests = scanRequests()
+
+        Task {
+            let results = await Task.detached(priority: .userInitiated) {
+                ScanCoordinator().scanRecent(requests: requests)
+            }.value
+
+            await MainActor.run {
+                lastScanResults = results
+                isScanning = false
+                refresh()
+                statusMessage = scanStatusMessage(for: results)
+            }
+        }
+    }
+
+    func scanResults(for appID: String) -> [FolderScanResult] {
+        lastScanResults.filter { $0.appID == appID }
+    }
+
+    private func startBackgroundScanning() {
+        scanTask?.cancel()
+        scanTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                self?.scanNow()
+            }
+        }
+    }
+
+    private func scanRequests() -> [FolderScanRequest] {
+        probeResults.flatMap { result in
+            recordingFolders(for: result.software.id).map { folderURL in
+                FolderScanRequest(appID: result.software.id, folderURL: folderURL)
+            }
+        }
+    }
+
+    private func scanStatusMessage(for results: [FolderScanResult]) -> String {
+        guard !results.isEmpty else {
+            return "Choose recording folders to start protecting sets"
+        }
+
+        let archivedCount = results.reduce(0) { $0 + $1.archivedSessions.count }
+        let errorCount = results.filter { $0.errorDescription != nil }.count
+
+        if archivedCount > 0 {
+            return "Archived \(archivedCount) set\(archivedCount == 1 ? "" : "s")"
+        }
+
+        if errorCount > 0 {
+            return "\(errorCount) folder\(errorCount == 1 ? "" : "s") need attention"
+        }
+
+        return "Scan complete. No new recordings found."
     }
 }

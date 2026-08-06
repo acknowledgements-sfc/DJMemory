@@ -25,6 +25,8 @@ Archived recordings are copied to `~/Music/DJMemory` by default with a JSON meta
 
 The app can save recording/history folder selections using macOS security-scoped bookmarks, which keeps the setup path compatible with sandboxed distribution.
 
+Configured recording folders can be scanned from the app with **Scan Now**. While the app is open, it also checks configured folders once per minute.
+
 ## Product Direction
 
 The practical integration strategy is file-first:
