@@ -59,6 +59,15 @@ The emotional pain is simple: "I played a great set and now I cannot find, save,
 - Preserve context: app, date, time, original path, archive path, and track history when available.
 - Make setup understandable in under five minutes.
 - Avoid brittle/private integration paths in the MVP.
+- Keep the architecture App Store-safe from day one, even if v0.1 is distributed outside the Mac App Store.
+
+## Product Decisions
+
+- Distribution posture: App Store-safe architecture and permissions from day one; initial distribution does not need to be through the Mac App Store.
+- UI shape: full macOS app window for setup/library, plus menu-bar status for passive protection state.
+- Default archive location: `~/Music/DJMemory`.
+- First compatibility targets: Serato DJ Pro and rekordbox.
+- First metadata parser target: Serato history export, followed by rekordbox XML/history exports once local formats are verified.
 
 ## Non-Goals
 
@@ -150,24 +159,45 @@ Later:
 - investigate `.session` files for live history, but treat as unstable
 - add "recover unsaved recent Serato recording" flow if temp file behavior is verified
 
+### rekordbox
+
+MVP confidence: medium without local verification.
+
+Why first:
+
+- major market platform
+- XML bridge/export story exists
+- Serato plus rekordbox covers a large share of working DJ workflows
+
+v0.1:
+
+- detect rekordbox installation
+- require user-selected recording folder
+- preserve recordings from that folder
+- support manual import of rekordbox XML/history exports when available
+
+v0.2:
+
+- deepen rekordbox metadata support after verifying local history/export formats
+
 ### Traktor
 
 MVP confidence: high for folders/history.
 
-Why early:
+Why later:
 
 - recordings default to `~/Music/Traktor/Recordings`
 - history playlists live under `~/Documents/Native Instruments/Traktor <version>/History`
 - NML/XML-style parsing is a tractable technical path
 
-v0.1:
+v0.2:
 
 - discover newest Traktor root directory
 - request access to Documents and Music folders as needed
 - watch recordings and history
 - archive completed recordings
 
-v0.2:
+Later:
 
 - parse Traktor history playlist files into tracklists
 
@@ -180,39 +210,17 @@ Why important:
 - strongest public customization/plugin story
 - likely best path to richer event data without brittle hacks
 
-v0.1:
+v0.2:
 
 - detect VirtualDJ installation
 - watch likely VirtualDJ user folder
 - allow manual folder selection if defaults are wrong
-
-v0.2:
-
 - probe Network Control if installed/enabled
 - document supported local commands
 
 Later:
 
 - native VirtualDJ plugin for set start/end and track events
-
-### rekordbox
-
-MVP confidence: medium-low without local verification.
-
-Why included:
-
-- major market platform
-- XML bridge/export story exists
-
-v0.1:
-
-- detect rekordbox installation
-- require user-selected recording folder
-- preserve recordings from that folder
-
-v0.2:
-
-- support exported XML/history metadata import
 
 ### djay Pro
 
@@ -237,7 +245,7 @@ Later:
 
 ### Must Have
 
-- Native macOS app shell with menu-bar presence.
+- Native macOS app shell with a full app window and menu-bar presence.
 - First-run setup that scans for supported DJ apps.
 - Per-app setup state:
   - App Found
@@ -259,8 +267,8 @@ Later:
 ### Should Have
 
 - Serato default folder detection.
-- Traktor root/history discovery.
-- VirtualDJ installed-app detection.
+- rekordbox installed-app detection.
+- Default archive folder creation at `~/Music/DJMemory`.
 - User-editable archive naming template.
 - Failure state with plain-language next step.
 - Basic diagnostics export for support/debugging.
@@ -268,6 +276,9 @@ Later:
 ### Could Have
 
 - Tracklist import for Serato CSV/TXT.
+- rekordbox XML/history import after format verification.
+- Traktor root/history discovery.
+- VirtualDJ installed-app detection.
 - Traktor NML parser.
 - Waveform thumbnail or duration check.
 - Silence/low-level warning.
@@ -295,7 +306,7 @@ The app should answer one question first:
 1. Welcome: "DJMemory keeps a backup of your recorded sets."
 2. Scan: detect installed DJ apps and likely folders.
 3. Permissions: ask for folder access only where needed.
-4. Library: choose archive location.
+4. Library: confirm default archive location at `~/Music/DJMemory` or choose a different folder.
 5. Ready screen: show protected apps and folders.
 
 ### Post-Set Flow
@@ -358,7 +369,7 @@ The app should answer one question first:
 ## Technical Architecture
 
 - `DJMemoryCore`: adapters, file discovery, watchers, session model, archive service.
-- `DJMemoryApp`: SwiftUI app, menu-bar item, setup, library UI.
+- `DJMemoryApp`: SwiftUI app window, menu-bar item, setup, library UI.
 - `DJMemoryCLI`: diagnostics and local probes.
 - `DJMemoryParsers`: later module for Serato/Traktor/VirtualDJ metadata parsers if complexity grows.
 
@@ -374,6 +385,10 @@ The app should answer one question first:
 Default archive naming:
 
 `YYYY-MM-DD HHmm - {DJ Software} - Set.{ext}`
+
+Default archive folder:
+
+`~/Music/DJMemory`
 
 Future naming variables:
 
@@ -438,16 +453,19 @@ Status: complete.
 - Folder permission/bookmark storage.
 - Basic session library.
 
-### Milestone 3: Serato + Traktor MVP
+### Milestone 3: Serato + rekordbox MVP
 
 - Serato folder watcher.
-- Traktor folder/root discovery.
+- rekordbox installed-app detection.
+- rekordbox recording folder setup.
+- Serato history export importer.
+- rekordbox XML/history import probe.
 - Manual rescan.
 - App-specific setup states.
 
-### Milestone 4: Beta Metadata
+### Milestone 4: Traktor + Beta Metadata
 
-- Serato history export importer.
+- Traktor folder/root discovery.
 - Traktor NML history parser.
 - Session-to-tracklist matching.
 
@@ -465,14 +483,21 @@ Status: complete.
 - Archived recordings appear in the library.
 - Each archived recording has a metadata JSON sidecar.
 - Manual rescan can recover recent recordings from watched folders.
-- Serato and Traktor defaults are detected when folders exist.
+- Serato defaults are detected when folders exist.
+- rekordbox installation is detected when available.
+- Default archive location is `~/Music/DJMemory`.
 - Permission errors are visible and understandable.
+
+## Resolved Decisions
+
+- App Store-safe architecture from day one; initial distribution outside the Mac App Store is acceptable.
+- Full app window plus menu-bar status.
+- Default archive location: `~/Music/DJMemory`.
+- First compatibility targets: Serato DJ Pro and rekordbox.
+- First metadata parser: Serato history export, followed by rekordbox XML/history imports.
 
 ## Open Decisions
 
-- Should v0.1 be distributed outside the Mac App Store first to avoid sandbox friction?
-- Should DJMemory use a full-window app plus menu-bar item, or menu-bar-first with a settings window?
 - Should direct audio capture be a paid/pro feature later, or a separate product mode?
-- Should the first parser be Serato history export or Traktor NML?
-- What should the user-facing archive location be by default: `~/Music/DJMemory`, `~/Documents/DJMemory`, or user-selected only?
-
+- Should v0.1 include Traktor as a visible "coming next" adapter, or hide it until support is implemented?
+- Should the default `~/Music/DJMemory` library mirror files into subfolders by app, year, or event?
