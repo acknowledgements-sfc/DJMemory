@@ -17,6 +17,7 @@ final class AppModel: ObservableObject {
     private let probe = SoftwareProbe()
     private let library = SessionLibrary()
     private let folderAccessStore = FolderAccessStore()
+    private let importedTracklistStore = ImportedTracklistStore()
     private var scanTask: Task<Void, Never>?
 
     init() {
@@ -46,6 +47,10 @@ final class AppModel: ObservableObject {
         probeResults = probe.probeAll()
         sessions = (try? library.archivedMetadata()) ?? []
         folderAccesses = (try? folderAccessStore.all()) ?? []
+        importedTracklists = Dictionary(
+            grouping: (try? importedTracklistStore.all()) ?? [],
+            by: \.appID
+        ).compactMapValues { $0.sorted { $0.importedAt > $1.importedAt }.first }
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
@@ -131,7 +136,9 @@ final class AppModel: ObservableObject {
             let data = try Data(contentsOf: url)
             let parser = parserForHistory(appID: appID)
             let tracks = try parser.parse(data: data, sourceName: url.lastPathComponent)
-            importedTracklists[appID] = ImportedTracklist(sourceURL: url, tracks: tracks)
+            let importedTracklist = ImportedTracklist(appID: appID, sourceURL: url, tracks: tracks)
+            try importedTracklistStore.save(importedTracklist)
+            importedTracklists[appID] = importedTracklist
             statusMessage = "Imported \(tracks.count) track\(tracks.count == 1 ? "" : "s") from \(url.lastPathComponent)"
         } catch {
             statusMessage = "Could not import history: \(error.localizedDescription)"
