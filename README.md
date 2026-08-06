@@ -15,10 +15,13 @@ swift run djmemory probe
 swift run djmemory archive /path/to/set.wav serato
 swift run djmemory scan ~/Music/_Serato_/Recording serato
 swift run djmemory watch ~/Music/_Serato_/Recording serato
+swift run DJMemoryApp
 swift test
 ```
 
 Archived recordings are copied to `~/Music/DJMemory` by default with a JSON metadata sidecar. Source files are never moved, renamed, or deleted.
+
+`DJMemoryApp` launches the first SwiftUI app shell with setup status, menu-bar status, and an archived-session library view.
 
 ## Product Direction
 

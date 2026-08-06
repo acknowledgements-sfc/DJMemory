@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ArchiveMetadata: Codable, Equatable, Sendable {
+public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
     public let sessionID: UUID
     public let sourceAppID: String
     public let detectedAt: Date
@@ -9,6 +9,8 @@ public struct ArchiveMetadata: Codable, Equatable, Sendable {
     public let archivePath: String
     public let fileSize: Int64
     public let originalFilename: String
+
+    public var id: UUID { sessionID }
 
     public init(session: RecordingSession, originalFilename: String) {
         self.sessionID = session.id

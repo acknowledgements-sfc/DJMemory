@@ -8,6 +8,7 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
+        .executable(name: "DJMemoryApp", targets: ["DJMemoryApp"]),
         .executable(name: "djmemory", targets: ["DJMemoryCLI"]),
         .library(name: "DJMemoryCore", targets: ["DJMemoryCore"])
     ],
@@ -15,6 +16,10 @@ let package = Package(
         .target(name: "DJMemoryCore"),
         .executableTarget(
             name: "DJMemoryCLI",
+            dependencies: ["DJMemoryCore"]
+        ),
+        .executableTarget(
+            name: "DJMemoryApp",
             dependencies: ["DJMemoryCore"]
         ),
         .testTarget(
