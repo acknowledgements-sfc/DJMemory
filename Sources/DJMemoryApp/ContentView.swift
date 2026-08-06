@@ -117,7 +117,13 @@ private struct AdapterDetailView: View {
                 Text(result.software.displayName)
                     .font(.title2.weight(.semibold))
 
-                StatusGrid(result: result)
+                StatusGrid(
+                    result: result,
+                    recordingFolders: model.recordingFolders(for: result.software.id),
+                    historyFolders: model.historyFolders(for: result.software.id)
+                )
+
+                FolderSetupView(result: result)
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Setup")
@@ -162,8 +168,83 @@ private struct AdapterDetailView: View {
     }
 }
 
+private struct FolderSetupView: View {
+    @EnvironmentObject private var model: AppModel
+    let result: SoftwareProbeResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Folders")
+                .font(.headline)
+
+            FolderRow(
+                title: "Recordings",
+                folders: model.recordingFolders(for: result.software.id),
+                chooseAction: { model.chooseFolder(appID: result.software.id, kind: .recordings) },
+                clearAction: { model.clearFolder(appID: result.software.id, kind: .recordings) }
+            )
+
+            FolderRow(
+                title: "History",
+                folders: model.historyFolders(for: result.software.id),
+                chooseAction: { model.chooseFolder(appID: result.software.id, kind: .history) },
+                clearAction: { model.clearFolder(appID: result.software.id, kind: .history) }
+            )
+        }
+    }
+}
+
+private struct FolderRow: View {
+    let title: String
+    let folders: [URL]
+    let chooseAction: () -> Void
+    let clearAction: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.callout.weight(.medium))
+
+                if folders.isEmpty {
+                    Text("No folder selected")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(folders, id: \.self) { folder in
+                        Text(folder.path)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(folder.path)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Button {
+                chooseAction()
+            } label: {
+                Label("Choose", systemImage: "folder.badge.plus")
+            }
+
+            Button {
+                clearAction()
+            } label: {
+                Label("Clear", systemImage: "xmark.circle")
+            }
+            .disabled(folders.isEmpty)
+        }
+        .padding(14)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
 private struct StatusGrid: View {
     let result: SoftwareProbeResult
+    let recordingFolders: [URL]
+    let historyFolders: [URL]
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
@@ -180,11 +261,11 @@ private struct StatusGrid: View {
     }
 
     private var recordingStatus: String {
-        result.existingRecordingURLs.isEmpty ? "Needs folder" : "Ready"
+        recordingFolders.isEmpty ? "Needs folder" : "Ready"
     }
 
     private var historyStatus: String {
-        result.existingHistoryURLs.isEmpty ? "Optional" : "Found"
+        historyFolders.isEmpty ? "Optional" : "Found"
     }
 }
 

@@ -23,6 +23,8 @@ Archived recordings are copied to `~/Music/DJMemory` by default with a JSON meta
 
 `DJMemoryApp` launches the first SwiftUI app shell with setup status, menu-bar status, and an archived-session library view.
 
+The app can save recording/history folder selections using macOS security-scoped bookmarks, which keeps the setup path compatible with sandboxed distribution.
+
 ## Product Direction
 
 The practical integration strategy is file-first:
