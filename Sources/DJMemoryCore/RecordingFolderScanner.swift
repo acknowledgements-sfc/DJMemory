@@ -1,0 +1,25 @@
+import Foundation
+
+public struct RecordingFolderScanner {
+    private let stabilityChecker: FileStabilityChecker
+    private let archiveService: ArchiveService
+
+    public init(stabilityChecker: FileStabilityChecker = FileStabilityChecker(), archiveService: ArchiveService = ArchiveService()) {
+        self.stabilityChecker = stabilityChecker
+        self.archiveService = archiveService
+    }
+
+    public func archiveRecentStableFiles(
+        in folderURL: URL,
+        sourceAppID: String,
+        modifiedAfter cutoff: Date
+    ) throws -> [RecordingSession] {
+        let candidates = try stabilityChecker.recentAudioFiles(in: folderURL, modifiedAfter: cutoff)
+
+        return try candidates.filter { url in
+            !archiveService.isSourceAlreadyArchived(url)
+        }.map { url in
+            try archiveService.archive(sourceURL: url, sourceAppID: sourceAppID)
+        }
+    }
+}

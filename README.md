@@ -12,8 +12,13 @@ The first scaffold is intentionally small:
 
 ```bash
 swift run djmemory probe
+swift run djmemory archive /path/to/set.wav serato
+swift run djmemory scan ~/Music/_Serato_/Recording serato
+swift run djmemory watch ~/Music/_Serato_/Recording serato
 swift test
 ```
+
+Archived recordings are copied to `~/Music/DJMemory` by default with a JSON metadata sidecar. Source files are never moved, renamed, or deleted.
 
 ## Product Direction
 
