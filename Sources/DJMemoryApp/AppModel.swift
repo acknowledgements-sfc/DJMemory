@@ -8,6 +8,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var sessions: [ArchiveMetadata] = []
     @Published private(set) var folderAccesses: [FolderAccess] = []
     @Published private(set) var lastScanResults: [FolderScanResult] = []
+    @Published private(set) var importedTracklists: [String: ImportedTracklist] = [:]
     @Published private(set) var isScanning = false
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
@@ -113,6 +114,30 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func importHistory(appID: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText, .xml]
+        panel.prompt = "Import"
+        panel.message = "Choose a history export or tracklist file."
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let parser = parserForHistory(appID: appID)
+            let tracks = try parser.parse(data: data, sourceName: url.lastPathComponent)
+            importedTracklists[appID] = ImportedTracklist(sourceURL: url, tracks: tracks)
+            statusMessage = "Imported \(tracks.count) track\(tracks.count == 1 ? "" : "s") from \(url.lastPathComponent)"
+        } catch {
+            statusMessage = "Could not import history: \(error.localizedDescription)"
+        }
+    }
+
     func scanNow() {
         guard !isScanning else { return }
 
@@ -135,6 +160,10 @@ final class AppModel: ObservableObject {
 
     func scanResults(for appID: String) -> [FolderScanResult] {
         lastScanResults.filter { $0.appID == appID }
+    }
+
+    func importedTracklist(for appID: String) -> ImportedTracklist? {
+        importedTracklists[appID]
     }
 
     private func startBackgroundScanning() {
@@ -172,5 +201,14 @@ final class AppModel: ObservableObject {
         }
 
         return "Scan complete. No new recordings found."
+    }
+
+    private func parserForHistory(appID: String) -> TracklistParser {
+        switch appID {
+        case "serato":
+            return SeratoHistoryParser()
+        default:
+            return DelimitedTracklistParser()
+        }
     }
 }

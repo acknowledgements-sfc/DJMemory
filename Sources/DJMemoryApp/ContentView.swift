@@ -136,6 +136,8 @@ private struct AdapterDetailView: View {
 
                 ScanResultsView(results: model.scanResults(for: result.software.id))
 
+                HistoryImportView(result: result)
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Setup")
                         .font(.headline)
@@ -175,6 +177,66 @@ private struct AdapterDetailView: View {
                 "Coming after Serato and rekordbox MVP support.",
                 "Manual folder selection will be used before deeper integration."
             ]
+        }
+    }
+}
+
+private struct HistoryImportView: View {
+    @EnvironmentObject private var model: AppModel
+    let result: SoftwareProbeResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Track History")
+                    .font(.headline)
+
+                Spacer()
+
+                Button {
+                    model.importHistory(appID: result.software.id)
+                } label: {
+                    Label("Import", systemImage: "square.and.arrow.down")
+                }
+            }
+
+            if let imported = model.importedTracklist(for: result.software.id) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(imported.tracks.count) track\(imported.tracks.count == 1 ? "" : "s") from \(imported.sourceURL.lastPathComponent)")
+                        .foregroundStyle(.secondary)
+
+                    ForEach(imported.tracks.prefix(5)) { track in
+                        HStack {
+                            Text(track.artist.isEmpty ? "Unknown Artist" : track.artist)
+                                .frame(width: 180, alignment: .leading)
+                            Text(track.title)
+                            Spacer()
+                            if let startTime = track.startTime {
+                                Text(startTime)
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .font(.callout)
+                    }
+                }
+                .padding(14)
+                .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                Text(historyPrompt(for: result.software.id))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func historyPrompt(for appID: String) -> String {
+        switch appID {
+        case "serato":
+            return "Import a Serato History Export CSV or text file to preview tracklist parsing."
+        case "rekordbox":
+            return "Import a rekordbox XML or history export to test metadata compatibility."
+        default:
+            return "History import is planned after Serato and rekordbox support."
         }
     }
 }
