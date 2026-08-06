@@ -2,134 +2,477 @@
 
 Last updated: August 6, 2026.
 
-## Goal
+## One-Line Pitch
 
-Build a macOS app that automatically preserves DJ set recordings and session metadata across major DJ software.
+DJMemory is a macOS safety net for DJs: it automatically preserves set recordings, remembers where they came from, and attaches track-history metadata when the DJ software makes that available.
 
-## Target User
+## Product Thesis
 
-Working DJs who record live sets for review, posting, radio, client delivery, or archiving, and who do not want to remember each app's recording/save workflow during a set.
+The first version should not try to become a universal DJ recorder. It should solve a narrower and more painful problem: DJs already record inside Serato, Traktor, rekordbox, VirtualDJ, or djay, but recordings and histories are easy to lose, forget, misname, overwrite, or separate from the setlist.
+
+DJMemory wins by being quiet, reliable, and cross-platform:
+
+- it watches the right places
+- it detects when a set recording has finished
+- it copies the recording into a durable library
+- it adds a readable name and metadata sidecar
+- it never mutates or deletes the DJ software's original files
+
+## Target Users
+
+### Primary User
+
+Working or semi-working DJs who play live sets and want a dependable archive for review, posting, client delivery, or radio/podcast prep.
+
+Typical context:
+
+- uses a Mac laptop at gigs or home sessions
+- records sets inside DJ software when possible
+- may use different DJ software depending on venue, controller, or format
+- does not want another technical setup ritual before playing
+
+### Secondary Users
+
+- DJ teachers and students who review practice sessions
+- radio DJs and livestreamers who need tracklists after recording
+- event/mobile DJs who need client-deliverable set archives
+- content-focused DJs who post mixes regularly
 
 ## Problem
 
-DJ apps usually make recording possible but fragile:
+DJ software makes recording possible, but the workflow is fragile during a real set:
 
 - the DJ must remember to start recording
-- the DJ must remember to save/name the file
-- track history and audio recording are often separated
-- each DJ platform stores recordings and histories differently
-- temporary files can be overwritten or lost
+- the DJ must remember to stop and save
+- recordings may live in different folders per app
+- temporary or unnamed recordings can be overwritten
+- the audio file and played-track history are separate
+- naming conventions are inconsistent
+- post-set organization happens when the DJ is tired or packing up
 
-## MVP
+The emotional pain is simple: "I played a great set and now I cannot find, save, name, or reconstruct it."
 
-DJMemory runs as a macOS menu-bar app and watches configured DJ software locations. When it detects a new set recording, it copies it into a DJMemory library, applies a predictable name, and attaches session metadata when available.
+## Product Goals
 
-### MVP Platforms
+- Protect recordings from being lost after a set.
+- Give the DJ one reliable library across supported DJ apps.
+- Preserve context: app, date, time, original path, archive path, and track history when available.
+- Make setup understandable in under five minutes.
+- Avoid brittle/private integration paths in the MVP.
 
-1. Serato DJ Pro
-2. Traktor
-3. VirtualDJ
-4. rekordbox
-5. djay Pro
+## Non-Goals
 
-### MVP Features
+- Do not bypass DRM or streaming-service recording restrictions.
+- Do not use private APIs or patch DJ software internals.
+- Do not automate UI clicking inside DJ apps in v0.1.
+- Do not replace native DJ app recording workflows in v0.1.
+- Do not upload or publish recordings automatically in v0.1.
+- Do not delete, move, rename, or mutate original source recordings.
 
-- First-run setup that detects installed DJ apps.
-- Per-app adapter cards showing detection status, recording folder, history folder, and permission state.
-- Folder access prompts for Music/Documents locations.
-- File watcher for new recordings.
-- Recording preservation: copy-on-complete into DJMemory library.
-- Session record with app name, start/end time, source path, archive path, file size, and status.
-- Basic conflict-safe naming: `YYYY-MM-DD HHmm - App Name - Set.ext`.
-- Manual "rescan recent recordings" action.
-- Exportable metadata JSON next to each archived recording.
+## Competitive Positioning
 
-### Beta Features
+### Main Competitor: Serauto
 
-- Serato history export ingestion.
-- Traktor NML history parsing.
-- VirtualDJ Network Control probe.
-- Silence/level validation after recording.
-- Post-set rename flow with venue/event fields.
-- Auto-copy to Dropbox/Drive/Music folder.
+Serauto appears focused on Serato auto-recording/recovery. DJMemory should treat Serauto as validation of the most painful wedge: DJs forget to preserve Serato recordings.
 
-### Later
+Differentiation:
 
-- Virtual audio device capture mode.
-- Optional VirtualDJ plugin.
-- Mixcloud/SoundCloud upload preparation.
-- Tracklist generation from history.
-- AI set summary: genres, energy arc, likely highlights.
-- Menu bar now-recording status.
+- multi-app, not Serato-only
+- library and metadata layer, not just recovery
+- track-history attachment where available
+- future deeper VirtualDJ/Traktor integration
+- post-set workflow foundation
 
-## Non-Goals For MVP
+### Adjacent Alternatives
 
-- Bypassing DJ software DRM or streaming restrictions.
-- Private API hooking.
-- Automatic UI clicking inside DJ apps.
-- Replacing each DJ app's native recorder.
-- Mobile companion app.
+- Native DJ app recording: works, but is app-specific and manual.
+- Audacity/Logic/Ableton: can record audio, but lacks DJ-app context and set history.
+- MIXO/Lexicon/DJCU-style library tools: strong for playlists/libraries, not automatic set recording preservation.
+- Cloud folders: useful after the file exists, not helpful for detection, naming, or track history.
 
-## UX Principles
+## Integration Strategy
 
-- The app should feel like a reliable backstage utility, not a content platform.
-- The default screen should answer: "Am I protected right now?"
-- Setup must avoid dense technical language.
-- Every adapter should expose a simple health state: Ready, Needs Folder Access, App Not Found, Needs Setup, Watching.
+Use three integration levels. This keeps the roadmap honest and prevents overpromising.
+
+### Level 1: File Watcher
+
+DJMemory watches recording/history folders and archives completed files.
+
+Used for:
+
+- all MVP platforms
+- least brittle path
+- safest App Store posture
+
+### Level 2: Export/History Parser
+
+DJMemory imports session metadata from known export/history formats.
+
+Used for:
+
+- Serato history exports
+- Traktor NML history files
+- rekordbox XML/history exports if user-provided
+- VirtualDJ history/database files if verified
+
+### Level 3: Local Control or Plugin
+
+DJMemory communicates with DJ software through supported local interfaces.
+
+Used later for:
+
+- VirtualDJ Network Control
+- VirtualDJ native plugin
+- any official API that becomes available
+
+## Platform Plan
+
+### Serato DJ Pro
+
+MVP confidence: high.
+
+Why first:
+
+- clear default recording folder: `~/Music/_Serato_/Recording`
+- clear history/export concepts
+- competitor validation around recording loss
+
+v0.1:
+
+- detect Serato installation and running state
+- request access to `~/Music/_Serato_`
+- watch `Recording`
+- archive completed recordings
+- optionally ingest files from `History Export`
+
+Later:
+
+- investigate `.session` files for live history, but treat as unstable
+- add "recover unsaved recent Serato recording" flow if temp file behavior is verified
+
+### Traktor
+
+MVP confidence: high for folders/history.
+
+Why early:
+
+- recordings default to `~/Music/Traktor/Recordings`
+- history playlists live under `~/Documents/Native Instruments/Traktor <version>/History`
+- NML/XML-style parsing is a tractable technical path
+
+v0.1:
+
+- discover newest Traktor root directory
+- request access to Documents and Music folders as needed
+- watch recordings and history
+- archive completed recordings
+
+v0.2:
+
+- parse Traktor history playlist files into tracklists
+
+### VirtualDJ
+
+MVP confidence: medium for files, high for future deep integration.
+
+Why important:
+
+- strongest public customization/plugin story
+- likely best path to richer event data without brittle hacks
+
+v0.1:
+
+- detect VirtualDJ installation
+- watch likely VirtualDJ user folder
+- allow manual folder selection if defaults are wrong
+
+v0.2:
+
+- probe Network Control if installed/enabled
+- document supported local commands
+
+Later:
+
+- native VirtualDJ plugin for set start/end and track events
+
+### rekordbox
+
+MVP confidence: medium-low without local verification.
+
+Why included:
+
+- major market platform
+- XML bridge/export story exists
+
+v0.1:
+
+- detect rekordbox installation
+- require user-selected recording folder
+- preserve recordings from that folder
+
+v0.2:
+
+- support exported XML/history metadata import
+
+### djay Pro
+
+MVP confidence: low until file locations are verified.
+
+Why included:
+
+- popular Mac DJ app
+- important for consumer/prosumer DJs
+
+v0.1:
+
+- detect app installation/running state
+- require user-selected recording folder
+- preserve recordings from that folder
+
+Later:
+
+- research AppleScript, Shortcuts, or supported automation surfaces
+
+## MVP Scope: v0.1
+
+### Must Have
+
+- Native macOS app shell with menu-bar presence.
+- First-run setup that scans for supported DJ apps.
+- Per-app setup state:
+  - App Found
+  - App Not Found
+  - Needs Folder Access
+  - Watching
+  - Recording Detected
+  - Archived
+  - Error
+- Folder permission flow for Music/Documents/custom folders.
+- Recording watcher that detects new audio files.
+- File stability detection before archive copy.
+- Archive copy into DJMemory library.
+- Metadata JSON sidecar next to archived recording.
+- Manual "Rescan Last 24 Hours" action.
+- Basic library screen showing archived sessions.
+- Never modify source files.
+
+### Should Have
+
+- Serato default folder detection.
+- Traktor root/history discovery.
+- VirtualDJ installed-app detection.
+- User-editable archive naming template.
+- Failure state with plain-language next step.
+- Basic diagnostics export for support/debugging.
+
+### Could Have
+
+- Tracklist import for Serato CSV/TXT.
+- Traktor NML parser.
+- Waveform thumbnail or duration check.
+- Silence/low-level warning.
+- Auto-copy to a user-selected cloud folder.
+
+## User Experience
+
+### Main Product Question
+
+The app should answer one question first:
+
+"Am I protected right now?"
+
+### Primary States
+
+- Protected: at least one app/folder is being watched.
+- Needs Setup: no recording folders are accessible.
+- Recording: a growing recording file is detected.
+- Saving: recording stopped changing and is being archived.
+- Saved: archived copy and metadata were created.
+- Attention Needed: folder permission, disk space, or copy error.
+
+### First-Run Flow
+
+1. Welcome: "DJMemory keeps a backup of your recorded sets."
+2. Scan: detect installed DJ apps and likely folders.
+3. Permissions: ask for folder access only where needed.
+4. Library: choose archive location.
+5. Ready screen: show protected apps and folders.
+
+### Post-Set Flow
+
+1. DJ stops or saves recording in DJ software.
+2. DJMemory detects file stability.
+3. DJMemory copies file to archive.
+4. DJMemory creates metadata sidecar.
+5. DJMemory shows a quiet notification: "Set saved."
+6. User can rename with event/venue notes later.
 
 ## Data Model
 
 ### DJAppAdapter
 
-- id
-- displayName
-- bundleIdentifiers
-- defaultRecordingLocations
-- defaultHistoryLocations
-- integrationDepth
-- capabilities
+- `id`
+- `displayName`
+- `bundleIdentifiers`
+- `defaultRecordingLocations`
+- `defaultHistoryLocations`
+- `integrationLevel`
+- `capabilities`
+- `setupInstructions`
 
 ### RecordingSession
 
-- id
-- sourceApp
-- detectedAt
-- completedAt
-- sourceURL
-- archiveURL
-- duration
-- fileSize
-- status
-- metadataURL
+- `id`
+- `sourceAppID`
+- `detectedAt`
+- `completedAt`
+- `sourceURL`
+- `archiveURL`
+- `duration`
+- `fileSize`
+- `status`
+- `metadataURL`
+- `errorMessage`
 
 ### TrackPlay
 
-- title
-- artist
-- startTime
-- endTime
-- deck
-- source
+- `id`
+- `sessionID`
+- `title`
+- `artist`
+- `startTime`
+- `endTime`
+- `deck`
+- `source`
+- `confidence`
 
-## Architecture
+### AppFolderPermission
 
-- `DJMemoryCore`: adapters, app detection, file discovery, session model.
-- `DJMemoryApp`: SwiftUI menu-bar UI.
-- `DJMemoryCLI`: local diagnostics and development probes.
-- Future helper: privileged or unsandboxed helper only if needed for audio-device workflows.
+- `id`
+- `adapterID`
+- `folderURL`
+- `permissionType`
+- `bookmarkData`
+- `status`
 
-## Acceptance Criteria
+## Technical Architecture
 
-- On first launch, user can see which DJ apps are installed.
-- User can grant access to recording/history folders.
-- When a recording appears in a watched folder and stops changing, DJMemory archives it.
-- The archived file has a metadata JSON sidecar.
-- App never deletes or mutates source recordings.
-- User can rescan and recover recently created recordings.
+- `DJMemoryCore`: adapters, file discovery, watchers, session model, archive service.
+- `DJMemoryApp`: SwiftUI app, menu-bar item, setup, library UI.
+- `DJMemoryCLI`: diagnostics and local probes.
+- `DJMemoryParsers`: later module for Serato/Traktor/VirtualDJ metadata parsers if complexity grows.
 
-## Open Questions
+### Archive Behavior
 
-- Brand name: DJMemory is the current working name.
-- Should the MVP be menu-bar only, full-window, or both?
-- Do we want direct audio capture in v1, or file-preservation only?
-- Which platform should be the first deep integration after Serato: Traktor or VirtualDJ?
+- Copy only after file has stopped changing for a configurable stability window.
+- Default stability window: 30 seconds.
+- Never delete source files.
+- Never overwrite existing archive files.
+- Preserve original extension.
+- Generate sidecar metadata JSON.
+
+Default archive naming:
+
+`YYYY-MM-DD HHmm - {DJ Software} - Set.{ext}`
+
+Future naming variables:
+
+- date
+- time
+- app
+- venue
+- event
+- city
+- first track
+- detected duration
+
+## Privacy, Security, and Policy
+
+- DJMemory processes files locally by default.
+- No cloud account is required for v0.1.
+- No audio or library metadata leaves the Mac without explicit user action.
+- Streaming-service restrictions must be respected.
+- The app should avoid language suggesting it can bypass disabled recording features.
+
+## Success Metrics
+
+### Product Metrics
+
+- percentage of users with at least one protected app/folder
+- number of recordings archived per active user
+- archive success rate
+- permission/setup completion rate
+- support events per archived recording
+
+### Quality Metrics
+
+- false archive rate: files copied before complete
+- missed recording rate from known watched folders
+- duplicate archive rate
+- parser success rate for supported history files
+
+## Milestones
+
+### Milestone 0: Foundation
+
+- Swift package and repo scaffold.
+- Adapter model.
+- Local probe CLI.
+- Initial research and PRD.
+
+Status: complete.
+
+### Milestone 1: Archive Engine
+
+- File watcher service.
+- Stability detector.
+- Archive copy service.
+- Metadata sidecar writer.
+- CLI command to watch a folder and archive test recordings.
+
+### Milestone 2: macOS App Shell
+
+- SwiftUI app.
+- Menu-bar status.
+- First-run setup.
+- Folder permission/bookmark storage.
+- Basic session library.
+
+### Milestone 3: Serato + Traktor MVP
+
+- Serato folder watcher.
+- Traktor folder/root discovery.
+- Manual rescan.
+- App-specific setup states.
+
+### Milestone 4: Beta Metadata
+
+- Serato history export importer.
+- Traktor NML history parser.
+- Session-to-tracklist matching.
+
+### Milestone 5: VirtualDJ Deep Probe
+
+- VirtualDJ folder verification.
+- Network Control probe.
+- Decision memo on plugin vs local-control path.
+
+## Acceptance Criteria For v0.1
+
+- User can install/run DJMemory on macOS.
+- User can configure at least one watched recording folder.
+- DJMemory archives a completed recording without changing the source file.
+- Archived recordings appear in the library.
+- Each archived recording has a metadata JSON sidecar.
+- Manual rescan can recover recent recordings from watched folders.
+- Serato and Traktor defaults are detected when folders exist.
+- Permission errors are visible and understandable.
+
+## Open Decisions
+
+- Should v0.1 be distributed outside the Mac App Store first to avoid sandbox friction?
+- Should DJMemory use a full-window app plus menu-bar item, or menu-bar-first with a settings window?
+- Should direct audio capture be a paid/pro feature later, or a separate product mode?
+- Should the first parser be Serato history export or Traktor NML?
+- What should the user-facing archive location be by default: `~/Music/DJMemory`, `~/Documents/DJMemory`, or user-selected only?
+
