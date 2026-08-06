@@ -41,4 +41,23 @@ final class TracklistParserTests: XCTestCase {
         XCTAssertEqual(tracks.first?.source, "Serato History")
         XCTAssertEqual(tracks.first?.title, "Music Sounds Better With You")
     }
+
+    func testRekordboxXMLParserReadsCollectionTracks() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <DJ_PLAYLISTS Version="1.0.0">
+          <COLLECTION Entries="2">
+            <TRACK TrackID="1" Name="Plastic Dreams" Artist="Jaydee" />
+            <TRACK TrackID="2" Name="Deep Inside" Artist="Hardrive" />
+          </COLLECTION>
+        </DJ_PLAYLISTS>
+        """
+
+        let tracks = try RekordboxXMLParser().parse(data: Data(xml.utf8), sourceName: "rekordbox.xml")
+
+        XCTAssertEqual(tracks.count, 2)
+        XCTAssertEqual(tracks.first?.title, "Plastic Dreams")
+        XCTAssertEqual(tracks.first?.artist, "Jaydee")
+        XCTAssertEqual(tracks.first?.source, "rekordbox.xml")
+    }
 }

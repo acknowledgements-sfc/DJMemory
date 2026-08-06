@@ -214,6 +214,8 @@ final class AppModel: ObservableObject {
         switch appID {
         case "serato":
             return SeratoHistoryParser()
+        case "rekordbox":
+            return RekordboxXMLParser()
         default:
             return DelimitedTracklistParser()
         }

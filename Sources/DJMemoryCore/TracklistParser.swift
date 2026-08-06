@@ -126,3 +126,46 @@ public struct SeratoHistoryParser: TracklistParser {
         try parser.parse(data: data, sourceName: sourceName)
     }
 }
+
+public final class RekordboxXMLParser: NSObject, TracklistParser, XMLParserDelegate {
+    private var tracks: [TrackPlay] = []
+    private var sourceName = "rekordbox XML"
+
+    public override init() {}
+
+    public func parse(data: Data, sourceName: String = "rekordbox XML") throws -> [TrackPlay] {
+        self.tracks = []
+        self.sourceName = sourceName
+
+        let parser = XMLParser(data: data)
+        parser.delegate = self
+        parser.parse()
+
+        return tracks
+    }
+
+    public func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        guard elementName.uppercased() == "TRACK" else { return }
+
+        let title = attributeDict["Name"] ?? attributeDict["TrackName"] ?? attributeDict["Title"]
+        let artist = attributeDict["Artist"] ?? attributeDict["ArtistName"] ?? ""
+
+        guard let title, !title.isEmpty else { return }
+
+        tracks.append(
+            TrackPlay(
+                title: title,
+                artist: artist,
+                startTime: nil,
+                source: sourceName,
+                confidence: 0.8
+            )
+        )
+    }
+}
