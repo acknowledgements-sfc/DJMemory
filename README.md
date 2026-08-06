@@ -27,6 +27,14 @@ The app can save recording/history folder selections using macOS security-scoped
 
 Configured recording folders can be scanned from the app with **Scan Now**. While the app is open, it also checks configured folders once per minute.
 
+To open the package in Xcode:
+
+```bash
+bash scripts/open-xcode.sh
+```
+
+Xcode is not required for day-to-day preview, but it will be needed for signing, sandbox entitlement inspection, icons, and packaged app export.
+
 ## Product Direction
 
 The practical integration strategy is file-first:
