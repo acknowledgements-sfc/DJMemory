@@ -3,23 +3,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "SetCatcher",
+    name: "DJMemory",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "setcatcher", targets: ["SetCatcherCLI"]),
-        .library(name: "SetCatcherCore", targets: ["SetCatcherCore"])
+        .executable(name: "djmemory", targets: ["DJMemoryCLI"]),
+        .library(name: "DJMemoryCore", targets: ["DJMemoryCore"])
     ],
     targets: [
-        .target(name: "SetCatcherCore"),
+        .target(name: "DJMemoryCore"),
         .executableTarget(
-            name: "SetCatcherCLI",
-            dependencies: ["SetCatcherCore"]
+            name: "DJMemoryCLI",
+            dependencies: ["DJMemoryCore"]
         ),
         .testTarget(
-            name: "SetCatcherCoreTests",
-            dependencies: ["SetCatcherCore"]
+            name: "DJMemoryCoreTests",
+            dependencies: ["DJMemoryCore"]
         )
     ]
 )

@@ -32,7 +32,7 @@ MVP integration:
 - Watch `~/Music/_Serato_/Recording`.
 - Detect Serato running.
 - Preserve new or changed recording files.
-- Read exported history files if the user points SetCatcher at `History Export`.
+- Read exported history files if the user points DJMemory at `History Export`.
 - Later: investigate live `.session` parsing, but treat it as brittle.
 
 ### rekordbox
@@ -108,4 +108,3 @@ The wedge is not "another recorder." It is "never lose a set again":
 - Audio capture from another app may require a virtual audio driver or Aggregate Device workflow.
 - App Store review may object to private APIs or UI automation; stay file-based for MVP.
 - Streaming-service recording restrictions may create policy/legal constraints. The product should preserve user recordings but avoid bypassing DRM or app limitations.
-

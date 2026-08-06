@@ -1,5 +1,5 @@
 import XCTest
-@testable import SetCatcherCore
+@testable import DJMemoryCore
 
 final class SupportedDJSoftwareTests: XCTestCase {
     func testSupportedSoftwareContainsExpectedAdapters() {

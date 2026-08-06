@@ -1,10 +1,10 @@
 import Foundation
-import SetCatcherCore
+import DJMemoryCore
 
 let arguments = CommandLine.arguments.dropFirst()
 
 guard arguments.first == "probe" else {
-    print("Usage: setcatcher probe")
+    print("Usage: djmemory probe")
     exit(0)
 }
 

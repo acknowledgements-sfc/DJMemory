@@ -1,5 +1,5 @@
 import XCTest
-@testable import SetCatcherCore
+@testable import DJMemoryCore
 
 final class PathResolverTests: XCTestCase {
     func testExpandedURLExpandsTilde() {
@@ -10,4 +10,3 @@ final class PathResolverTests: XCTestCase {
         XCTAssertTrue(url.path.hasSuffix("/Music"))
     }
 }
-

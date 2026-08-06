@@ -1,4 +1,4 @@
-# PRD: SetCatcher macOS App
+# PRD: DJMemory macOS App
 
 Last updated: August 6, 2026.
 
@@ -22,7 +22,7 @@ DJ apps usually make recording possible but fragile:
 
 ## MVP
 
-SetCatcher runs as a macOS menu-bar app and watches configured DJ software locations. When it detects a new set recording, it copies it into a SetCatcher library, applies a predictable name, and attaches session metadata when available.
+DJMemory runs as a macOS menu-bar app and watches configured DJ software locations. When it detects a new set recording, it copies it into a DJMemory library, applies a predictable name, and attaches session metadata when available.
 
 ### MVP Platforms
 
@@ -38,7 +38,7 @@ SetCatcher runs as a macOS menu-bar app and watches configured DJ software locat
 - Per-app adapter cards showing detection status, recording folder, history folder, and permission state.
 - Folder access prompts for Music/Documents locations.
 - File watcher for new recordings.
-- Recording preservation: copy-on-complete into SetCatcher library.
+- Recording preservation: copy-on-complete into DJMemory library.
 - Session record with app name, start/end time, source path, archive path, file size, and status.
 - Basic conflict-safe naming: `YYYY-MM-DD HHmm - App Name - Set.ext`.
 - Manual "rescan recent recordings" action.
@@ -113,24 +113,23 @@ SetCatcher runs as a macOS menu-bar app and watches configured DJ software locat
 
 ## Architecture
 
-- `SetCatcherCore`: adapters, app detection, file discovery, session model.
-- `SetCatcherApp`: SwiftUI menu-bar UI.
-- `SetCatcherCLI`: local diagnostics and development probes.
+- `DJMemoryCore`: adapters, app detection, file discovery, session model.
+- `DJMemoryApp`: SwiftUI menu-bar UI.
+- `DJMemoryCLI`: local diagnostics and development probes.
 - Future helper: privileged or unsandboxed helper only if needed for audio-device workflows.
 
 ## Acceptance Criteria
 
 - On first launch, user can see which DJ apps are installed.
 - User can grant access to recording/history folders.
-- When a recording appears in a watched folder and stops changing, SetCatcher archives it.
+- When a recording appears in a watched folder and stops changing, DJMemory archives it.
 - The archived file has a metadata JSON sidecar.
 - App never deletes or mutates source recordings.
 - User can rescan and recover recently created recordings.
 
 ## Open Questions
 
-- Brand name: SetCatcher is a placeholder.
+- Brand name: DJMemory is the current working name.
 - Should the MVP be menu-bar only, full-window, or both?
 - Do we want direct audio capture in v1, or file-preservation only?
 - Which platform should be the first deep integration after Serato: Traktor or VirtualDJ?
-
