@@ -147,7 +147,12 @@ final class AppModel: ObservableObject {
             let data = try Data(contentsOf: url)
             let parser = parserForHistory(appID: appID)
             let tracks = try parser.parse(data: data, sourceName: url.lastPathComponent)
-            let importedTracklist = ImportedTracklist(appID: appID, sourceURL: url, tracks: tracks)
+            let importedTracklist = ImportedTracklist(
+                appID: appID,
+                sourceURL: url,
+                kind: tracklistKind(appID: appID, sourceURL: url),
+                tracks: tracks
+            )
             try importedTracklistStore.save(importedTracklist)
             try activityLogStore.append(ActivityEvent(
                 kind: .importTracklist,
@@ -398,5 +403,13 @@ final class AppModel: ObservableObject {
         default:
             return DelimitedTracklistParser()
         }
+    }
+
+    private func tracklistKind(appID: String, sourceURL: URL) -> ImportedTracklistKind {
+        if appID == "rekordbox", sourceURL.pathExtension.localizedCaseInsensitiveCompare("xml") == .orderedSame {
+            return .collection
+        }
+
+        return .setHistory
     }
 }

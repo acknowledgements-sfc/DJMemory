@@ -426,7 +426,7 @@ private struct HistoryImportView: View {
                     ForEach(imports) { imported in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("\(imported.tracks.count) track\(imported.tracks.count == 1 ? "" : "s") from \(imported.sourceURL.lastPathComponent)")
+                                Text("\(kindLabel(imported.kind)) | \(imported.tracks.count) track\(imported.tracks.count == 1 ? "" : "s") from \(imported.sourceURL.lastPathComponent)")
                                     .foregroundStyle(.secondary)
 
                                 Spacer()
@@ -463,6 +463,15 @@ private struct HistoryImportView: View {
                 Text(historyPrompt(for: result.software.id))
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func kindLabel(_ kind: ImportedTracklistKind) -> String {
+        switch kind {
+        case .setHistory:
+            return "Set history"
+        case .collection:
+            return "Collection"
         }
     }
 
@@ -765,6 +774,10 @@ private struct SessionLibraryView: View {
                     TableColumn("Tracks") { tracklist in
                         Text("\(tracklist.tracks.count)")
                     }
+                    TableColumn("Kind") { tracklist in
+                        Text(kindLabel(tracklist.kind))
+                            .help(kindHelp(tracklist.kind))
+                    }
                     TableColumn("Preview") { tracklist in
                         Text(previewText(for: tracklist))
                             .lineLimit(1)
@@ -807,6 +820,24 @@ private struct SessionLibraryView: View {
 
     private func previewText(for tracklist: ImportedTracklist) -> String {
         tracklist.tracks.prefix(3).map(\.title).joined(separator: " / ")
+    }
+
+    private func kindLabel(_ kind: ImportedTracklistKind) -> String {
+        switch kind {
+        case .setHistory:
+            return "Set history"
+        case .collection:
+            return "Collection"
+        }
+    }
+
+    private func kindHelp(_ kind: ImportedTracklistKind) -> String {
+        switch kind {
+        case .setHistory:
+            return "Can be matched to archived recordings from the same DJ app."
+        case .collection:
+            return "Browsable library import. It will not be auto-matched to one archived recording."
+        }
     }
 
     private func formatDuration(_ seconds: Double?) -> String {
@@ -853,7 +884,7 @@ private struct TracklistDetailView: View {
                         .font(.headline)
                         .lineLimit(1)
                         .help(tracklist.sourceURL.path)
-                    Text("\(appName) | \(tracklist.tracks.count) tracks")
+                    Text("\(appName) | \(kindLabel(tracklist.kind)) | \(tracklist.tracks.count) tracks")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -908,5 +939,14 @@ private struct TracklistDetailView: View {
     private func trackNumber(for track: TrackPlay) -> String {
         guard let index = tracklist.tracks.firstIndex(where: { $0.id == track.id }) else { return "-" }
         return "\(index + 1)"
+    }
+
+    private func kindLabel(_ kind: ImportedTracklistKind) -> String {
+        switch kind {
+        case .setHistory:
+            return "Set history"
+        case .collection:
+            return "Collection"
+        }
     }
 }

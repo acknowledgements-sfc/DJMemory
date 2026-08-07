@@ -29,6 +29,7 @@ final class ImportedTracklistStoreTests: XCTestCase {
         let imported = try store.all()
         XCTAssertEqual(imported.count, 1)
         XCTAssertEqual(imported.first?.tracks.first?.title, "Good Life")
+        XCTAssertEqual(imported.first?.kind, .setHistory)
     }
 
     func testSaveReplacesSameAppAndSource() throws {
@@ -55,5 +56,25 @@ final class ImportedTracklistStoreTests: XCTestCase {
         try store.remove(id: tracklist.id)
 
         XCTAssertTrue(try store.all().isEmpty)
+    }
+
+    func testDecodeLegacyImportDefaultsToSetHistory() throws {
+        let store = ImportedTracklistStore(storageURL: tempRoot.appendingPathComponent("tracklists.json"))
+        let json = """
+        [
+          {
+            "appID" : "serato",
+            "id" : "00000000-0000-0000-0000-000000000001",
+            "importedAt" : "2026-08-06T12:00:00Z",
+            "sourceURL" : "file:///tmp/test.csv",
+            "tracks" : []
+          }
+        ]
+        """
+        try Data(json.utf8).write(to: store.storageURL)
+
+        let imported = try store.all()
+
+        XCTAssertEqual(imported.first?.kind, .setHistory)
     }
 }

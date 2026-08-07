@@ -32,7 +32,9 @@ public struct LibrarySessionMatcher {
     }
 
     private func bestMatch(for archive: ArchiveMetadata, importedTracklists: [ImportedTracklist]) -> ImportedTracklist? {
-        let candidates = importedTracklists.filter { $0.appID == archive.sourceAppID }
+        let candidates = importedTracklists.filter {
+            $0.appID == archive.sourceAppID && $0.kind.isMatchableToRecording
+        }
 
         return candidates.min { lhs, rhs in
             abs(lhs.importedAt.timeIntervalSince(archive.detectedAt)) < abs(rhs.importedAt.timeIntervalSince(archive.detectedAt))

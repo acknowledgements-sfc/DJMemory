@@ -26,6 +26,31 @@ final class LibrarySessionMatcherTests: XCTestCase {
         XCTAssertEqual(summaries.first?.matchedTracklist?.sourceURL.lastPathComponent, "history.csv")
     }
 
+    func testSummariesDoNotMatchCollectionImports() {
+        let archive = ArchiveMetadata(
+            session: RecordingSession(
+                sourceAppID: "rekordbox",
+                detectedAt: Date(timeIntervalSince1970: 100),
+                sourceURL: URL(fileURLWithPath: "/tmp/source.wav")
+            ),
+            originalFilename: "source.wav"
+        )
+        let tracklist = ImportedTracklist(
+            appID: "rekordbox",
+            sourceURL: URL(fileURLWithPath: "/tmp/rekordbox.xml"),
+            kind: .collection,
+            tracks: [
+                TrackPlay(title: "Track", artist: "Artist", startTime: nil, source: "rekordbox.xml", confidence: 0.9)
+            ],
+            importedAt: Date(timeIntervalSince1970: 120)
+        )
+
+        let summaries = LibrarySessionMatcher().summaries(archives: [archive], importedTracklists: [tracklist])
+
+        XCTAssertEqual(summaries.first?.trackCount, 0)
+        XCTAssertNil(summaries.first?.matchedTracklist)
+    }
+
     func testSummariesDoNotMatchDifferentAppID() {
         let archive = ArchiveMetadata(
             session: RecordingSession(
