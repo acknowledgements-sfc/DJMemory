@@ -15,10 +15,10 @@ struct ContentView: View {
                 Button {
                     model.scanNow()
                 } label: {
-                    Label(model.isScanning ? "Scanning" : "Scan Now", systemImage: "waveform.badge.magnifyingglass")
+                    Label(model.isScanning ? "Scanning" : "Rescan 24h", systemImage: "waveform.badge.magnifyingglass")
                 }
                 .disabled(model.isScanning)
-                .help("Scan configured recording folders for new completed audio files.")
+                .help("Scan configured recording folders for completed audio files from the last 24 hours.")
                 .accessibilityIdentifier("toolbar.scanNow")
             }
 
@@ -567,11 +567,11 @@ private struct ProtectionDashboardView: View {
                 Button {
                     model.scanNow()
                 } label: {
-                    Label(model.isScanning ? "Scanning" : "Scan Now", systemImage: "waveform.badge.magnifyingglass")
+                    Label(model.isScanning ? "Scanning" : "Rescan Last 24 Hours", systemImage: "waveform.badge.magnifyingglass")
                 }
                 .disabled(model.isScanning)
                 .controlSize(.large)
-                .help("Scan every configured recording folder now.")
+                .help("Scan every configured recording folder for completed audio files from the last 24 hours.")
                 .accessibilityIdentifier("protection.scanNow")
             }
 
@@ -1320,7 +1320,7 @@ private struct SessionLibraryView: View {
                 ContentUnavailableView(
                     "No archived sets yet",
                     systemImage: "music.note",
-                    description: Text("Choose a recordings folder and run Scan Now to archive completed audio files.")
+                    description: Text("Choose a recordings folder and run Rescan Last 24 Hours to archive completed audio files.")
                 )
                 .frame(maxWidth: .infinity, minHeight: 280)
             } else {

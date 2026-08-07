@@ -16,10 +16,10 @@ struct MenuBarStatusView: View {
             Button {
                 model.scanNow()
             } label: {
-                Label(model.isScanning ? "Scanning" : "Scan Now", systemImage: "waveform.badge.magnifyingglass")
+                Label(model.isScanning ? "Scanning" : "Rescan Last 24 Hours", systemImage: "waveform.badge.magnifyingglass")
             }
             .disabled(model.isScanning)
-            .help("Scan configured recording folders for new completed audio files.")
+            .help("Scan configured recording folders for completed audio files from the last 24 hours.")
 
             Button {
                 model.refresh()
