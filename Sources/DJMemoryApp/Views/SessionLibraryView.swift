@@ -73,6 +73,24 @@ struct SessionLibraryView: View {
                 self.selectedTracklistID = nil
             }
         }
+        .onAppear { applyLibraryFocusIfNeeded() }
+        .onChange(of: model.selectedRoute) { _, newRoute in
+            if newRoute == .library {
+                applyLibraryFocusIfNeeded()
+            }
+        }
+    }
+
+    private func applyLibraryFocusIfNeeded() {
+        let focus = model.consumeLibraryFocus()
+        if !focus.search.isEmpty {
+            sessionSearch = focus.search
+            segment = .archivedSets
+        }
+        if let sessionID = focus.sessionID {
+            selectedSessionID = sessionID
+            segment = .archivedSets
+        }
     }
 
     @ViewBuilder
@@ -194,9 +212,7 @@ struct SessionLibraryView: View {
                             SetDetailView(
                                 summary: summary,
                                 appName: model.displayName(for: summary.archive.sourceAppID),
-                                candidateTracklists: model.allImportedTracklists.filter {
-                                    $0.appID == summary.archive.sourceAppID && $0.kind.isMatchableToRecording
-                                },
+                                candidateTracklists: model.candidateTracklists(for: summary.archive),
                                 activityEvents: model.activityEvents.filter {
                                     ($0.detail ?? "").contains(summary.archive.originalFilename)
                                         || ($0.detail ?? "").contains(summary.archive.archivePath)
@@ -204,6 +220,8 @@ struct SessionLibraryView: View {
                                 },
                                 saveContext: model.saveSetContext,
                                 attachTracklist: { model.attachTracklist(sessionID: summary.id, tracklistID: $0) },
+                                importTracklist: { model.importHistory(appID: summary.archive.sourceAppID) },
+                                exportPublishPack: { model.exportPublishPack(sessionID: summary.id) },
                                 revealArchive: { model.revealInFinder(URL(fileURLWithPath: summary.archive.archivePath)) },
                                 revealSource: { model.revealInFinder(URL(fileURLWithPath: summary.archive.sourcePath)) }
                             )

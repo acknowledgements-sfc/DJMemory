@@ -15,12 +15,37 @@ struct SettingsView: View {
             scanningPanel
             SettingsProfilePanel()
             archivePanel
+            cloudSyncPanel
             currentStatePanel
             accountPanel
         }
     }
 
-    private var scanningPanel: some View {
+    
+    private var cloudSyncPanel: some View {
+        Panel(title: "Cloud Sync (opt-in)", padding: 14) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Off by default. Local protection never depends on an account. Audio and full tracklists are never uploaded automatically.")
+                    .font(.system(size: DJToken.TypeSize.secondary))
+                    .foregroundStyle(DJToken.mutedForeground)
+                settingsToggle(
+                    title: "Enable cloud sync",
+                    explanation: "Allows metadata sync when a backend account is connected. Does not upload audio by itself.",
+                    isOn: Binding(get: { model.settings.cloudSyncEnabled }, set: { model.setCloudSyncEnabled($0) }),
+                    id: "settings.cloudSync"
+                )
+                settingsToggle(
+                    title: "Opt in to archive backup",
+                    explanation: "Explicit backup of archived recordings. Requires cloud sync. Never silent.",
+                    isOn: Binding(get: { model.settings.cloudArchiveBackupEnabled }, set: { model.setCloudArchiveBackupEnabled($0) }),
+                    id: "settings.cloudArchiveBackup"
+                )
+                .disabled(!model.settings.cloudSyncEnabled)
+            }
+        }
+    }
+
+private var scanningPanel: some View {
         Panel(title: "Scanning", padding: 14) {
             VStack(alignment: .leading, spacing: 14) {
                 settingsToggle(

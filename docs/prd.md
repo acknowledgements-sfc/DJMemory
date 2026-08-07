@@ -553,9 +553,12 @@ Status: documented in `docs/onboarding-accounts-security.md`.
 - Default archive location: `~/Music/DJMemory`.
 - First compatibility targets: Serato DJ Pro and rekordbox.
 - First metadata parser: Serato history export, followed by rekordbox XML/history imports.
+- Direct audio capture is an **in-app Capture mode** (not a separate product). Additive to folder watching.
 
 ## Open Decisions
 
-- Should direct audio capture be a paid/pro feature later, or a separate product mode?
 - Should v0.1 include Traktor as a visible "coming next" adapter, or hide it until support is implemented?
 - Should the default `~/Music/DJMemory` library mirror files into subfolders by app, year, or event?
+
+## Milestones 11–16
+See `docs/integration-status.md`. M11 Capture/Pioneer hybrid; M12 history; M13 VDJ commands; M14 plugin research; M15 opt-in sync; M16 publish packs.

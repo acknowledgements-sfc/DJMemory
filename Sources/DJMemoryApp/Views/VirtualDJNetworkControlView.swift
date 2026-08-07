@@ -26,6 +26,23 @@ struct VirtualDJNetworkControlView: View {
                 .accessibilityIdentifier("virtualdj.networkControl.check")
             }
 
+            HStack(spacing: 8) {
+                Button("get_text") { model.runVirtualDJNetworkCommand(.getText) }
+                    .disabled(model.isCheckingVirtualDJNetwork)
+                    .accessibilityIdentifier("virtualdj.networkControl.getText")
+                Button("deck") { model.runVirtualDJNetworkCommand(.getDeck) }
+                    .disabled(model.isCheckingVirtualDJNetwork)
+                    .accessibilityIdentifier("virtualdj.networkControl.deck")
+            }
+
+            if let commandResult = model.virtualDJNetworkCommandResult {
+                Text(commandResult.reachable
+                    ? "Last command \(commandResult.command.rawValue): HTTP \(commandResult.statusCode.map(String.init) ?? "?")"
+                    : "Last command failed: \(commandResult.errorDescription ?? "unreachable")")
+                    .font(.caption)
+                    .foregroundStyle(DJToken.mutedForeground)
+            }
+
             if let result = model.virtualDJNetworkProbeResult {
                 HStack(spacing: 10) {
                     Label(result.reachable ? "Reachable" : "Not reachable", systemImage: result.reachable ? "checkmark.circle.fill" : "xmark.circle")

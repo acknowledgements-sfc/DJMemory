@@ -25,6 +25,19 @@ public struct LibrarySessionSummary: Identifiable, Equatable, Sendable {
 public struct LibrarySessionMatcher {
     public init() {}
 
+    public static let hardwareCaptureAppIDs: Set<String> = [
+        SupportedDJSoftware.captureAppID,
+        SupportedDJSoftware.pioneerHardwareAppID
+    ]
+
+    public static let hardwareRelatedTracklistAppIDs: Set<String> = [
+        SupportedDJSoftware.captureAppID,
+        SupportedDJSoftware.pioneerHardwareAppID,
+        "rekordbox"
+    ]
+
+    public static let captureMatchWindowSeconds: TimeInterval = 6 * 60 * 60
+
     public func summaries(
         archives: [ArchiveMetadata],
         importedTracklists: [ImportedTracklist],
@@ -53,8 +66,17 @@ public struct LibrarySessionMatcher {
             return importedTracklists.first { $0.id == manualTracklistID && $0.kind.isMatchableToRecording }
         }
 
-        let candidates = importedTracklists.filter {
-            $0.appID == archive.sourceAppID && $0.kind.isMatchableToRecording
+        let candidates: [ImportedTracklist]
+        if Self.hardwareCaptureAppIDs.contains(archive.sourceAppID) {
+            candidates = importedTracklists.filter { tracklist in
+                tracklist.kind.isMatchableToRecording
+                    && Self.hardwareRelatedTracklistAppIDs.contains(tracklist.appID)
+                    && abs(tracklist.importedAt.timeIntervalSince(archive.detectedAt)) <= Self.captureMatchWindowSeconds
+            }
+        } else {
+            candidates = importedTracklists.filter {
+                $0.appID == archive.sourceAppID && $0.kind.isMatchableToRecording
+            }
         }
 
         return candidates.min { lhs, rhs in

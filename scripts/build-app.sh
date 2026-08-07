@@ -48,6 +48,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 	<string>14.0</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright (c) 2026 DJMemory</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DJMemory Capture records the master mix from your DJM or other audio input into your local archive. Audio stays on this Mac.</string>
 	<key>NSSupportsAutomaticTermination</key>
 	<true/>
 	<key>NSSupportsSuddenTermination</key>

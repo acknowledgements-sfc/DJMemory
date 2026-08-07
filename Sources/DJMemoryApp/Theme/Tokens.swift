@@ -85,7 +85,9 @@ enum DJToken {
         "rekordbox": Color(srgbHex: 0x5B8CFF),
         "traktor": Color(srgbHex: 0xFFB02E),
         "virtualdj": Color(srgbHex: 0xC88CFF),
-        "djay": Color(srgbHex: 0xFF6F5E)
+        "djay": Color(srgbHex: 0xFF6F5E),
+        "djmemory-capture": Color(srgbHex: 0x5B8CFF),
+        "pioneer-hardware": Color(srgbHex: 0x5B8CFF)
     ]
 
     static func accent(forAppID id: String) -> Color {

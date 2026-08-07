@@ -5,7 +5,15 @@ final class SupportedDJSoftwareTests: XCTestCase {
     func testSupportedSoftwareContainsExpectedAdapters() {
         let ids = Set(SupportedDJSoftware.all.map(\.id))
 
-        XCTAssertEqual(ids, ["serato", "rekordbox", "djay", "virtualdj", "traktor"])
+        XCTAssertEqual(ids, [
+            "serato",
+            "rekordbox",
+            "djay",
+            "virtualdj",
+            "traktor",
+            "djmemory-capture",
+            "pioneer-hardware"
+        ])
     }
 
     func testEveryAdapterHasDisplayNameAndNotes() {
@@ -23,6 +31,8 @@ final class SupportedDJSoftwareTests: XCTestCase {
         XCTAssertEqual(statuses["traktor"], .supported)
         XCTAssertEqual(statuses["virtualdj"], .partial)
         XCTAssertEqual(statuses["djay"], .manualSetup)
+        XCTAssertEqual(statuses["djmemory-capture"], .manualSetup)
+        XCTAssertEqual(statuses["pioneer-hardware"], .manualSetup)
     }
 
     func testDjayIncludesDocumentedRecordingDefaults() throws {

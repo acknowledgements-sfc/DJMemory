@@ -70,6 +70,18 @@ struct AdapterDetailView: View {
                     VirtualDJNetworkControlView()
                 }
 
+                if result.software.id == SupportedDJSoftware.pioneerHardwareAppID {
+                    Panel(title: "Supported hardware", padding: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(SupportedHardware.all) { profile in
+                                Text("\(profile.displayName) — \(profile.needsMixerForMaster ? "needs mixer for master" : profile.hardwareClass == .mixer ? "USB Capture" : "USB MASTER REC")")
+                                    .font(.system(size: DJToken.TypeSize.secondary))
+                                    .foregroundStyle(DJToken.mutedForeground)
+                            }
+                        }
+                    }
+                }
+
                 Panel(title: "Setup", padding: 12) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(Array(setupSteps(for: result).enumerated()), id: \.offset) { index, step in
@@ -114,7 +126,21 @@ struct AdapterDetailView: View {
             return [
                 "DJMemory checks ~/Documents/VirtualDJ when it exists.",
                 "History imports support VirtualDJ text, M3U, XML, and .vdjfolder files.",
-                "Deeper Network Control or plugin support remains a later decision."
+                "Use Network Control commands below to probe deeper local endpoints."
+            ]
+        case "pioneer-hardware":
+            return [
+                "Insert the USB stick used for MASTER REC (XDJ-RX2/RX3/XZ/AZ).",
+                "Choose the stick or its PIONEERREC folder as the recordings folder.",
+                "DJMemory copies stable RECxxx.WAV files into your archive and leaves the stick unchanged.",
+                "MASTER REC files have no clock — archive time uses the file modification date.",
+                "CDJs need a DJM USB Capture path or an all-in-one MASTER REC stick."
+            ]
+        case "djmemory-capture":
+            return [
+                "Open Capture in the sidebar.",
+                "Select a DJM MIX (REC OUT) USB input (or another Core Audio device).",
+                "Start Capture for the set, then Stop to archive into DJMemory."
             ]
         default:
             return [

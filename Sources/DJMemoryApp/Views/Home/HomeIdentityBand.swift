@@ -18,9 +18,9 @@ struct HomeIdentityBand: View {
                             pulse: model.protectionState == .scanning
                         )
                     }
-                    Text(metaLine)
-                        .font(.system(size: DJToken.TypeSize.secondary))
-                        .foregroundStyle(DJToken.mutedForeground)
+
+                    metaLineView
+
                     Rectangle().fill(DJToken.hairline).frame(height: 1).padding(.vertical, 4)
                     Text(adaptiveSentence)
                         .font(.system(size: DJToken.TypeSize.body))
@@ -39,7 +39,7 @@ struct HomeIdentityBand: View {
                     .accessibilityIdentifier("home.scanNow")
 
                     Button("Open Library") {
-                        model.selectedRoute = .library
+                        model.openLibrary()
                     }
                     .buttonStyle(DJSecondaryButtonStyle())
                     .accessibilityIdentifier("home.openLibrary")
@@ -68,21 +68,64 @@ struct HomeIdentityBand: View {
         )
     }
 
-    private var metaLine: String {
-        var parts: [String] = []
+    @ViewBuilder
+    private var metaLineView: some View {
+        let parts = metaParts
+        if parts.isEmpty {
+            Text("Local-first set archive")
+                .font(.system(size: DJToken.TypeSize.secondary))
+                .foregroundStyle(DJToken.mutedForeground)
+        } else {
+            HStack(spacing: 6) {
+                ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
+                    if index > 0 {
+                        Text("·")
+                            .foregroundStyle(DJToken.mutedForeground)
+                    }
+                    switch part {
+                    case .handle(let value):
+                        Text(value)
+                            .font(.system(size: DJToken.TypeSize.secondary, design: .monospaced))
+                            .foregroundStyle(DJToken.mutedForeground)
+                    case .city(let value):
+                        HStack(spacing: 3) {
+                            Image(systemName: "mappin")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text(value)
+                        }
+                        .font(.system(size: DJToken.TypeSize.secondary))
+                        .foregroundStyle(DJToken.mutedForeground)
+                    case .text(let value):
+                        Text(value)
+                            .font(.system(size: DJToken.TypeSize.secondary))
+                            .foregroundStyle(DJToken.mutedForeground)
+                    }
+                }
+            }
+        }
+    }
+
+    private enum MetaPart {
+        case handle(String)
+        case city(String)
+        case text(String)
+    }
+
+    private var metaParts: [MetaPart] {
+        var parts: [MetaPart] = []
         if let handle = model.profile.handle, !handle.isEmpty {
-            parts.append(handle)
+            parts.append(.handle(handle))
         }
         if let city = model.profile.city, !city.isEmpty {
-            parts.append(city)
+            parts.append(.city(city))
         }
         if let residency = model.profile.residency, !residency.isEmpty {
-            parts.append(residency)
+            parts.append(.text(residency))
         }
         if let since = model.profile.memberSince {
-            parts.append("DJMemory since \(since.formatted(.dateTime.month().year()))")
+            parts.append(.text("DJMemory since \(since.formatted(.dateTime.month().year()))"))
         }
-        return parts.isEmpty ? "Local-first set archive" : parts.joined(separator: " · ")
+        return parts
     }
 
     private var adaptiveSentence: String {

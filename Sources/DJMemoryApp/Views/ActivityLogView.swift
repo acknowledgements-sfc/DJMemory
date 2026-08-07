@@ -81,7 +81,7 @@ struct ActivityLogView: View {
         case .scans:
             return model.activityEvents.filter { $0.kind == .scan }
         case .archives:
-            return model.activityEvents.filter { $0.kind == .archive }
+            return model.activityEvents.filter { $0.kind == .archive || $0.kind == .capture }
         case .imports:
             return model.activityEvents.filter { $0.kind == .importTracklist }
         case .errors:
@@ -153,12 +153,13 @@ struct ActivityLogView: View {
         case .scan: return "waveform.badge.magnifyingglass"
         case .error: return "exclamationmark.triangle"
         case .diagnostics: return "doc.badge.gearshape"
+        case .capture: return "mic.fill"
         }
     }
 
     private func color(for kind: ActivityEventKind) -> Color {
         switch kind {
-        case .archive: return DJToken.ok
+        case .archive, .capture: return DJToken.ok
         case .importTracklist: return DJToken.primary
         case .scan, .diagnostics: return DJToken.mutedForeground
         case .error: return DJToken.danger

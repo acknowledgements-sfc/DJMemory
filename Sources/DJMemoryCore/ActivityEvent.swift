@@ -6,6 +6,7 @@ public enum ActivityEventKind: String, Codable, Sendable {
     case scan
     case error
     case diagnostics
+    case capture
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()

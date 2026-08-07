@@ -111,4 +111,19 @@ final class LibrarySessionMatcherTests: XCTestCase {
 
         XCTAssertEqual(summaries.first?.matchedTracklist?.sourceURL.lastPathComponent, "manual.csv")
     }
+
+    func testCaptureArchiveMatchesRekordboxTracklistWithinWindow() {
+        let archive = ArchiveMetadata(
+            session: RecordingSession(sourceAppID: SupportedDJSoftware.captureAppID, detectedAt: Date(timeIntervalSince1970: 1000), sourceURL: URL(fileURLWithPath: "/DJMemoryCapture/DJM/set.wav")),
+            originalFilename: "set.wav"
+        )
+        let tracklist = ImportedTracklist(appID: "rekordbox", sourceURL: URL(fileURLWithPath: "/tmp/history.txt"), tracks: [TrackPlay(title: "Track", artist: "Artist", startTime: nil, source: "history.txt", confidence: 0.9)], importedAt: Date(timeIntervalSince1970: 1200))
+        let summaries = LibrarySessionMatcher().summaries(archives: [archive], importedTracklists: [tracklist])
+        XCTAssertEqual(summaries.first?.matchedTracklist?.appID, "rekordbox")
+    }
+
+    func testSeratoSessionResearchDetectsFilename() {
+        XCTAssertTrue(SeratoSessionResearch.looksLikeSessionFilename("live.session"))
+        XCTAssertFalse(SeratoSessionResearch.looksLikeSessionFilename("history.csv"))
+    }
 }

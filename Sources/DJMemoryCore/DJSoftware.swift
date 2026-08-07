@@ -109,6 +109,29 @@ public enum SupportedDJSoftware {
             integrationDepth: .exportImport,
             supportStatus: .supported,
             notes: "History playlists and recordings have known default locations."
+        ),
+        DJSoftware(
+            id: "djmemory-capture",
+            displayName: "DJMemory Capture",
+            bundleIdentifiers: [],
+            defaultRecordingPaths: [],
+            defaultHistoryPaths: [],
+            integrationDepth: .fileWatcher,
+            supportStatus: .manualSetup,
+            notes: "Live Core Audio capture into the DJMemory archive. Choose a DJM or other input in Capture."
+        ),
+        DJSoftware(
+            id: "pioneer-hardware",
+            displayName: "Pioneer Hardware",
+            bundleIdentifiers: [],
+            defaultRecordingPaths: [],
+            defaultHistoryPaths: [],
+            integrationDepth: .fileWatcher,
+            supportStatus: .manualSetup,
+            notes: "Watch USB MASTER REC folders (PIONEERREC / RECxxx.WAV). CDJs need a DJM or all-in-one REC path."
         )
     ]
+
+    public static let captureAppID = "djmemory-capture"
+    public static let pioneerHardwareAppID = "pioneer-hardware"
 }

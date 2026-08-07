@@ -46,6 +46,29 @@ public struct ArchiveService {
         }
     }
 
+    @discardableResult
+    public func ingestCapture(
+        stagingURL: URL,
+        deviceID: String,
+        deviceName: String,
+        startedAt: Date,
+        endedAt: Date = Date(),
+        sourceAppID: String = SupportedDJSoftware.captureAppID,
+        removeStagingAfterCopy: Bool = true
+    ) throws -> RecordingSession {
+        try withSecurityScopedArchiveRoot {
+            try ingestCaptureWithAccess(
+                stagingURL: stagingURL,
+                deviceID: deviceID,
+                deviceName: deviceName,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                sourceAppID: sourceAppID,
+                removeStagingAfterCopy: removeStagingAfterCopy
+            )
+        }
+    }
+
     public func ensureArchiveRootExists() throws {
         try withSecurityScopedArchiveRoot {
             try ensureArchiveRootExistsWithAccess()
@@ -85,6 +108,46 @@ public struct ArchiveService {
             originalFilename: sourceURL.lastPathComponent,
             sourceFingerprint: sourceFingerprint
         )
+        return session
+    }
+
+    private func ingestCaptureWithAccess(
+        stagingURL: URL,
+        deviceID: String,
+        deviceName: String,
+        startedAt: Date,
+        endedAt: Date,
+        sourceAppID: String,
+        removeStagingAfterCopy: Bool
+    ) throws -> RecordingSession {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: stagingURL.path, isDirectory: &isDirectory) else {
+            throw ArchiveServiceError.sourceFileMissing(stagingURL)
+        }
+        guard !isDirectory.boolValue else {
+            throw ArchiveServiceError.sourceIsDirectory(stagingURL)
+        }
+        try ensureArchiveRootExistsWithAccess()
+        let sanitizedDevice = sanitizeFilenameComponent(deviceName.isEmpty ? "Capture" : deviceName)
+        let syntheticSourceName = "\(sanitizedDevice).wav"
+        let syntheticSourceURL = URL(fileURLWithPath: "/DJMemoryCapture/\(sanitizedDevice)/\(deviceID)/\(syntheticSourceName)")
+        let fileSize = try stagingURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        let sourceFingerprint = try contentFingerprint(for: stagingURL)
+        let destinationURL = uniqueDestinationURL(for: syntheticSourceURL, sourceAppID: sourceAppID, detectedAt: startedAt)
+        try fileManager.copyItem(at: stagingURL, to: destinationURL)
+        if removeStagingAfterCopy {
+            try? fileManager.removeItem(at: stagingURL)
+        }
+        let session = RecordingSession(
+            sourceAppID: sourceAppID,
+            detectedAt: startedAt,
+            completedAt: endedAt,
+            sourceURL: syntheticSourceURL,
+            archiveURL: destinationURL,
+            fileSize: Int64(fileSize),
+            status: .archived
+        )
+        try writeMetadata(for: session, originalFilename: syntheticSourceName, sourceFingerprint: sourceFingerprint)
         return session
     }
 

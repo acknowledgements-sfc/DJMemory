@@ -8,6 +8,8 @@ struct SetDetailView: View {
     let activityEvents: [ActivityEvent]
     let saveContext: (SetContext) -> Void
     let attachTracklist: (UUID?) -> Void
+    let importTracklist: () -> Void
+    let exportPublishPack: () -> Void
     let revealArchive: () -> Void
     let revealSource: () -> Void
 
@@ -21,6 +23,8 @@ struct SetDetailView: View {
         activityEvents: [ActivityEvent],
         saveContext: @escaping (SetContext) -> Void,
         attachTracklist: @escaping (UUID?) -> Void,
+        importTracklist: @escaping () -> Void = {},
+        exportPublishPack: @escaping () -> Void = {},
         revealArchive: @escaping () -> Void,
         revealSource: @escaping () -> Void
     ) {
@@ -30,6 +34,8 @@ struct SetDetailView: View {
         self.activityEvents = activityEvents
         self.saveContext = saveContext
         self.attachTracklist = attachTracklist
+        self.importTracklist = importTracklist
+        self.exportPublishPack = exportPublishPack
         self.revealArchive = revealArchive
         self.revealSource = revealSource
         _draftContext = State(initialValue: summary.context)
@@ -126,6 +132,18 @@ struct SetDetailView: View {
                 .disabled(summary.matchedTracklist == nil && summary.context.manualTracklistID == nil)
                 .help("Remove the manual tracklist attachment for this set.")
                 .accessibilityIdentifier("setDetail.\(summary.id).detachMatch")
+
+                Button(action: importTracklist) {
+                    Label("Import Tracklist", systemImage: "square.and.arrow.down")
+                }
+                .help("Import a history or USB export, then attach it to this set.")
+                .accessibilityIdentifier("setDetail.\(summary.id).importTracklist")
+
+                Button(action: exportPublishPack) {
+                    Label("Export Pack", systemImage: "square.and.arrow.up")
+                }
+                .help("Export a local publish pack. Nothing is uploaded.")
+                .accessibilityIdentifier("setDetail.\(summary.id).exportPack")
 
                 Spacer()
 

@@ -26,6 +26,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var profile = DJProfile()
     /// True when macOS registered the login item but still needs Login Items approval.
     @Published private(set) var launchAtLoginNeedsApproval = false
+    @Published private(set) var captureState = CaptureUIState()
+    @Published private(set) var virtualDJNetworkCommandResult: VirtualDJNetworkCommandResult?
 
     /// Consumed by `SessionLibraryView` when navigating from Home (session + optional search seed).
     @Published var libraryFocusSessionID: UUID?
@@ -81,8 +83,10 @@ final class AppModel: ObservableObject {
     private let profileStore = DJProfileStore()
     private let notificationService = LocalNotificationService()
     private let folderChangeMonitor = FolderChangeMonitor()
+    let captureService = CaptureService()
     private var scanTask: Task<Void, Never>?
     private var folderChangeScanTask: Task<Void, Never>?
+    var captureMeterTask: Task<Void, Never>?
     /// When true, profile mutations stay in memory (SwiftUI previews).
     private var suppressProfilePersistence = false
 
@@ -95,6 +99,7 @@ final class AppModel: ObservableObject {
     deinit {
         scanTask?.cancel()
         folderChangeScanTask?.cancel()
+        captureMeterTask?.cancel()
         folderChangeMonitor.stop()
     }
 
@@ -220,7 +225,10 @@ final class AppModel: ObservableObject {
     }
 
     var unconfiguredProbeResults: [SoftwareProbeResult] {
-        probeResults.filter { !hasConfiguredRecordingsFolder(appID: $0.software.id) }
+        probeResults.filter {
+            $0.software.id != SupportedDJSoftware.captureAppID
+                && !hasConfiguredRecordingsFolder(appID: $0.software.id)
+        }
     }
 
     /// Configured recordings folder exists but none of its resolved URLs are reachable.
@@ -328,7 +336,9 @@ final class AppModel: ObservableObject {
         panel.prompt = "Choose"
         panel.title = kind == .recordings ? "Set Recording Folder" : "Set History Folder"
         panel.message = kind == .recordings
-            ? "Choose the folder where this DJ app saves recordings."
+            ? (appID == SupportedDJSoftware.pioneerHardwareAppID
+                ? "Choose the USB stick or PIONEERREC folder where MASTER REC writes RECxxx.WAV files."
+                : "Choose the folder where this DJ app saves recordings.")
             : "Choose the folder where this DJ app saves history or exports."
         panel.directoryURL = defaultFolderPanelURL(appID: appID, kind: kind)
 
@@ -1160,5 +1170,205 @@ final class AppModel: ObservableObject {
         }
 
         return .setHistory
+    }
+}
+
+
+extension AppModel {
+    func previewApplyCaptureState(_ state: CaptureUIState) { captureState = state }
+
+    func candidateTracklists(for archive: ArchiveMetadata) -> [ImportedTracklist] {
+        let matchable = allImportedTracklists.filter(\.kind.isMatchableToRecording)
+        if LibrarySessionMatcher.hardwareCaptureAppIDs.contains(archive.sourceAppID) {
+            return matchable.filter { LibrarySessionMatcher.hardwareRelatedTracklistAppIDs.contains($0.appID) }
+        }
+        return matchable.filter { $0.appID == archive.sourceAppID }
+    }
+
+    func refreshAudioInputs() {
+        let devices = AudioInputDeviceCatalog.listInputs()
+        var next = captureState
+        next.devices = devices
+        if next.selectedDeviceID == nil {
+            next.selectedDeviceID = settings.lastCaptureDeviceID ?? AudioInputDeviceCatalog.preferredDefault(from: devices)?.id
+        } else if !devices.contains(where: { $0.id == next.selectedDeviceID }) {
+            next.selectedDeviceID = AudioInputDeviceCatalog.preferredDefault(from: devices)?.id
+        }
+        if case .failed = next.phase {
+            next.phase = devices.isEmpty ? .failed("No audio input devices are available.") : .armed
+        } else if next.phase == .idle {
+            next.phase = devices.isEmpty ? .idle : .armed
+        }
+        next.statusMessage = devices.isEmpty ? "Connect a DJM or other audio input, then refresh devices." : "Choose an input device, then start Capture."
+        captureState = next
+    }
+
+    func selectCaptureDevice(_ deviceID: String) {
+        var next = captureState
+        next.selectedDeviceID = deviceID
+        captureState = next
+        let newSettings = settings.updating(lastCaptureDeviceID: .some(deviceID))
+        do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
+    }
+
+    func startCapture() {
+        refreshAudioInputs()
+        guard let device = captureState.selectedDevice else {
+            var next = captureState
+            next.phase = .failed("Choose an audio input device before starting Capture.")
+            next.statusMessage = "Choose an audio input device before starting Capture."
+            captureState = next
+            return
+        }
+        Task {
+            var requesting = captureState
+            requesting.phase = .requestingPermission
+            requesting.statusMessage = "Requesting microphone access…"
+            captureState = requesting
+            if !CaptureService.microphonePermissionGranted() {
+                let granted = await CaptureService.requestMicrophonePermission()
+                guard granted else {
+                    var denied = captureState
+                    denied.phase = .failed("Microphone access is denied. DJMemory cannot Capture without it.")
+                    denied.statusMessage = "Microphone access is denied. Open System Settings to allow DJMemory."
+                    captureState = denied
+                    statusMessage = "Microphone access is denied"
+                    return
+                }
+            }
+            do {
+                try captureService.start(device: device)
+                var recording = captureState
+                recording.phase = .recording
+                recording.inputLevel = 0
+                recording.statusMessage = "Capturing from \(device.name)…"
+                captureState = recording
+                statusMessage = "Capture started"
+                captureMeterTask?.cancel()
+                captureMeterTask = Task { [weak self] in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds: 100_000_000)
+                        await MainActor.run {
+                            guard let self, self.captureState.isRecording else { return }
+                            var next = self.captureState
+                            next.inputLevel = self.captureService.currentInputLevel()
+                            self.captureState = next
+                        }
+                    }
+                }
+            } catch let error as CaptureServiceError {
+                applyCaptureFailure(error)
+            } catch {
+                var failed = captureState
+                failed.phase = .failed(error.localizedDescription)
+                failed.statusMessage = error.localizedDescription
+                captureState = failed
+            }
+        }
+    }
+
+    func stopCapture() {
+        captureMeterTask?.cancel(); captureMeterTask = nil
+        var saving = captureState
+        saving.phase = .saving
+        saving.statusMessage = "Saving capture into your archive…"
+        captureState = saving
+        do {
+            let result = try captureService.stop()
+            let session = try archiveService().ingestCapture(stagingURL: result.stagingURL, deviceID: result.deviceID, deviceName: result.deviceName, startedAt: result.startedAt, endedAt: result.endedAt)
+            refresh()
+            var done = captureState
+            done.phase = .armed
+            done.inputLevel = 0
+            done.lastArchivedSessionID = session.id
+            done.statusMessage = "Capture saved. Import a tracklist from Set Detail when you have an export."
+            captureState = done
+            notificationService.notifyArchiveSaved(count: 1)
+            statusMessage = "Capture saved"
+        } catch let error as CaptureServiceError {
+            applyCaptureFailure(error)
+        } catch {
+            var failed = captureState
+            failed.phase = .failed(error.localizedDescription)
+            failed.statusMessage = error.localizedDescription
+            captureState = failed
+            statusMessage = "Could not save capture: \(error.localizedDescription)"
+        }
+    }
+
+    func openMicrophonePrivacySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func setCloudSyncEnabled(_ enabled: Bool) {
+        let newSettings = settings.updating(cloudSyncEnabled: enabled, cloudArchiveBackupEnabled: enabled ? settings.cloudArchiveBackupEnabled : false)
+        try? appSettingsStore.save(newSettings)
+        settings = newSettings
+        statusMessage = enabled ? "Cloud sync is on. Archive backup stays off until you enable it." : "Cloud sync is off. Everything stays on this Mac."
+    }
+
+    func setCloudArchiveBackupEnabled(_ enabled: Bool) {
+        guard settings.cloudSyncEnabled || !enabled else {
+            statusMessage = "Turn on cloud sync before enabling archive backup."
+            return
+        }
+        let newSettings = settings.updating(cloudArchiveBackupEnabled: enabled)
+        try? appSettingsStore.save(newSettings)
+        settings = newSettings
+        statusMessage = enabled ? "Archive backup is opted in. DJMemory will never upload audio automatically." : "Archive backup is off."
+    }
+
+    func exportPublishPack(sessionID: UUID) {
+        guard let summary = librarySummaries.first(where: { $0.id == sessionID }) else {
+            statusMessage = "Select an archived set before exporting a publish pack."
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        panel.message = "Choose a folder for the local publish pack. Nothing is uploaded."
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            let packURL = try PublishExportService().exportPack(archive: summary.archive, tracklist: summary.matchedTracklist, destinationDirectory: destination)
+            NSWorkspace.shared.activateFileViewerSelecting([packURL])
+            statusMessage = "Publish pack exported"
+        } catch {
+            statusMessage = "Could not export publish pack: \(error.localizedDescription)"
+        }
+    }
+
+    func runVirtualDJNetworkCommand(_ command: VirtualDJNetworkCommand) {
+        guard !isCheckingVirtualDJNetwork else { return }
+        isCheckingVirtualDJNetwork = true
+        Task {
+            let result = await VirtualDJNetworkClient().run(command: command)
+            await MainActor.run {
+                virtualDJNetworkCommandResult = result
+                isCheckingVirtualDJNetwork = false
+                statusMessage = result.reachable ? "VirtualDJ Network Control command succeeded" : "VirtualDJ Network Control command failed"
+            }
+        }
+    }
+
+    private func applyCaptureFailure(_ error: CaptureServiceError) {
+        let message: String
+        switch error {
+        case .permissionDenied: message = "Microphone access is denied. Open System Settings to allow DJMemory."
+        case .deviceMissing: message = "The selected audio input is missing. Refresh devices and try again."
+        case .diskFull: message = "This Mac is out of disk space. Free space, then Capture again."
+        case .engineFailed(let detail): message = "Capture engine failed: \(detail)"
+        case .alreadyRecording: message = "Capture is already running."
+        case .notRecording: message = "Capture is not running."
+        }
+        var failed = captureState
+        failed.phase = .failed(message)
+        failed.inputLevel = 0
+        failed.statusMessage = message
+        captureState = failed
+        statusMessage = message
     }
 }

@@ -14,6 +14,8 @@ struct DashboardView: View {
                     HomeDashboardView()
                 case .protection:
                     ProtectionDashboardView()
+                case .capture:
+                    CaptureView()
                 case .library:
                     SessionLibraryView()
                 case .activity:

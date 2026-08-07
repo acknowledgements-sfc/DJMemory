@@ -148,6 +148,20 @@ final class ArchiveServiceTests: XCTestCase {
 
         XCTAssertTrue(root.path.hasSuffix("/Music/DJMemory"))
     }
+
+    func testIngestCaptureCopiesStagingWritesMetadataAndRemovesStaging() throws {
+        let stagingURL = tempRoot.appendingPathComponent("capture-staging.wav")
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try Data("capture-audio".utf8).write(to: stagingURL)
+        let service = ArchiveService(archiveRoot: archiveRoot)
+        let startedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let session = try service.ingestCapture(stagingURL: stagingURL, deviceID: "djm-v10", deviceName: "DJM-V10", startedAt: startedAt, endedAt: startedAt.addingTimeInterval(120))
+        XCTAssertEqual(session.sourceAppID, SupportedDJSoftware.captureAppID)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        let archiveURL = try XCTUnwrap(session.archiveURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: service.metadataURL(for: archiveURL).path))
+    }
 }
 
 private struct StubAudioDurationReader: AudioDurationReading {

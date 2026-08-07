@@ -3,19 +3,28 @@ import DJMemoryCore
 
 struct HomeRecentShelf: View {
     @EnvironmentObject private var model: AppModel
+    @State private var hoveredID: UUID?
 
     var body: some View {
         Panel(title: "Recent sets", padding: 12) {
             if model.librarySummaries.isEmpty {
-                Text("No recent sets yet.")
-                    .font(.system(size: DJToken.TypeSize.secondary))
-                    .foregroundStyle(DJToken.mutedForeground)
+                EmptyStateView(
+                    title: "No recent sets yet",
+                    systemImage: "rectangle.stack",
+                    description: "Archived recordings will appear here as a shelf of recent sets.",
+                    primaryTitle: "Choose Folder",
+                    primaryAction: { model.selectedRoute = .protection },
+                    secondaryTitle: "Open Library",
+                    secondaryAction: { model.openLibrary() }
+                )
+                .frame(minHeight: 140)
+                .padding(.vertical, -12)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(model.librarySummaries.sorted(by: { $0.archive.detectedAt > $1.archive.detectedAt }).prefix(6)) { summary in
                             Button {
-                                model.selectedRoute = .library
+                                model.openLibrary(sessionID: summary.id)
                             } label: {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Waveform(
@@ -48,13 +57,23 @@ struct HomeRecentShelf: View {
                                 }
                                 .padding(10)
                                 .frame(width: 196, alignment: .leading)
-                                .background(DJToken.elevated, in: RoundedRectangle(cornerRadius: DJToken.Radius.control))
+                                .background(
+                                    hoveredID == summary.id ? DJToken.secondary.opacity(0.55) : DJToken.elevated,
+                                    in: RoundedRectangle(cornerRadius: DJToken.Radius.control)
+                                )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: DJToken.Radius.control)
-                                        .stroke(DJToken.border, lineWidth: 1)
+                                        .stroke(
+                                            hoveredID == summary.id ? DJToken.primary.opacity(0.5) : DJToken.border,
+                                            lineWidth: 1
+                                        )
                                 )
                             }
                             .buttonStyle(.plain)
+                            .onHover { hovering in
+                                hoveredID = hovering ? summary.id : (hoveredID == summary.id ? nil : hoveredID)
+                            }
+                            .accessibilityIdentifier("home.recentSet.\(summary.id.uuidString)")
                         }
                     }
                 }

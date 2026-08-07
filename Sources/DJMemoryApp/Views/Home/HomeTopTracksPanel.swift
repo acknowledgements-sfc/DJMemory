@@ -7,10 +7,16 @@ struct HomeTopTracksPanel: View {
     var body: some View {
         Panel(title: "Your most played tracks", padding: 0) {
             if model.topTracks.isEmpty {
-                Text("Import a set history to see top tracks.")
-                    .font(.system(size: DJToken.TypeSize.secondary))
-                    .foregroundStyle(DJToken.mutedForeground)
-                    .padding(12)
+                EmptyStateView(
+                    title: "No matched tracklists yet",
+                    systemImage: "list.number",
+                    description: "Import a set history and match it to an archived recording to see top tracks here.",
+                    primaryTitle: "Open Library",
+                    primaryAction: { model.openLibrary() },
+                    secondaryTitle: "Browse DJ apps",
+                    secondaryAction: { model.selectedRoute = .protection }
+                )
+                .frame(minHeight: 160)
             } else {
                 let maxPlays = max(model.topTracks.first?.playCount ?? 1, 1)
                 ForEach(Array(model.topTracks.enumerated()), id: \.offset) { index, track in
@@ -33,7 +39,9 @@ struct HomeTopTracksPanel: View {
                             .lineLimit(1)
                         ZStack(alignment: .leading) {
                             Rectangle().fill(DJToken.secondary).frame(width: 48, height: 1)
-                            Rectangle().fill(DJToken.primary).frame(width: 48 * CGFloat(track.playCount) / CGFloat(maxPlays), height: 1)
+                            Rectangle()
+                                .fill(DJToken.primary)
+                                .frame(width: 48 * CGFloat(track.playCount) / CGFloat(maxPlays), height: 1)
                         }
                         Text("\(track.playCount)")
                             .font(.system(size: DJToken.TypeSize.secondary).monospacedDigit())

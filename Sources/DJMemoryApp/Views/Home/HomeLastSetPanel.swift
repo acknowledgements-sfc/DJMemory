@@ -12,7 +12,7 @@ struct HomeLastSetPanel: View {
                         Badge(title: "Archived & verified", tone: .ok)
                         Spacer()
                         Button("Open in Library") {
-                            model.selectedRoute = .library
+                            model.openLibrary(sessionID: summary.id)
                         }
                         .buttonStyle(DJGhostButtonStyle())
                     }
@@ -56,7 +56,7 @@ struct HomeLastSetPanel: View {
                         }
                         .buttonStyle(DJSecondaryButtonStyle())
                         Button("Edit details") {
-                            model.selectedRoute = .library
+                            model.openLibrary(sessionID: summary.id)
                         }
                         .buttonStyle(DJGhostButtonStyle())
                     }

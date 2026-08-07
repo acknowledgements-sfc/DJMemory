@@ -12,6 +12,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let verifyCopies: Bool
     public let notifyAfterArchiving: Bool
     public let launchAtLogin: Bool
+    public let lastCaptureDeviceID: String?
+    public let cloudSyncEnabled: Bool
+    public let cloudArchiveBackupEnabled: Bool
 
     public init(
         automaticScanningEnabled: Bool = true,
@@ -22,7 +25,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
         hasCompletedOnboarding: Bool = false,
         verifyCopies: Bool = true,
         notifyAfterArchiving: Bool = true,
-        launchAtLogin: Bool = false
+        launchAtLogin: Bool = false,
+        lastCaptureDeviceID: String? = nil,
+        cloudSyncEnabled: Bool = false,
+        cloudArchiveBackupEnabled: Bool = false
     ) {
         self.automaticScanningEnabled = automaticScanningEnabled
         self.scanIntervalSeconds = scanIntervalSeconds
@@ -33,34 +39,34 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.verifyCopies = verifyCopies
         self.notifyAfterArchiving = notifyAfterArchiving
         self.launchAtLogin = launchAtLogin
+        self.lastCaptureDeviceID = lastCaptureDeviceID
+        self.cloudSyncEnabled = cloudSyncEnabled
+        self.cloudArchiveBackupEnabled = cloudArchiveBackupEnabled
     }
 
     public static let `default` = AppSettings()
 
     private enum CodingKeys: String, CodingKey {
-        case automaticScanningEnabled
-        case scanIntervalSeconds
-        case archiveNamingTemplate
-        case archiveRootPath
-        case archiveRootBookmarkData
-        case hasCompletedOnboarding
-        case verifyCopies
-        case notifyAfterArchiving
-        case launchAtLogin
+        case automaticScanningEnabled, scanIntervalSeconds, archiveNamingTemplate
+        case archiveRootPath, archiveRootBookmarkData, hasCompletedOnboarding
+        case verifyCopies, notifyAfterArchiving, launchAtLogin
+        case lastCaptureDeviceID, cloudSyncEnabled, cloudArchiveBackupEnabled
     }
 
     public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        automaticScanningEnabled = try container.decodeIfPresent(Bool.self, forKey: .automaticScanningEnabled) ?? true
-        scanIntervalSeconds = try container.decodeIfPresent(Int.self, forKey: .scanIntervalSeconds) ?? 60
-        archiveNamingTemplate = try container.decodeIfPresent(String.self, forKey: .archiveNamingTemplate)
-            ?? Self.defaultArchiveNamingTemplate
-        archiveRootPath = try container.decodeIfPresent(String.self, forKey: .archiveRootPath)
-        archiveRootBookmarkData = try container.decodeIfPresent(Data.self, forKey: .archiveRootBookmarkData)
-        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
-        verifyCopies = try container.decodeIfPresent(Bool.self, forKey: .verifyCopies) ?? true
-        notifyAfterArchiving = try container.decodeIfPresent(Bool.self, forKey: .notifyAfterArchiving) ?? true
-        launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        automaticScanningEnabled = try c.decodeIfPresent(Bool.self, forKey: .automaticScanningEnabled) ?? true
+        scanIntervalSeconds = try c.decodeIfPresent(Int.self, forKey: .scanIntervalSeconds) ?? 60
+        archiveNamingTemplate = try c.decodeIfPresent(String.self, forKey: .archiveNamingTemplate) ?? Self.defaultArchiveNamingTemplate
+        archiveRootPath = try c.decodeIfPresent(String.self, forKey: .archiveRootPath)
+        archiveRootBookmarkData = try c.decodeIfPresent(Data.self, forKey: .archiveRootBookmarkData)
+        hasCompletedOnboarding = try c.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+        verifyCopies = try c.decodeIfPresent(Bool.self, forKey: .verifyCopies) ?? true
+        notifyAfterArchiving = try c.decodeIfPresent(Bool.self, forKey: .notifyAfterArchiving) ?? true
+        launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        lastCaptureDeviceID = try c.decodeIfPresent(String.self, forKey: .lastCaptureDeviceID)
+        cloudSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .cloudSyncEnabled) ?? false
+        cloudArchiveBackupEnabled = try c.decodeIfPresent(Bool.self, forKey: .cloudArchiveBackupEnabled) ?? false
     }
 
     public func updating(
@@ -72,7 +78,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
         hasCompletedOnboarding: Bool? = nil,
         verifyCopies: Bool? = nil,
         notifyAfterArchiving: Bool? = nil,
-        launchAtLogin: Bool? = nil
+        launchAtLogin: Bool? = nil,
+        lastCaptureDeviceID: String?? = nil,
+        cloudSyncEnabled: Bool? = nil,
+        cloudArchiveBackupEnabled: Bool? = nil
     ) -> AppSettings {
         AppSettings(
             automaticScanningEnabled: automaticScanningEnabled ?? self.automaticScanningEnabled,
@@ -83,7 +92,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
             hasCompletedOnboarding: hasCompletedOnboarding ?? self.hasCompletedOnboarding,
             verifyCopies: verifyCopies ?? self.verifyCopies,
             notifyAfterArchiving: notifyAfterArchiving ?? self.notifyAfterArchiving,
-            launchAtLogin: launchAtLogin ?? self.launchAtLogin
+            launchAtLogin: launchAtLogin ?? self.launchAtLogin,
+            lastCaptureDeviceID: lastCaptureDeviceID ?? self.lastCaptureDeviceID,
+            cloudSyncEnabled: cloudSyncEnabled ?? self.cloudSyncEnabled,
+            cloudArchiveBackupEnabled: cloudArchiveBackupEnabled ?? self.cloudArchiveBackupEnabled
         )
     }
 }
@@ -92,40 +104,25 @@ public struct AppSettingsStore {
     public let storageURL: URL
     private let fileManager: FileManager
 
-    public init(
-        storageURL: URL = Self.defaultStorageURL(),
-        fileManager: FileManager = .default
-    ) {
+    public init(storageURL: URL = Self.defaultStorageURL(), fileManager: FileManager = .default) {
         self.storageURL = storageURL
         self.fileManager = fileManager
     }
 
     public static func defaultStorageURL() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("DJMemory", isDirectory: true)
-            .appendingPathComponent("settings.json")
+            .appendingPathComponent("Library/Application Support/DJMemory/settings.json")
     }
 
     public func load() throws -> AppSettings {
-        guard fileManager.fileExists(atPath: storageURL.path) else {
-            return .default
-        }
-
-        let data = try Data(contentsOf: storageURL)
-        return try JSONDecoder().decode(AppSettings.self, from: data)
+        guard fileManager.fileExists(atPath: storageURL.path) else { return .default }
+        return try JSONDecoder().decode(AppSettings.self, from: Data(contentsOf: storageURL))
     }
 
     public func save(_ settings: AppSettings) throws {
-        try fileManager.createDirectory(
-            at: storageURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-
+        try fileManager.createDirectory(at: storageURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(settings)
-        try data.write(to: storageURL, options: [.atomic])
+        try encoder.encode(settings).write(to: storageURL, options: [.atomic])
     }
 }
