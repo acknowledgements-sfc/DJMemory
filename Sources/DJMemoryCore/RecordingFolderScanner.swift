@@ -27,4 +27,18 @@ public struct RecordingFolderScanner {
             try archiveService.archive(sourceURL: url, sourceAppID: sourceAppID)
         }
     }
+
+    public func recentUnstableFiles(
+        in folderURL: URL,
+        modifiedAfter cutoff: Date,
+        unstableAfter: Date
+    ) throws -> [URL] {
+        try stabilityChecker.recentUnstableAudioFiles(
+            in: folderURL,
+            modifiedAfter: cutoff,
+            unstableAfter: unstableAfter
+        ).filter { url in
+            !archiveService.isSourceAlreadyArchived(url)
+        }
+    }
 }

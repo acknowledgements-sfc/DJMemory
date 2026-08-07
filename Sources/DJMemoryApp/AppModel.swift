@@ -450,6 +450,10 @@ final class AppModel: ObservableObject {
             return "Error"
         }
 
+        if appScanResults.contains(where: { !$0.pendingRecordingURLs.isEmpty }) {
+            return "Recording Detected"
+        }
+
         if appScanResults.contains(where: { !$0.archivedSessions.isEmpty }) {
             return "Archived"
         }
@@ -668,7 +672,12 @@ final class AppModel: ObservableObject {
         }
 
         let archivedCount = results.reduce(0) { $0 + $1.archivedSessions.count }
+        let pendingCount = results.reduce(0) { $0 + $1.pendingRecordingURLs.count }
         let errorCount = results.filter { $0.errorDescription != nil }.count
+
+        if pendingCount > 0 {
+            return "Detected \(pendingCount) active recording\(pendingCount == 1 ? "" : "s"). Waiting for file to finish."
+        }
 
         if archivedCount > 0 {
             return "Archived \(archivedCount) set\(archivedCount == 1 ? "" : "s")"
@@ -690,6 +699,12 @@ final class AppModel: ObservableObject {
         for result in results {
             if let errorDescription = result.errorDescription {
                 appendActivity(kind: .error, message: "Scan failed", detail: "\(result.folderURL.path): \(errorDescription)")
+            } else if !result.pendingRecordingURLs.isEmpty {
+                appendActivity(
+                    kind: .scan,
+                    message: "Recording detected",
+                    detail: pendingRecordingDetail(for: result)
+                )
             } else if result.archivedSessions.isEmpty {
                 appendActivity(kind: .scan, message: "No new recordings", detail: result.folderURL.path)
             } else {
@@ -701,6 +716,13 @@ final class AppModel: ObservableObject {
                 notificationService.notifyArchiveSaved(count: result.archivedSessions.count)
             }
         }
+    }
+
+    private func pendingRecordingDetail(for result: FolderScanResult) -> String {
+        let names = result.pendingRecordingURLs
+            .map(\.lastPathComponent)
+            .joined(separator: ", ")
+        return "\(result.folderURL.path): waiting for \(names)"
     }
 
     private func appendActivity(kind: ActivityEventKind, message: String, detail: String? = nil) {

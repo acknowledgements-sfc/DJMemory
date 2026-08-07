@@ -16,12 +16,20 @@ public struct FolderScanResult: Equatable, Sendable {
     public let appID: String
     public let folderURL: URL
     public let archivedSessions: [RecordingSession]
+    public let pendingRecordingURLs: [URL]
     public let errorDescription: String?
 
-    public init(appID: String, folderURL: URL, archivedSessions: [RecordingSession], errorDescription: String?) {
+    public init(
+        appID: String,
+        folderURL: URL,
+        archivedSessions: [RecordingSession],
+        pendingRecordingURLs: [URL] = [],
+        errorDescription: String?
+    ) {
         self.appID = appID
         self.folderURL = folderURL
         self.archivedSessions = archivedSessions
+        self.pendingRecordingURLs = pendingRecordingURLs
         self.errorDescription = errorDescription
     }
 }
@@ -47,19 +55,26 @@ public struct ScanCoordinator {
 
         return requests.map { request in
             do {
-                let sessions = try withSecurityScopedFolder(request) { folderURL in
-                    try scanner.archiveRecentStableFiles(
+                let scan = try withSecurityScopedFolder(request) { folderURL in
+                    let pending = try scanner.recentUnstableFiles(
+                        in: folderURL,
+                        modifiedAfter: cutoff,
+                        unstableAfter: stableBefore
+                    )
+                    let archived = try scanner.archiveRecentStableFiles(
                         in: folderURL,
                         sourceAppID: request.appID,
                         modifiedAfter: cutoff,
                         stableBefore: stableBefore
                     )
+                    return (pending: pending, archived: archived)
                 }
 
                 return FolderScanResult(
                     appID: request.appID,
                     folderURL: request.folderURL,
-                    archivedSessions: sessions,
+                    archivedSessions: scan.archived,
+                    pendingRecordingURLs: scan.pending,
                     errorDescription: nil
                 )
             } catch {

@@ -78,7 +78,40 @@ final class ScanCoordinatorTests: XCTestCase {
         )
 
         XCTAssertEqual(results.first?.archivedSessions.count, 0)
+        XCTAssertEqual(results.first?.pendingRecordingURLs.map(\.lastPathComponent), [sourceURL.lastPathComponent])
         XCTAssertFalse(FileManager.default.fileExists(atPath: archiveFolder.path))
+    }
+
+    func testScanRecentReportsStableAndPendingRecordingsSeparately() throws {
+        let sourceFolder = tempRoot.appendingPathComponent("Source", isDirectory: true)
+        let archiveFolder = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceFolder, withIntermediateDirectories: true)
+
+        let stableURL = sourceFolder.appendingPathComponent("stable.wav")
+        let pendingURL = sourceFolder.appendingPathComponent("pending.wav")
+        try Data("stable".utf8).write(to: stableURL)
+        try Data("pending".utf8).write(to: pendingURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 60)],
+            ofItemAtPath: stableURL.path
+        )
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 100)],
+            ofItemAtPath: pendingURL.path
+        )
+
+        let scanner = RecordingFolderScanner(
+            archiveService: ArchiveService(archiveRoot: archiveFolder)
+        )
+        let coordinator = ScanCoordinator(scanner: scanner, stabilityWindowSeconds: 30)
+        let results = coordinator.scanRecent(
+            requests: [FolderScanRequest(appID: "serato", folderURL: sourceFolder)],
+            now: Date(timeIntervalSince1970: 120)
+        )
+
+        XCTAssertEqual(results.first?.archivedSessions.count, 1)
+        XCTAssertEqual(results.first?.pendingRecordingURLs.map(\.lastPathComponent), [pendingURL.lastPathComponent])
+        XCTAssertEqual(try archivedAudioFileCount(in: archiveFolder), 1)
     }
 
     func testScanRecentCapturesErrorsPerFolder() {

@@ -265,6 +265,8 @@ Later:
 - Basic library screen showing archived sessions.
 - Never modify source files.
 
+Implementation note: scans now report active recordings separately from archived recordings so the app can show "Recording Detected" while DJMemory waits for a file to finish.
+
 ### Should Have
 
 - Serato default folder detection.

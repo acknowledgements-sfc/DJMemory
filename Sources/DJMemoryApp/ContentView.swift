@@ -1060,8 +1060,8 @@ private struct ScanResultsView: View {
 
                 ForEach(results, id: \.folderURL) { result in
                     HStack(spacing: 10) {
-                        Image(systemName: result.errorDescription == nil ? "checkmark.circle" : "exclamationmark.triangle")
-                            .foregroundStyle(result.errorDescription == nil ? .green : .orange)
+                        Image(systemName: scanResultSymbol(for: result))
+                            .foregroundStyle(scanResultTint(for: result))
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(result.folderURL.path)
@@ -1074,6 +1074,9 @@ private struct ScanResultsView: View {
                                 Text(errorDescription)
                                     .foregroundStyle(.secondary)
                                     .help(errorDescription)
+                            } else if !result.pendingRecordingURLs.isEmpty {
+                                Text("\(result.pendingRecordingURLs.count) active recording\(result.pendingRecordingURLs.count == 1 ? "" : "s") waiting to finish")
+                                    .foregroundStyle(.secondary)
                             } else {
                                 Text("\(result.archivedSessions.count) new recording\(result.archivedSessions.count == 1 ? "" : "s") archived")
                                     .foregroundStyle(.secondary)
@@ -1093,7 +1096,26 @@ private struct ScanResultsView: View {
             return "\(result.folderURL.path)\n\(errorDescription)"
         }
 
+        if !result.pendingRecordingURLs.isEmpty {
+            let names = result.pendingRecordingURLs
+                .map(\.lastPathComponent)
+                .joined(separator: "\n")
+            return "\(result.folderURL.path)\nWaiting for recording to finish:\n\(names)"
+        }
+
         return "\(result.folderURL.path)\n\(result.archivedSessions.count) new recording\(result.archivedSessions.count == 1 ? "" : "s") archived"
+    }
+
+    private func scanResultSymbol(for result: FolderScanResult) -> String {
+        if result.errorDescription != nil { return "exclamationmark.triangle" }
+        if !result.pendingRecordingURLs.isEmpty { return "record.circle.fill" }
+        return "checkmark.circle"
+    }
+
+    private func scanResultTint(for result: FolderScanResult) -> Color {
+        if result.errorDescription != nil { return .orange }
+        if !result.pendingRecordingURLs.isEmpty { return .red }
+        return .green
     }
 }
 
