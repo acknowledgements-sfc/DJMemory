@@ -36,6 +36,12 @@ bash scripts/build-app.sh
 open .build/DJMemory.app
 ```
 
+For a zipped local beta handoff with a checksum manifest:
+
+```bash
+bash scripts/package-beta.sh
+```
+
 The local bundle is signed ad hoc with sandbox-oriented entitlements in `packaging/DJMemory.entitlements`. Xcode is still needed later for Developer ID/App Store signing, icons, notarization, and archived release export.
 
 Beta handoff checks live in `docs/beta-release-checklist.md`.

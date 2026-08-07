@@ -10,6 +10,7 @@ Verified on August 6, 2026:
 - `bash scripts/build-app.sh debug` builds `.build/DJMemory.app`.
 - `bash scripts/smoke-cli.sh` builds the CLI once, scans generated temporary recording folders, verifies stable archives, pending-recording output, and missing-folder recovery messages.
 - `bash scripts/smoke-app.sh` builds, verifies the app signature, launches DJMemory, confirms the app process exists, performs a best-effort main-window check, and quits cleanly.
+- `bash scripts/package-beta.sh` builds a release app bundle and writes a zip plus JSON manifest to `.build/distribution/`.
 - `codesign --verify --deep --strict .build/DJMemory.app` verifies the ad hoc signed app bundle.
 
 The smoke test treats process launch as required. Main-window detection is best-effort because macOS automation permissions can block System Events inspection on a tester's machine.
@@ -73,12 +74,14 @@ Run:
 ```bash
 bash scripts/build-app.sh debug
 bash scripts/smoke-app.sh
+bash scripts/package-beta.sh
 codesign --verify --deep --strict .build/DJMemory.app
 ```
 
 Expected checks:
 
 - app bundle exists
+- beta zip and manifest exist for handoff
 - executable is copied into bundle
 - Info.plist exists
 - ad hoc signature verifies
