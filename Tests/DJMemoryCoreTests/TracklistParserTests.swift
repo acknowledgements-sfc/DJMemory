@@ -42,6 +42,22 @@ final class TracklistParserTests: XCTestCase {
         XCTAssertEqual(tracks.first?.title, "Music Sounds Better With You")
     }
 
+    func testSeratoHistoryParserReadsNameColumnAsTitleAndSkipsSessionSummary() throws {
+        let csv = """
+        "name","start time","end time","playtime","deck","notes","added","comment","","bitrate","location"
+        "4/9/22","4/9/22, 7:55:45 PM PDT","4/10/22, 12:20:16 PM PDT","16:24:31","","","","","","",""
+        "Dang! (feat. Anderson .Paak)","7:55:45 PM PDT","7:58:06 PM PDT","00:02:21","1","","","","","",""
+        "TRACK UNO","7:56:15 PM PDT","8:01:15 PM PDT","00:05:00","2","","","","","",""
+        """
+
+        let tracks = try SeratoHistoryParser().parse(data: Data(csv.utf8), sourceName: "4-9-22.csv")
+
+        XCTAssertEqual(tracks.count, 2)
+        XCTAssertEqual(tracks.first?.artist, "")
+        XCTAssertEqual(tracks.first?.title, "Dang! (feat. Anderson .Paak)")
+        XCTAssertEqual(tracks.first?.startTime, "7:55:45 PM PDT")
+    }
+
     func testRekordboxXMLParserReadsCollectionTracks() throws {
         let xml = """
         <?xml version="1.0" encoding="UTF-8"?>

@@ -54,8 +54,8 @@ public struct DelimitedTracklistParser: TracklistParser {
     }
 
     private func trackPlay(from row: [String], header: [String: Int], sourceName: String) -> TrackPlay? {
-        let artist = value(from: row, header: header, keys: ["artist", "artists"]) ?? fallback(row: row, index: 0)
-        let title = value(from: row, header: header, keys: ["title", "track", "song", "name"]) ?? fallback(row: row, index: 1)
+        let artist = value(from: row, header: header, keys: ["artist", "artists"]) ?? (header.isEmpty ? fallback(row: row, index: 0) : nil)
+        let title = value(from: row, header: header, keys: ["title", "track", "song", "name"]) ?? fallback(row: row, index: header.isEmpty ? 1 : 0)
         let startTime = value(from: row, header: header, keys: ["starttime", "time", "playedat"]) ?? inferredStartTime(from: row)
 
         guard let title, !title.isEmpty else {
@@ -123,7 +123,22 @@ public struct SeratoHistoryParser: TracklistParser {
     }
 
     public func parse(data: Data, sourceName: String = "Serato History") throws -> [TrackPlay] {
-        try parser.parse(data: data, sourceName: sourceName)
+        try parser.parse(data: data, sourceName: sourceName).filter { track in
+            !isSessionSummaryRow(track)
+        }
+    }
+
+    private func isSessionSummaryRow(_ track: TrackPlay) -> Bool {
+        guard track.artist.isEmpty else { return false }
+
+        let dateLikeTitle = track.title.range(
+            of: #"^\d{1,2}/\d{1,2}/\d{2,4}$"#,
+            options: .regularExpression
+        ) != nil
+
+        let dateLikeStart = track.startTime?.contains(",") == true
+
+        return dateLikeTitle && dateLikeStart
     }
 }
 
