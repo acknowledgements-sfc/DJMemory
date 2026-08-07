@@ -14,6 +14,7 @@ final class DiagnosticsReportTests: XCTestCase {
             defaultRecordingPaths: [],
             defaultHistoryPaths: [],
             integrationDepth: .exportImport,
+            supportStatus: .supported,
             notes: "test"
         )
         let archive = ArchiveMetadata(

@@ -511,6 +511,14 @@ private struct ProtectionSourceRow: View {
                 .padding(.vertical, 4)
                 .background(sourceTint.opacity(0.12), in: Capsule())
 
+            Text(result.software.supportStatus.displayName)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(statusTint)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(statusTint.opacity(0.12), in: Capsule())
+                .help("Integration status: \(result.software.supportStatus.displayName)")
+
             Button(action: openSetup) {
                 Label("Setup", systemImage: "slider.horizontal.3")
             }
@@ -548,6 +556,19 @@ private struct ProtectionSourceRow: View {
         }
 
         return "Manual setup available."
+    }
+
+    private var statusTint: Color {
+        switch result.software.supportStatus {
+        case .supported:
+            return .green
+        case .partial:
+            return .blue
+        case .manualSetup:
+            return .orange
+        case .research:
+            return .secondary
+        }
     }
 }
 
@@ -592,6 +613,9 @@ private struct AdapterDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Integration")
                         .font(.headline)
+                    Text(result.software.supportStatus.displayName)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
                     Text(result.software.notes)
                         .foregroundStyle(.secondary)
                 }

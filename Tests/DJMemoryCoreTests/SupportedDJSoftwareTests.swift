@@ -14,4 +14,14 @@ final class SupportedDJSoftwareTests: XCTestCase {
             XCTAssertFalse(software.notes.isEmpty)
         }
     }
+
+    func testAdaptersExposeHonestSupportStatus() {
+        let statuses = Dictionary(uniqueKeysWithValues: SupportedDJSoftware.all.map { ($0.id, $0.supportStatus) })
+
+        XCTAssertEqual(statuses["serato"], .supported)
+        XCTAssertEqual(statuses["rekordbox"], .supported)
+        XCTAssertEqual(statuses["traktor"], .supported)
+        XCTAssertEqual(statuses["virtualdj"], .partial)
+        XCTAssertEqual(statuses["djay"], .manualSetup)
+    }
 }

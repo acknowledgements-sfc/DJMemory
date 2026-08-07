@@ -7,6 +7,26 @@ public enum IntegrationDepth: String, Codable, Sendable {
     case plugin
 }
 
+public enum IntegrationSupportStatus: String, Codable, Sendable {
+    case supported
+    case partial
+    case manualSetup
+    case research
+
+    public var displayName: String {
+        switch self {
+        case .supported:
+            return "Supported"
+        case .partial:
+            return "Partial"
+        case .manualSetup:
+            return "Manual Setup"
+        case .research:
+            return "Research"
+        }
+    }
+}
+
 public struct DJSoftware: Identifiable, Codable, Equatable, Sendable {
     public let id: String
     public let displayName: String
@@ -14,6 +34,7 @@ public struct DJSoftware: Identifiable, Codable, Equatable, Sendable {
     public let defaultRecordingPaths: [String]
     public let defaultHistoryPaths: [String]
     public let integrationDepth: IntegrationDepth
+    public let supportStatus: IntegrationSupportStatus
     public let notes: String
 
     public init(
@@ -23,6 +44,7 @@ public struct DJSoftware: Identifiable, Codable, Equatable, Sendable {
         defaultRecordingPaths: [String],
         defaultHistoryPaths: [String],
         integrationDepth: IntegrationDepth,
+        supportStatus: IntegrationSupportStatus,
         notes: String
     ) {
         self.id = id
@@ -31,6 +53,7 @@ public struct DJSoftware: Identifiable, Codable, Equatable, Sendable {
         self.defaultRecordingPaths = defaultRecordingPaths
         self.defaultHistoryPaths = defaultHistoryPaths
         self.integrationDepth = integrationDepth
+        self.supportStatus = supportStatus
         self.notes = notes
     }
 }
@@ -44,6 +67,7 @@ public enum SupportedDJSoftware {
             defaultRecordingPaths: ["~/Music/_Serato_/Recording"],
             defaultHistoryPaths: ["~/Music/_Serato_/History Export"],
             integrationDepth: .exportImport,
+            supportStatus: .supported,
             notes: "Strong file-watcher candidate; history exports are user-visible, direct control is not public."
         ),
         DJSoftware(
@@ -53,6 +77,7 @@ public enum SupportedDJSoftware {
             defaultRecordingPaths: [],
             defaultHistoryPaths: [],
             integrationDepth: .exportImport,
+            supportStatus: .supported,
             notes: "Needs user-selected recording/history folders; XML bridge is documented."
         ),
         DJSoftware(
@@ -62,6 +87,7 @@ public enum SupportedDJSoftware {
             defaultRecordingPaths: [],
             defaultHistoryPaths: [],
             integrationDepth: .fileWatcher,
+            supportStatus: .manualSetup,
             notes: "Start with app detection and user-selected folders."
         ),
         DJSoftware(
@@ -71,6 +97,7 @@ public enum SupportedDJSoftware {
             defaultRecordingPaths: ["~/Documents/VirtualDJ"],
             defaultHistoryPaths: ["~/Documents/VirtualDJ/History"],
             integrationDepth: .localControl,
+            supportStatus: .partial,
             notes: "Best candidate for deeper integration via SDK/plugin or Network Control."
         ),
         DJSoftware(
@@ -80,6 +107,7 @@ public enum SupportedDJSoftware {
             defaultRecordingPaths: ["~/Music/Traktor/Recordings"],
             defaultHistoryPaths: ["~/Documents/Native Instruments/Traktor*/History"],
             integrationDepth: .exportImport,
+            supportStatus: .supported,
             notes: "History playlists and recordings have known default locations."
         )
     ]
