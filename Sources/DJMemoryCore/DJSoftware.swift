@@ -84,11 +84,11 @@ public enum SupportedDJSoftware {
             id: "djay",
             displayName: "djay Pro",
             bundleIdentifiers: ["com.algoriddim.djay-iphone-free-mac", "com.algoriddim.djay-pro-mac"],
-            defaultRecordingPaths: [],
+            defaultRecordingPaths: ["~/Music/djay/Recordings", "~/Music/djay Pro 2/Recordings"],
             defaultHistoryPaths: [],
             integrationDepth: .fileWatcher,
             supportStatus: .manualSetup,
-            notes: "Start with app detection and user-selected folders."
+            notes: "Recording folders have documented defaults, but history/session metadata still needs verification."
         ),
         DJSoftware(
             id: "virtualdj",

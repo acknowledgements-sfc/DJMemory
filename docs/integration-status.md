@@ -17,7 +17,7 @@ Last updated: August 6, 2026.
 | rekordbox | Supported | Manual recording folder, XML collection import, archive scanning | Real rekordbox history/session export format |
 | Traktor | Supported | Default recording folder, versioned history discovery, NML import | Real Traktor NML history files from multiple versions |
 | VirtualDJ | Partial | App detection, likely user folder, manual file watching, text/M3U/XML/.vdjfolder import, local Network Control reachability probe | Confirm recording/history defaults and decide whether deeper Network Control is worth productizing |
-| djay Pro | Manual Setup | App detection, user-selected recording folder | Confirm default recording/export locations |
+| djay Pro | Manual Setup | App detection, documented current/legacy recording folders, user-selected recording folder | Confirm history/session metadata locations and real recording-folder behavior |
 
 ## Milestone 10 Boundary
 

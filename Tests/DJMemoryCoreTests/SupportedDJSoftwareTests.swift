@@ -24,4 +24,11 @@ final class SupportedDJSoftwareTests: XCTestCase {
         XCTAssertEqual(statuses["virtualdj"], .partial)
         XCTAssertEqual(statuses["djay"], .manualSetup)
     }
+
+    func testDjayIncludesDocumentedRecordingDefaults() throws {
+        let djay = try XCTUnwrap(SupportedDJSoftware.all.first { $0.id == "djay" })
+
+        XCTAssertEqual(djay.defaultRecordingPaths, ["~/Music/djay/Recordings", "~/Music/djay Pro 2/Recordings"])
+        XCTAssertTrue(djay.defaultHistoryPaths.isEmpty)
+    }
 }

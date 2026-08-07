@@ -224,7 +224,7 @@ Later:
 
 ### djay Pro
 
-MVP confidence: low until file locations are verified.
+MVP confidence: medium for recording preservation, low for history metadata.
 
 Why included:
 
@@ -234,8 +234,9 @@ Why included:
 v0.1:
 
 - detect app installation/running state
-- require user-selected recording folder
-- preserve recordings from that folder
+- watch documented current and legacy recording folders when present
+- allow user-selected recording folder when defaults are missing or customized
+- preserve recordings from watched folders
 
 Later:
 
@@ -511,7 +512,7 @@ Status: documented in `docs/onboarding-accounts-security.md`.
 
 - Finish Traktor recording setup and history support.
 - Add VirtualDJ file-based support.
-- Add djay manual folder support.
+- Add djay documented recording-folder support with manual fallback.
 - Add honest per-app integration status labels.
 
 ## Acceptance Criteria For v0.1

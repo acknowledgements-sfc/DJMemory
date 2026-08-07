@@ -666,8 +666,9 @@ private struct AdapterDetailView: View {
             ]
         default:
             return [
-                "Coming after Serato and rekordbox MVP support.",
-                "Manual folder selection will be used before deeper integration."
+                "DJMemory checks documented djay recording folders when they exist.",
+                "Choose your djay recordings folder manually if the default folder is not found.",
+                "History and session metadata support still needs verification."
             ]
         }
     }

@@ -52,12 +52,14 @@ MVP integration:
 
 ### djay Pro
 
-Likely depth: low until local files are verified.
+Likely depth: medium for recording files, low until history/session metadata is inspected.
 
 MVP integration:
 
 - Detect `djay Pro` process.
-- Watch user-selected recording folder.
+- Watch documented current and legacy recording folders when present.
+- Allow user-selected recording folder.
+- Verify history/session files before claiming metadata support.
 - Add AppleScript/accessibility research later if automation is required.
 
 ### VirtualDJ
