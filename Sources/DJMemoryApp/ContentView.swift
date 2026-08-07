@@ -99,6 +99,13 @@ private struct ActivityLogView: View {
                 Spacer()
 
                 Button {
+                    model.exportDiagnostics()
+                } label: {
+                    Label("Export Diagnostics", systemImage: "doc.badge.gearshape")
+                }
+                .help("Save a JSON diagnostics report for troubleshooting DJMemory setup and library state.")
+
+                Button {
                     model.clearActivity()
                 } label: {
                     Label("Clear", systemImage: "trash")

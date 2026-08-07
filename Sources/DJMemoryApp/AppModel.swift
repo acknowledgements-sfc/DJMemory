@@ -200,6 +200,48 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func exportDiagnostics() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "DJMemory-Diagnostics-\(diagnosticsTimestamp()).json"
+        panel.message = "Save a diagnostics report with setup, archive, import, and recent activity counts."
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+
+        do {
+            let report = DiagnosticsReportBuilder().build(
+                archiveRoot: archiveRoot,
+                probeResults: probeResults,
+                recordingFolders: { [weak self] appID in self?.recordingFolders(for: appID) ?? [] },
+                historyFolders: { [weak self] appID in self?.historyFolders(for: appID) ?? [] },
+                folderAccesses: folderAccesses,
+                archives: sessions,
+                importedTracklists: allImportedTracklists,
+                activityEvents: activityEvents
+            )
+
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            encoder.dateEncodingStrategy = .iso8601
+
+            try encoder.encode(report).write(to: url, options: .atomic)
+            try activityLogStore.append(ActivityEvent(
+                kind: .scan,
+                message: "Exported diagnostics",
+                detail: url.path
+            ))
+            refresh()
+            revealInFinder(url)
+            statusMessage = "Diagnostics saved to \(url.lastPathComponent)"
+        } catch {
+            appendActivity(kind: .error, message: "Diagnostics export failed", detail: error.localizedDescription)
+            statusMessage = "Could not export diagnostics: \(error.localizedDescription)"
+        }
+    }
+
     func scanResults(for appID: String) -> [FolderScanResult] {
         lastScanResults.filter { $0.appID == appID }
     }
@@ -296,6 +338,12 @@ final class AppModel: ObservableObject {
         } catch {
             statusMessage = "Could not write activity: \(error.localizedDescription)"
         }
+    }
+
+    private func diagnosticsTimestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        return formatter.string(from: Date())
     }
 
     private func parserForHistory(appID: String) -> TracklistParser {
