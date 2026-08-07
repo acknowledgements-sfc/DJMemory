@@ -12,9 +12,14 @@ public struct RecordingFolderScanner {
     public func archiveRecentStableFiles(
         in folderURL: URL,
         sourceAppID: String,
-        modifiedAfter cutoff: Date
+        modifiedAfter cutoff: Date,
+        stableBefore: Date
     ) throws -> [RecordingSession] {
-        let candidates = try stabilityChecker.recentAudioFiles(in: folderURL, modifiedAfter: cutoff)
+        let candidates = try stabilityChecker.recentAudioFiles(
+            in: folderURL,
+            modifiedAfter: cutoff,
+            stableBefore: stableBefore
+        )
 
         return try candidates.filter { url in
             !archiveService.isSourceAlreadyArchived(url)

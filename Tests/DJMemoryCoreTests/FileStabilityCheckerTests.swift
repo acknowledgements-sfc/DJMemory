@@ -27,6 +27,26 @@ final class FileStabilityCheckerTests: XCTestCase {
         XCTAssertEqual(urls.map(\.lastPathComponent), [wavURL.lastPathComponent])
     }
 
+    func testRecentAudioFilesCanFilterByStableBeforeDate() throws {
+        let oldURL = tempRoot.appendingPathComponent("old.wav")
+        let newURL = tempRoot.appendingPathComponent("new.wav")
+        try Data("audio".utf8).write(to: oldURL)
+        try Data("audio".utf8).write(to: newURL)
+
+        let oldDate = Date(timeIntervalSince1970: 100)
+        let newDate = Date(timeIntervalSince1970: 200)
+        try FileManager.default.setAttributes([.modificationDate: oldDate], ofItemAtPath: oldURL.path)
+        try FileManager.default.setAttributes([.modificationDate: newDate], ofItemAtPath: newURL.path)
+
+        let urls = try FileStabilityChecker().recentAudioFiles(
+            in: tempRoot,
+            modifiedAfter: .distantPast,
+            stableBefore: Date(timeIntervalSince1970: 150)
+        )
+
+        XCTAssertEqual(urls.map(\.lastPathComponent), [oldURL.lastPathComponent])
+    }
+
     func testIsStableComparesCurrentSnapshotToPreviousSnapshot() throws {
         let wavURL = tempRoot.appendingPathComponent("set.wav")
         try Data("audio".utf8).write(to: wavURL)

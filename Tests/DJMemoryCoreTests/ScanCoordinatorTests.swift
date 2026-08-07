@@ -22,18 +22,48 @@ final class ScanCoordinatorTests: XCTestCase {
 
         let sourceURL = sourceFolder.appendingPathComponent("set.wav")
         try Data("audio".utf8).write(to: sourceURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 0)],
+            ofItemAtPath: sourceURL.path
+        )
 
         let scanner = RecordingFolderScanner(
             archiveService: ArchiveService(archiveRoot: archiveFolder)
         )
         let coordinator = ScanCoordinator(scanner: scanner)
         let results = coordinator.scanRecent(
-            requests: [FolderScanRequest(appID: "serato", folderURL: sourceFolder)]
+            requests: [FolderScanRequest(appID: "serato", folderURL: sourceFolder)],
+            now: Date(timeIntervalSince1970: 120)
         )
 
         XCTAssertEqual(results.count, 1)
         XCTAssertNil(results.first?.errorDescription)
         XCTAssertEqual(results.first?.archivedSessions.count, 1)
+    }
+
+    func testScanRecentDoesNotArchiveFilesInsideStabilityWindow() throws {
+        let sourceFolder = tempRoot.appendingPathComponent("Source", isDirectory: true)
+        let archiveFolder = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceFolder, withIntermediateDirectories: true)
+
+        let sourceURL = sourceFolder.appendingPathComponent("set.wav")
+        try Data("audio".utf8).write(to: sourceURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 100)],
+            ofItemAtPath: sourceURL.path
+        )
+
+        let scanner = RecordingFolderScanner(
+            archiveService: ArchiveService(archiveRoot: archiveFolder)
+        )
+        let coordinator = ScanCoordinator(scanner: scanner, stabilityWindowSeconds: 30)
+        let results = coordinator.scanRecent(
+            requests: [FolderScanRequest(appID: "serato", folderURL: sourceFolder)],
+            now: Date(timeIntervalSince1970: 120)
+        )
+
+        XCTAssertEqual(results.first?.archivedSessions.count, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: archiveFolder.path))
     }
 
     func testScanRecentCapturesErrorsPerFolder() {

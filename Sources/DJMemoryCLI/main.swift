@@ -69,12 +69,19 @@ private func runScan(arguments: [String]) throws {
 
     let folderURL = URL(fileURLWithPath: (arguments[1] as NSString).expandingTildeInPath, isDirectory: true)
     let appID = arguments.count >= 3 ? arguments[2] : "manual"
-    let cutoff = Calendar.current.date(byAdding: .hour, value: -24, to: Date()) ?? .distantPast
+    let now = Date()
+    let cutoff = Calendar.current.date(byAdding: .hour, value: -24, to: now) ?? .distantPast
+    let stableBefore = now.addingTimeInterval(-30)
     let scanner = RecordingFolderScanner()
-    let sessions = try scanner.archiveRecentStableFiles(in: folderURL, sourceAppID: appID, modifiedAfter: cutoff)
+    let sessions = try scanner.archiveRecentStableFiles(
+        in: folderURL,
+        sourceAppID: appID,
+        modifiedAfter: cutoff,
+        stableBefore: stableBefore
+    )
 
     if sessions.isEmpty {
-        print("No recent audio files found.")
+        print("No recent stable audio files found.")
     } else {
         sessions.forEach(printArchived(_:))
     }

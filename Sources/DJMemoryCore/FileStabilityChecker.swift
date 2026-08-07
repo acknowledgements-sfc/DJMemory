@@ -34,7 +34,11 @@ public struct FileStabilityChecker {
         return audioExtensions.contains(url.pathExtension.lowercased())
     }
 
-    public func recentAudioFiles(in folderURL: URL, modifiedAfter cutoff: Date) throws -> [URL] {
+    public func recentAudioFiles(
+        in folderURL: URL,
+        modifiedAfter cutoff: Date,
+        stableBefore: Date? = nil
+    ) throws -> [URL] {
         let urls = try fileManager.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey],
@@ -44,7 +48,14 @@ public struct FileStabilityChecker {
         return try urls.filter { url in
             let values = try url.resourceValues(forKeys: [.contentModificationDateKey, .isDirectoryKey])
             guard values.isDirectory != true, isAudioFile(url) else { return false }
-            return (values.contentModificationDate ?? .distantPast) >= cutoff
+            let modificationDate = values.contentModificationDate ?? .distantPast
+            guard modificationDate >= cutoff else { return false }
+
+            if let stableBefore {
+                return modificationDate <= stableBefore
+            }
+
+            return true
         }
         .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
     }
