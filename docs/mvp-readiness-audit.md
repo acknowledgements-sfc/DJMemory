@@ -1,18 +1,22 @@
 # DJMemory MVP Readiness Audit
 
-Last updated: August 6, 2026.
+Last updated: August 7, 2026.
 
 This audit maps the v0.1 PRD acceptance criteria to current implementation evidence and the manual checks still needed before handing a beta to DJs.
 
 ## Automated Evidence
 
-Current passing baseline:
+Current passing baseline (commit `ff5e0c6`, 2026-08-07):
 
-- `swift test`: 65 tests, 0 failures.
+- `swift test`: 87 tests, 0 failures.
 - `bash scripts/smoke-cli.sh`: CLI archive/scan/diagnostics smoke path passes.
-- `bash scripts/build-app.sh`: `.build/DJMemory.app` builds and signs with sandbox-oriented entitlements.
+- `swift build --product DJMemoryApp`: passes.
+- `bash scripts/build-app.sh release`: `.build/DJMemory.app` builds and signs with sandbox-oriented entitlements.
+- `codesign --verify --deep --strict .build/DJMemory.app`: passes.
 - `bash scripts/smoke-app.sh`: packaged app launches, verifies code signature, performs best-effort window detection, and quits cleanly.
-- `bash scripts/package-beta.sh`: creates a versioned zip and JSON manifest under `.build/distribution/`.
+- `bash scripts/package-beta.sh`: creates `.build/distribution/DJMemory-0.1.0-ff5e0c6.zip` + JSON manifest with matching SHA-256 (`c11df4c7…`).
+- `swift run djmemory diagnostics <path>`: writes metadata-only report (counts, paths, activity messages; no track titles/artists).
+- Signing: ad-hoc sandboxed local beta. Notarization: not notarized.
 
 ## Acceptance Criteria
 
@@ -47,4 +51,19 @@ Current passing baseline:
 - Real rekordbox install and XML/history export on a DJ machine.
 - macOS folder picker behavior under a clean user account.
 - Menu-bar behavior during a real recording session.
+- Bookmark persist: set recordings folder → quit → relaunch → folder still present.
+- Unreachable-folder recovery flow end-to-end (move/revoke → Attention → re-choose → clear).
+- Packaged `.app` opens to expected landing route; menu-bar item appears.
 - Notarized Developer ID build path before broad direct-download distribution.
+
+## Local Beta Known-Issues Snapshot (ff5e0c6)
+
+- **Supported:** Serato DJ Pro, rekordbox, Traktor
+- **Partial:** VirtualDJ
+- **Manual Setup:** djay Pro, DJMemory Capture, Pioneer Hardware
+- **Unsupported formats:** anything outside watched recording extensions / documented history parsers
+- **Parser limitations:** see `docs/integration-status.md` (VDJ plugin research; capture match window partial)
+- **Signing / notarization:** ad-hoc sandboxed local beta; **not notarized**
+- **Minimum macOS:** 14.0
+- **Folder permission recovery:** Protection / Recovery UI — choose a different folder, or clear saved folder (sources are never deleted)
+
