@@ -426,7 +426,7 @@ private struct SessionLibraryView: View {
                 ContentUnavailableView(
                     "No archived sets yet",
                     systemImage: "music.note",
-                    description: Text("Archived recordings will appear here after DJMemory saves them.")
+                    description: Text("Choose a recordings folder and run Scan Now to archive completed audio files.")
                 )
                 .frame(maxWidth: .infinity, minHeight: 280)
             } else {
@@ -457,7 +457,44 @@ private struct SessionLibraryView: View {
                 }
                 .frame(minHeight: 340)
             }
+
+            Divider()
+                .padding(.vertical, 8)
+
+            Text("Imported Tracklists")
+                .font(.title2.weight(.semibold))
+
+            if model.allImportedTracklists.isEmpty {
+                ContentUnavailableView(
+                    "No imported tracklists yet",
+                    systemImage: "list.bullet.rectangle",
+                    description: Text("Import Serato CSV/TXT or rekordbox XML files from a setup card.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 220)
+            } else {
+                Table(model.allImportedTracklists, selection: .constant(nil)) {
+                    TableColumn("File") { tracklist in
+                        Text(tracklist.sourceURL.lastPathComponent)
+                    }
+                    TableColumn("App") { tracklist in
+                        Text(tracklist.appID)
+                    }
+                    TableColumn("Tracks") { tracklist in
+                        Text("\(tracklist.tracks.count)")
+                    }
+                    TableColumn("Preview") { tracklist in
+                        Text(previewText(for: tracklist))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+                .frame(minHeight: 260)
+            }
         }
+    }
+
+    private func previewText(for tracklist: ImportedTracklist) -> String {
+        tracklist.tracks.prefix(3).map(\.title).joined(separator: " / ")
     }
 
     private func formatDuration(_ seconds: Double?) -> String {

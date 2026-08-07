@@ -187,6 +187,10 @@ final class AppModel: ObservableObject {
         importedTracklists[appID] ?? []
     }
 
+    var allImportedTracklists: [ImportedTracklist] {
+        importedTracklists.values.flatMap { $0 }.sorted { $0.importedAt > $1.importedAt }
+    }
+
     private func startBackgroundScanning() {
         scanTask?.cancel()
         scanTask = Task { [weak self] in
