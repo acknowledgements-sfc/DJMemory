@@ -18,8 +18,11 @@ swift run djmemory watch ~/Music/_Serato_/Recording serato
 swift run djmemory virtualdj-network
 swift run DJMemoryApp
 swift test
+bash scripts/smoke-cli.sh
 bash scripts/smoke-app.sh
 ```
+
+Set `DJMEMORY_ARCHIVE_ROOT=/path/to/archive` when testing CLI archive, scan, or watch commands against a temporary archive folder.
 
 Archived recordings are copied to `~/Music/DJMemory` by default with a JSON metadata sidecar. The default archive folder is created on launch. A custom archive folder can be set in Settings. Source files are never moved, renamed, or deleted.
 
@@ -41,7 +44,7 @@ Local smoke-test coverage lives in `scripts/smoke-app.sh`.
 
 The app can save recording/history folder selections using macOS security-scoped bookmarks, which keeps the setup path compatible with sandboxed distribution. Custom archive folders use the same bookmark approach.
 
-Configured recording folders can be scanned from the app with **Scan Now**. While the app is open, it also checks configured folders once per minute.
+Configured recording folders can be scanned from the app with **Rescan Last 24 Hours**. While the app is open, it also checks configured folders once per minute.
 
 To open the package in Xcode:
 

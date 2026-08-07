@@ -8,6 +8,7 @@ Verified on August 6, 2026:
 
 - `swift test` passes the current Swift test suite.
 - `bash scripts/build-app.sh debug` builds `.build/DJMemory.app`.
+- `bash scripts/smoke-cli.sh` builds the CLI once, scans generated temporary recording folders, verifies stable archives, pending-recording output, and missing-folder recovery messages.
 - `bash scripts/smoke-app.sh` builds, verifies the app signature, launches DJMemory, confirms the app process exists, performs a best-effort main-window check, and quits cleanly.
 - `codesign --verify --deep --strict .build/DJMemory.app` verifies the ad hoc signed app bundle.
 

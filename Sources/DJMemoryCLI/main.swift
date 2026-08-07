@@ -58,7 +58,7 @@ private func runArchive(arguments: [String]) throws {
 
     let sourceURL = URL(fileURLWithPath: (arguments[1] as NSString).expandingTildeInPath)
     let appID = arguments.count >= 3 ? arguments[2] : "manual"
-    let service = ArchiveService()
+    let service = archiveService()
     let session = try service.archive(sourceURL: sourceURL, sourceAppID: appID)
 
     printArchived(session)
@@ -72,21 +72,32 @@ private func runScan(arguments: [String]) throws {
 
     let folderURL = URL(fileURLWithPath: (arguments[1] as NSString).expandingTildeInPath, isDirectory: true)
     let appID = arguments.count >= 3 ? arguments[2] : "manual"
-    let now = Date()
-    let cutoff = Calendar.current.date(byAdding: .hour, value: -24, to: now) ?? .distantPast
-    let stableBefore = now.addingTimeInterval(-30)
-    let scanner = RecordingFolderScanner()
-    let sessions = try scanner.archiveRecentStableFiles(
-        in: folderURL,
-        sourceAppID: appID,
-        modifiedAfter: cutoff,
-        stableBefore: stableBefore
-    )
+    let scanner = RecordingFolderScanner(archiveService: archiveService())
+    let coordinator = ScanCoordinator(scanner: scanner)
+    let result = coordinator.scanRecent(
+        requests: [FolderScanRequest(appID: appID, folderURL: folderURL)]
+    ).first
 
-    if sessions.isEmpty {
-        print("No recent stable audio files found.")
+    guard let result else {
+        print("No scan result returned.")
+        return
+    }
+
+    if let errorDescription = result.errorDescription {
+        print("Scan failed: \(errorDescription)")
     } else {
-        sessions.forEach(printArchived(_:))
+        if !result.archivedSessions.isEmpty {
+            result.archivedSessions.forEach(printArchived(_:))
+        }
+
+        if !result.pendingRecordingURLs.isEmpty {
+            print("Recording detected. Waiting for file to finish:")
+            result.pendingRecordingURLs.forEach { print("  \($0.path)") }
+        }
+
+        if result.archivedSessions.isEmpty && result.pendingRecordingURLs.isEmpty {
+            print("No recent stable audio files found.")
+        }
     }
 }
 
@@ -99,7 +110,7 @@ private func runWatch(arguments: [String]) throws {
     let folderURL = URL(fileURLWithPath: (arguments[1] as NSString).expandingTildeInPath, isDirectory: true)
     let appID = arguments.count >= 3 ? arguments[2] : "manual"
     let stabilityChecker = FileStabilityChecker()
-    let archiveService = ArchiveService()
+    let archiveService = archiveService()
     var snapshots: [URL: FileSnapshot] = [:]
     var archived = Set<URL>()
 
@@ -138,6 +149,14 @@ private func printArchived(_ session: RecordingSession) {
         print("  to: \(archiveURL.path)")
         print("  metadata: \(archiveURL.deletingPathExtension().appendingPathExtension("json").path)")
     }
+}
+
+private func archiveService() -> ArchiveService {
+    if let path = ProcessInfo.processInfo.environment["DJMEMORY_ARCHIVE_ROOT"], !path.isEmpty {
+        return ArchiveService(archiveRoot: URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true))
+    }
+
+    return ArchiveService()
 }
 
 private func runVirtualDJNetworkProbe(arguments: [String]) {
