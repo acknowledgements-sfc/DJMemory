@@ -73,4 +73,42 @@ final class LibrarySessionMatcherTests: XCTestCase {
 
         XCTAssertNil(summaries.first?.matchedTracklist)
     }
+
+    func testManualTracklistContextOverridesNearestAutomaticMatch() {
+        let archive = ArchiveMetadata(
+            session: RecordingSession(
+                sourceAppID: "serato",
+                detectedAt: Date(timeIntervalSince1970: 100),
+                sourceURL: URL(fileURLWithPath: "/tmp/source.wav")
+            ),
+            originalFilename: "source.wav"
+        )
+        let automaticTracklist = ImportedTracklist(
+            id: UUID(),
+            appID: "serato",
+            sourceURL: URL(fileURLWithPath: "/tmp/automatic.csv"),
+            tracks: [
+                TrackPlay(title: "Automatic", artist: "Artist", startTime: nil, source: "automatic.csv", confidence: 0.9)
+            ],
+            importedAt: Date(timeIntervalSince1970: 101)
+        )
+        let manualTracklist = ImportedTracklist(
+            id: UUID(),
+            appID: "serato",
+            sourceURL: URL(fileURLWithPath: "/tmp/manual.csv"),
+            tracks: [
+                TrackPlay(title: "Manual", artist: "Artist", startTime: nil, source: "manual.csv", confidence: 0.9)
+            ],
+            importedAt: Date(timeIntervalSince1970: 300)
+        )
+        let context = SetContext(sessionID: archive.id, manualTracklistID: manualTracklist.id)
+
+        let summaries = LibrarySessionMatcher().summaries(
+            archives: [archive],
+            importedTracklists: [automaticTracklist, manualTracklist],
+            setContexts: [context]
+        )
+
+        XCTAssertEqual(summaries.first?.matchedTracklist?.sourceURL.lastPathComponent, "manual.csv")
+    }
 }

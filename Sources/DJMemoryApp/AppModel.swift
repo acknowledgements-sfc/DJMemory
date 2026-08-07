@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastScanResults: [FolderScanResult] = []
     @Published private(set) var importedTracklists: [String: [ImportedTracklist]] = [:]
     @Published private(set) var librarySummaries: [LibrarySessionSummary] = []
+    @Published private(set) var setContexts: [UUID: SetContext] = [:]
     @Published private(set) var activityEvents: [ActivityEvent] = []
     @Published private(set) var settings = AppSettings.default
     @Published private(set) var isScanning = false
@@ -22,6 +23,7 @@ final class AppModel: ObservableObject {
     private let library = SessionLibrary()
     private let folderAccessStore = FolderAccessStore()
     private let importedTracklistStore = ImportedTracklistStore()
+    private let setContextStore = SetContextStore()
     private let activityLogStore = ActivityLogStore()
     private let appSettingsStore = AppSettingsStore()
     private let notificationService = LocalNotificationService()
@@ -59,9 +61,13 @@ final class AppModel: ObservableObject {
             grouping: (try? importedTracklistStore.all()) ?? [],
             by: \.appID
         ).mapValues { $0.sorted { $0.importedAt > $1.importedAt } }
+        setContexts = Dictionary(
+            uniqueKeysWithValues: ((try? setContextStore.all()) ?? []).map { ($0.sessionID, $0) }
+        )
         librarySummaries = LibrarySessionMatcher().summaries(
             archives: sessions,
-            importedTracklists: importedTracklists.values.flatMap { $0 }
+            importedTracklists: importedTracklists.values.flatMap { $0 },
+            setContexts: Array(setContexts.values)
         )
         activityEvents = (try? activityLogStore.all()) ?? []
         settings = (try? appSettingsStore.load()) ?? .default
@@ -188,6 +194,39 @@ final class AppModel: ObservableObject {
         } catch {
             appendActivity(kind: .error, message: "Delete import failed", detail: error.localizedDescription)
             statusMessage = "Could not delete import: \(error.localizedDescription)"
+        }
+    }
+
+    func saveSetContext(_ context: SetContext) {
+        do {
+            try setContextStore.save(context)
+            try activityLogStore.append(ActivityEvent(
+                kind: .scan,
+                message: "Updated set details",
+                detail: context.eventName.isEmpty ? nil : context.eventName
+            ))
+            refresh()
+            statusMessage = "Set details saved"
+        } catch {
+            appendActivity(kind: .error, message: "Set details save failed", detail: error.localizedDescription)
+            statusMessage = "Could not save set details: \(error.localizedDescription)"
+        }
+    }
+
+    func attachTracklist(sessionID: UUID, tracklistID: UUID?) {
+        do {
+            var context = try setContextStore.context(for: sessionID)
+            context.manualTracklistID = tracklistID
+            try setContextStore.save(context)
+            try activityLogStore.append(ActivityEvent(
+                kind: .importTracklist,
+                message: tracklistID == nil ? "Detached tracklist" : "Attached tracklist"
+            ))
+            refresh()
+            statusMessage = tracklistID == nil ? "Tracklist detached" : "Tracklist attached"
+        } catch {
+            appendActivity(kind: .error, message: "Tracklist attachment failed", detail: error.localizedDescription)
+            statusMessage = "Could not update tracklist match: \(error.localizedDescription)"
         }
     }
 
