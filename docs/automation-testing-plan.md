@@ -58,6 +58,7 @@ Run:
 
 ```bash
 bash scripts/build-app.sh debug
+bash scripts/smoke-app.sh
 codesign --verify --deep --strict .build/DJMemory.app
 ```
 
@@ -106,6 +107,6 @@ Do not use Figma as a functional test tool. Figma is for visual flows and screen
 
 - Add accessibility identifiers to key SwiftUI controls.
 - Add fixture folders under `Tests/Fixtures` if file sizes stay small.
-- Add a smoke-test script that builds `.build/DJMemory.app`, launches it, and confirms the process/window exists.
+- Extend `scripts/smoke-app.sh` with a window check if a stable UI automation permission path is available.
 - Add a sample recording-folder integration test using temporary directories.
 - Add parser fixture tests for real-world Serato, rekordbox, and Traktor files once sanitized samples are available.

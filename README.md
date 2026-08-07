@@ -18,6 +18,7 @@ swift run djmemory watch ~/Music/_Serato_/Recording serato
 swift run djmemory virtualdj-network
 swift run DJMemoryApp
 swift test
+bash scripts/smoke-app.sh
 ```
 
 Archived recordings are copied to `~/Music/DJMemory` by default with a JSON metadata sidecar. Source files are never moved, renamed, or deleted.
@@ -35,6 +36,7 @@ The local bundle is signed ad hoc with sandbox-oriented entitlements in `packagi
 
 Beta handoff checks live in `docs/beta-release-checklist.md`.
 Current DJ app support levels live in `docs/integration-status.md`.
+Local smoke-test coverage lives in `scripts/smoke-app.sh`.
 
 The app can save recording/history folder selections using macOS security-scoped bookmarks, which keeps the setup path compatible with sandboxed distribution.
 
