@@ -44,7 +44,10 @@ final class DiagnosticsReportTests: XCTestCase {
             importedAt: importedAt
         )
 
-        let report = DiagnosticsReportBuilder(homeDirectory: homeDirectory).build(
+        let report = DiagnosticsReportBuilder(
+            homeDirectory: homeDirectory,
+            isReachableDirectory: { _ in true }
+        ).build(
             generatedAt: generatedAt,
             archiveRoot: URL(fileURLWithPath: "/Users/private-dj/Music/DJMemory"),
             probeResults: [
@@ -98,5 +101,51 @@ final class DiagnosticsReportTests: XCTestCase {
         XCTAssertFalse(json.contains("Private Artist"))
         XCTAssertFalse(json.contains("Private Track"))
         XCTAssertFalse(json.contains("/Users/private-dj"))
+    }
+
+    func testProtectedSourceCountExcludesUnreachableRecordingFolders() {
+        let app = DJSoftware(
+            id: "serato",
+            displayName: "Serato DJ Pro",
+            bundleIdentifiers: ["com.serato.dj"],
+            defaultRecordingPaths: [],
+            defaultHistoryPaths: [],
+            integrationDepth: .fileWatcher,
+            supportStatus: .supported,
+            notes: "test"
+        )
+        let reachableFolder = URL(fileURLWithPath: "/Users/private-dj/Music/_Serato_/Recording")
+        let missingFolder = URL(fileURLWithPath: "/Users/private-dj/Music/Missing")
+
+        let report = DiagnosticsReportBuilder(
+            homeDirectory: URL(fileURLWithPath: "/Users/private-dj", isDirectory: true),
+            isReachableDirectory: { $0 == reachableFolder }
+        ).build(
+            archiveRoot: URL(fileURLWithPath: "/Users/private-dj/Music/DJMemory"),
+            probeResults: [
+                SoftwareProbeResult(
+                    software: app,
+                    installedApplicationURLs: [],
+                    runningApplicationBundleIdentifiers: [],
+                    existingRecordingURLs: [],
+                    existingHistoryURLs: []
+                )
+            ],
+            recordingFolders: { _ in [reachableFolder, missingFolder] },
+            historyFolders: { _ in [] },
+            folderAccesses: [
+                FolderAccess(appID: "serato", kind: .recordings, url: reachableFolder, bookmarkData: nil),
+                FolderAccess(appID: "serato", kind: .recordings, url: missingFolder, bookmarkData: nil)
+            ],
+            archives: [],
+            importedTracklists: [],
+            activityEvents: []
+        )
+
+        XCTAssertEqual(report.totals.protectedSourceCount, 1)
+        XCTAssertEqual(
+            report.software.first?.recordingFolderPaths,
+            ["~/Music/_Serato_/Recording", "~/Music/Missing"]
+        )
     }
 }

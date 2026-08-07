@@ -139,9 +139,18 @@ public struct DiagnosticsActivity: Codable, Equatable, Sendable {
 
 public struct DiagnosticsReportBuilder {
     private let homeDirectory: URL
+    private let isReachableDirectory: @Sendable (URL) -> Bool
 
-    public init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        isReachableDirectory: (@Sendable (URL) -> Bool)? = nil
+    ) {
         self.homeDirectory = homeDirectory
+        let defaultReachability: @Sendable (URL) -> Bool = { url in
+            var isDirectory: ObjCBool = false
+            return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        }
+        self.isReachableDirectory = isReachableDirectory ?? defaultReachability
     }
 
     public func build(
@@ -155,6 +164,10 @@ public struct DiagnosticsReportBuilder {
         importedTracklists: [ImportedTracklist],
         activityEvents: [ActivityEvent]
     ) -> DiagnosticsReport {
+        let reachableProtectedSourceCount = probeResults.filter { result in
+            recordingFolders(result.software.id).contains(where: isReachableDirectory)
+        }.count
+
         let software = probeResults.map { result in
             DiagnosticsSoftware(
                 appID: result.software.id,
@@ -209,7 +222,7 @@ public struct DiagnosticsReportBuilder {
             archiveRootPath: redactedPath(archiveRoot.path),
             software: software,
             totals: DiagnosticsTotals(
-                protectedSourceCount: software.filter { !$0.recordingFolderPaths.isEmpty }.count,
+                protectedSourceCount: reachableProtectedSourceCount,
                 configuredFolderCount: folderAccesses.count,
                 archivedSetCount: archives.count,
                 importedTracklistCount: imports.count,
