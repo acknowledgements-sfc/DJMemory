@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ServiceManagement
 import DJMemoryCore
 import UniformTypeIdentifiers
 
@@ -23,9 +24,28 @@ final class AppModel: ObservableObject {
     @Published var selectedRoute: Route = .home
     @Published var statusMessage = "Checking protection status"
     @Published private(set) var profile = DJProfile()
+    /// True when macOS registered the login item but still needs Login Items approval.
+    @Published private(set) var launchAtLoginNeedsApproval = false
+
+    /// Consumed by `SessionLibraryView` when navigating from Home (session + optional search seed).
+    @Published var libraryFocusSessionID: UUID?
+    @Published var libraryFocusSearch: String = ""
 
     /// Preview-only clock override for greeting matrix (morning / afternoon / evening).
     @Published private(set) var previewNow: Date?
+
+    func openLibrary(sessionID: UUID? = nil, search: String = "") {
+        libraryFocusSessionID = sessionID
+        libraryFocusSearch = search
+        selectedRoute = .library
+    }
+
+    func consumeLibraryFocus() -> (sessionID: UUID?, search: String) {
+        let focus = (libraryFocusSessionID, libraryFocusSearch)
+        libraryFocusSessionID = nil
+        libraryFocusSearch = ""
+        return focus
+    }
 
     /// App id when `selectedRoute` is `.app` or `.recovery`.
     var selectedAppID: String? {
@@ -63,6 +83,8 @@ final class AppModel: ObservableObject {
     private let folderChangeMonitor = FolderChangeMonitor()
     private var scanTask: Task<Void, Never>?
     private var folderChangeScanTask: Task<Void, Never>?
+    /// When true, profile mutations stay in memory (SwiftUI previews).
+    private var suppressProfilePersistence = false
 
     init() {
         notificationService.requestAuthorization()
@@ -165,6 +187,7 @@ final class AppModel: ObservableObject {
         )
         activityEvents = (try? activityLogStore.all()) ?? []
         profile = (try? profileStore.load()) ?? DJProfile()
+        reconcileLaunchAtLogin()
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
@@ -259,6 +282,7 @@ final class AppModel: ObservableObject {
     /// Preview / test helper — does not persist.
     func previewApplyProfile(_ profile: DJProfile) {
         self.profile = profile
+        suppressProfilePersistence = true
     }
 
     /// Preview / test helper — forces greeting hour without waiting for wall clock.
@@ -503,8 +527,47 @@ final class AppModel: ObservableObject {
     }
 
     func updateLaunchAtLogin(enabled: Bool) {
-        saveSettings(settings.updating(launchAtLogin: enabled))
-        // Launch-at-login wiring lands with SMAppService in a later polish pass; persist preference now.
+        applyLaunchAtLogin(enabled: enabled, persistPreference: true)
+    }
+
+    /// Saves local DJ identity for Home. Blank strings become nil — never invent placeholders.
+    func updateProfile(displayName: String, handle: String, city: String, residency: String) {
+        var next = DJProfile(
+            displayName: Self.nilIfBlank(displayName),
+            handle: Self.nilIfBlank(handle),
+            city: Self.nilIfBlank(city),
+            residency: Self.nilIfBlank(residency),
+            memberSince: profile.memberSince
+        )
+
+        let hasIdentity = next.displayName != nil
+            || next.handle != nil
+            || next.city != nil
+            || next.residency != nil
+        if hasIdentity, next.memberSince == nil {
+            next.memberSince = Date()
+        }
+        if !hasIdentity {
+            next.memberSince = nil
+        }
+
+        do {
+            if !suppressProfilePersistence {
+                try profileStore.save(next)
+            }
+            profile = next
+            statusMessage = hasIdentity ? "Profile saved" : "Profile cleared"
+        } catch {
+            appendActivity(kind: .error, message: "Profile save failed", detail: error.localizedDescription)
+            statusMessage = "Could not save profile: \(error.localizedDescription)"
+        }
+    }
+
+    func openLoginItemsSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     func completeOnboarding(destination: Route = .protection) {
@@ -992,6 +1055,82 @@ final class AppModel: ObservableObject {
             appendActivity(kind: .error, message: "Settings save failed", detail: error.localizedDescription)
             statusMessage = "Could not save settings: \(error.localizedDescription)"
         }
+    }
+
+    private func reconcileLaunchAtLogin() {
+        let status = SMAppService.mainApp.status
+        launchAtLoginNeedsApproval = status == .requiresApproval
+        let osEnabled = status == .enabled
+
+        if settings.launchAtLogin == osEnabled {
+            return
+        }
+
+        if settings.launchAtLogin, !osEnabled {
+            // Prefer the saved preference; do not clear it if registration fails outside a real .app bundle.
+            applyLaunchAtLogin(enabled: true, persistPreference: false, quiet: true)
+            launchAtLoginNeedsApproval = SMAppService.mainApp.status == .requiresApproval
+            return
+        }
+
+        if !settings.launchAtLogin, osEnabled {
+            applyLaunchAtLogin(enabled: false, persistPreference: true, quiet: true)
+        }
+    }
+
+    private func applyLaunchAtLogin(enabled: Bool, persistPreference: Bool, quiet: Bool = false) {
+        let service = SMAppService.mainApp
+        do {
+            if enabled {
+                if service.status != .enabled {
+                    try service.register()
+                }
+            } else if service.status != .notRegistered {
+                try service.unregister()
+            }
+
+            launchAtLoginNeedsApproval = service.status == .requiresApproval
+            if persistPreference {
+                persistLaunchAtLoginPreference(enabled)
+            }
+
+            if quiet { return }
+
+            if enabled, service.status == .requiresApproval {
+                statusMessage = "macOS needs approval for launch at login in System Settings → Login Items."
+            } else {
+                statusMessage = enabled ? "Launch at login enabled" : "Launch at login disabled"
+            }
+        } catch {
+            let actuallyEnabled = SMAppService.mainApp.status == .enabled
+            launchAtLoginNeedsApproval = SMAppService.mainApp.status == .requiresApproval
+            if persistPreference {
+                persistLaunchAtLoginPreference(actuallyEnabled)
+            }
+            appendActivity(kind: .error, message: "Launch at login failed", detail: error.localizedDescription)
+            if quiet { return }
+            if SMAppService.mainApp.status == .requiresApproval {
+                statusMessage = "macOS needs approval for launch at login in System Settings → Login Items."
+            } else {
+                statusMessage = "Could not update launch at login: \(error.localizedDescription). Preference was left matching the system."
+            }
+        }
+    }
+
+    private func persistLaunchAtLoginPreference(_ enabled: Bool) {
+        let newSettings = settings.updating(launchAtLogin: enabled)
+        do {
+            try appSettingsStore.save(newSettings)
+            settings = newSettings
+        } catch {
+            appendActivity(kind: .error, message: "Settings save failed", detail: error.localizedDescription)
+            statusMessage = "Could not save settings: \(error.localizedDescription)"
+        }
+    }
+
+    private static func nilIfBlank(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func diagnosticsTimestamp() -> String {

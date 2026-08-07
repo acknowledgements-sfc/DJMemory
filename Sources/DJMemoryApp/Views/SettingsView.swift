@@ -13,6 +13,7 @@ struct SettingsView: View {
                 .foregroundStyle(DJToken.foreground)
 
             scanningPanel
+            SettingsProfilePanel()
             archivePanel
             currentStatePanel
             accountPanel
@@ -76,13 +77,23 @@ struct SettingsView: View {
 
                 settingsToggle(
                     title: "Launch at login",
-                    explanation: "Open DJMemory when you sign in to this Mac.",
+                    explanation: model.launchAtLoginNeedsApproval
+                        ? "macOS still needs approval in System Settings → Login Items before DJMemory can open at sign-in."
+                        : "Open DJMemory when you sign in to this Mac.",
                     isOn: Binding(
                         get: { model.settings.launchAtLogin },
                         set: { model.updateLaunchAtLogin(enabled: $0) }
                     ),
                     id: "settings.launchAtLogin"
                 )
+
+                if model.launchAtLoginNeedsApproval {
+                    Button("Open Login Items…") {
+                        model.openLoginItemsSettings()
+                    }
+                    .buttonStyle(DJSecondaryButtonStyle())
+                    .accessibilityIdentifier("settings.launchAtLogin.openLoginItems")
+                }
             }
         }
     }
