@@ -46,6 +46,12 @@ public struct ArchiveService {
         }
     }
 
+    public func ensureArchiveRootExists() throws {
+        try withSecurityScopedArchiveRoot {
+            try ensureArchiveRootExistsWithAccess()
+        }
+    }
+
     private func archiveWithAccess(sourceURL: URL, sourceAppID: String, detectedAt: Date) throws -> RecordingSession {
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory) else {
@@ -56,11 +62,7 @@ public struct ArchiveService {
             throw ArchiveServiceError.sourceIsDirectory(sourceURL)
         }
 
-        try fileManager.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
-
-        guard fileManager.fileExists(atPath: archiveRoot.path) else {
-            throw ArchiveServiceError.archiveDirectoryUnavailable(archiveRoot)
-        }
+        try ensureArchiveRootExistsWithAccess()
 
         let fileSize = try sourceURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         let sourceFingerprint = try contentFingerprint(for: sourceURL)
@@ -84,6 +86,14 @@ public struct ArchiveService {
             sourceFingerprint: sourceFingerprint
         )
         return session
+    }
+
+    private func ensureArchiveRootExistsWithAccess() throws {
+        try fileManager.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
+
+        guard fileManager.fileExists(atPath: archiveRoot.path) else {
+            throw ArchiveServiceError.archiveDirectoryUnavailable(archiveRoot)
+        }
     }
 
     public func metadataURL(for archiveURL: URL) -> URL {

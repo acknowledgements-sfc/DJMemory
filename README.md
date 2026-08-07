@@ -21,7 +21,7 @@ swift test
 bash scripts/smoke-app.sh
 ```
 
-Archived recordings are copied to `~/Music/DJMemory` by default with a JSON metadata sidecar. A custom archive folder can be set in Settings. Source files are never moved, renamed, or deleted.
+Archived recordings are copied to `~/Music/DJMemory` by default with a JSON metadata sidecar. The default archive folder is created on launch. A custom archive folder can be set in Settings. Source files are never moved, renamed, or deleted.
 
 `DJMemoryApp` launches the first SwiftUI app shell with setup status, menu-bar status, and an archived-session library view.
 First launch shows a setup sheet that summarizes detected DJ apps, the archive location, and the next setup action.

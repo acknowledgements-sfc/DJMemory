@@ -15,6 +15,19 @@ final class ArchiveServiceTests: XCTestCase {
         tempRoot = nil
     }
 
+    func testEnsureArchiveRootExistsCreatesArchiveFolder() throws {
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        let service = ArchiveService(archiveRoot: archiveRoot)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: archiveRoot.path))
+
+        try service.ensureArchiveRootExists()
+
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archiveRoot.path, isDirectory: &isDirectory))
+        XCTAssertTrue(isDirectory.boolValue)
+    }
+
     func testArchiveCopiesSourceAndWritesMetadata() throws {
         let sourceURL = tempRoot.appendingPathComponent("source.wav")
         let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)

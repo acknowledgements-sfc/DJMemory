@@ -61,6 +61,7 @@ final class AppModel: ObservableObject {
         probeResults = probe.probeAll()
         folderAccesses = (try? folderAccessStore.all()) ?? []
         settings = (try? appSettingsStore.load()) ?? .default
+        ensureArchiveRootExists()
         sessions = (try? sessionLibrary().archivedMetadata()) ?? []
         importedTracklists = Dictionary(
             grouping: (try? importedTracklistStore.all()) ?? [],
@@ -499,10 +500,8 @@ final class AppModel: ObservableObject {
 
     func openArchiveFolder() {
         do {
-            try withSecurityScopedArchiveRoot {
-                try FileManager.default.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
-                NSWorkspace.shared.open(archiveRoot)
-            }
+            try archiveService().ensureArchiveRootExists()
+            NSWorkspace.shared.open(archiveRoot)
         } catch {
             statusMessage = "Could not open archive folder: \(error.localizedDescription)"
         }
@@ -602,13 +601,16 @@ final class AppModel: ObservableObject {
     }
 
     private func scanCoordinator() -> ScanCoordinator {
-        let archiveService = ArchiveService(
+        let scanner = RecordingFolderScanner(archiveService: archiveService())
+        return ScanCoordinator(scanner: scanner)
+    }
+
+    private func archiveService() -> ArchiveService {
+        ArchiveService(
             archiveRoot: archiveRoot,
             namingTemplate: settings.archiveNamingTemplate,
             archiveRootBookmarkData: settings.archiveRootBookmarkData
         )
-        let scanner = RecordingFolderScanner(archiveService: archiveService)
-        return ScanCoordinator(scanner: scanner)
     }
 
     private func sessionLibrary() -> SessionLibrary {
@@ -616,6 +618,14 @@ final class AppModel: ObservableObject {
             archiveRoot: archiveRoot,
             archiveRootBookmarkData: settings.archiveRootBookmarkData
         )
+    }
+
+    private func ensureArchiveRootExists() {
+        do {
+            try archiveService().ensureArchiveRootExists()
+        } catch {
+            appendActivity(kind: .error, message: "Archive folder unavailable", detail: error.localizedDescription)
+        }
     }
 
     private func resolvedArchiveRoot() -> URL {
