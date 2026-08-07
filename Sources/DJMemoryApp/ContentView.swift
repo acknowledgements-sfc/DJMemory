@@ -32,6 +32,127 @@ struct ContentView: View {
                 .accessibilityIdentifier("toolbar.refresh")
             }
         }
+        .sheet(
+            isPresented: Binding(
+                get: { !model.settings.hasCompletedOnboarding },
+                set: { isPresented in
+                    if !isPresented {
+                        model.completeOnboarding()
+                    }
+                }
+            )
+        ) {
+            OnboardingView()
+                .environmentObject(model)
+        }
+    }
+}
+
+private struct OnboardingView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(alignment: .top, spacing: 16) {
+                Image(systemName: "record.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.red)
+                    .frame(width: 52)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("DJMemory keeps a backup of your recorded sets.")
+                        .font(.title2.weight(.semibold))
+                    Text("Choose the folders your DJ apps already record into. DJMemory copies completed recordings into your archive and leaves the originals untouched.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 12) {
+                OnboardingMetric(title: "Detected apps", value: "\(detectedAppCount)", symbol: "macwindow")
+                OnboardingMetric(title: "Archive", value: model.archiveRoot.lastPathComponent, symbol: "archivebox")
+                OnboardingMetric(title: "Protected", value: "\(model.protectedAdapterCount)", symbol: "checkmark.shield")
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("DJ apps")
+                    .font(.headline)
+
+                ForEach(model.probeResults, id: \.software.id) { result in
+                    HStack(spacing: 10) {
+                        Image(systemName: result.installedApplicationURLs.isEmpty ? "circle" : "checkmark.circle.fill")
+                            .foregroundStyle(result.installedApplicationURLs.isEmpty ? Color.secondary : Color.green)
+                            .frame(width: 18)
+
+                        Text(result.software.displayName)
+                            .font(.callout.weight(.medium))
+
+                        Spacer()
+
+                        Text(result.software.supportStatus.displayName)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(14)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+
+            HStack {
+                Button {
+                    model.completeOnboarding(destinationAppID: "settings")
+                } label: {
+                    Label("Review Archive", systemImage: "archivebox")
+                }
+                .help("Open Settings to review the archive location.")
+                .accessibilityIdentifier("onboarding.reviewArchive")
+
+                Spacer()
+
+                Button {
+                    model.completeOnboarding()
+                } label: {
+                    Label("Start Setup", systemImage: "folder.badge.plus")
+                }
+                .keyboardShortcut(.defaultAction)
+                .help("Go to Protection and choose recording folders.")
+                .accessibilityIdentifier("onboarding.startSetup")
+            }
+        }
+        .padding(28)
+        .frame(width: 620)
+    }
+
+    private var detectedAppCount: Int {
+        model.probeResults.filter { !$0.installedApplicationURLs.isEmpty }.count
+    }
+}
+
+private struct OnboardingMetric: View {
+    let title: String
+    let value: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .padding(12)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+        .help("\(title): \(value)")
     }
 }
 
@@ -224,6 +345,7 @@ private struct SettingsView: View {
                     )
                 )
                 .help("When on, DJMemory scans configured recording folders while the app is open.")
+                .accessibilityIdentifier("settings.automaticScanning")
 
                 Picker(
                     "Scan interval",
@@ -239,6 +361,7 @@ private struct SettingsView: View {
                 .disabled(!model.settings.automaticScanningEnabled)
                 .pickerStyle(.segmented)
                 .help("How often DJMemory checks configured recording folders while automatic scanning is on.")
+                .accessibilityIdentifier("settings.scanInterval")
             }
             .padding(14)
             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
@@ -256,6 +379,7 @@ private struct SettingsView: View {
                 )
                 .textFieldStyle(.roundedBorder)
                 .help("Available tokens: {date}, {time}, {app}, {source}.")
+                .accessibilityIdentifier("settings.archiveNamingTemplate")
 
                 SettingsStatusRow(
                     title: "Example",
@@ -327,6 +451,14 @@ private struct SettingsView: View {
                     value: "\(model.allImportedTracklists.count)",
                     symbol: "list.bullet.rectangle"
                 )
+
+                Button {
+                    model.showOnboardingAgain()
+                } label: {
+                    Label("Show First-Run Setup", systemImage: "sparkles.rectangle.stack")
+                }
+                .help("Show the first-run setup flow again.")
+                .accessibilityIdentifier("settings.showOnboarding")
             }
         }
     }

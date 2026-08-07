@@ -310,6 +310,8 @@ The app should answer one question first:
 4. Library: confirm default archive location at `~/Music/DJMemory` or choose a different folder in Settings.
 5. Ready screen: show protected apps and folders.
 
+Implementation note: the current app shows a first-run setup sheet with detected apps, archive location, protected-source count, and actions to start folder setup or review archive settings. The flow can be reopened from Settings.
+
 ### Post-Set Flow
 
 1. DJ stops or saves recording in DJ software.

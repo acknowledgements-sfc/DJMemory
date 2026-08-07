@@ -28,7 +28,8 @@ final class AppSettingsStoreTests: XCTestCase {
             scanIntervalSeconds: 300,
             archiveNamingTemplate: "{date} - {app} - {source}",
             archiveRootPath: "/tmp/DJMemory Archive",
-            archiveRootBookmarkData: Data("bookmark".utf8)
+            archiveRootBookmarkData: Data("bookmark".utf8),
+            hasCompletedOnboarding: true
         )
 
         try store.save(settings)
@@ -51,5 +52,6 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(settings.archiveNamingTemplate, AppSettings.defaultArchiveNamingTemplate)
         XCTAssertNil(settings.archiveRootPath)
         XCTAssertNil(settings.archiveRootBookmarkData)
+        XCTAssertFalse(settings.hasCompletedOnboarding)
     }
 }

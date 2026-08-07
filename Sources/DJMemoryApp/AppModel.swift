@@ -298,7 +298,8 @@ final class AppModel: ObservableObject {
             scanIntervalSeconds: settings.scanIntervalSeconds,
             archiveNamingTemplate: settings.archiveNamingTemplate,
             archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData
+            archiveRootBookmarkData: settings.archiveRootBookmarkData,
+            hasCompletedOnboarding: settings.hasCompletedOnboarding
         ))
     }
 
@@ -308,7 +309,8 @@ final class AppModel: ObservableObject {
             scanIntervalSeconds: seconds,
             archiveNamingTemplate: settings.archiveNamingTemplate,
             archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData
+            archiveRootBookmarkData: settings.archiveRootBookmarkData,
+            hasCompletedOnboarding: settings.hasCompletedOnboarding
         ))
     }
 
@@ -318,8 +320,36 @@ final class AppModel: ObservableObject {
             scanIntervalSeconds: settings.scanIntervalSeconds,
             archiveNamingTemplate: template,
             archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData
+            archiveRootBookmarkData: settings.archiveRootBookmarkData,
+            hasCompletedOnboarding: settings.hasCompletedOnboarding
         ))
+    }
+
+    func completeOnboarding(destinationAppID: String = "protection") {
+        saveSettings(AppSettings(
+            automaticScanningEnabled: settings.automaticScanningEnabled,
+            scanIntervalSeconds: settings.scanIntervalSeconds,
+            archiveNamingTemplate: settings.archiveNamingTemplate,
+            archiveRootPath: settings.archiveRootPath,
+            archiveRootBookmarkData: settings.archiveRootBookmarkData,
+            hasCompletedOnboarding: true
+        ))
+        selectedAppID = destinationAppID
+        statusMessage = protectedAdapterCount > 0
+            ? "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
+            : "Choose recording folders to start protecting sets"
+    }
+
+    func showOnboardingAgain() {
+        saveSettings(AppSettings(
+            automaticScanningEnabled: settings.automaticScanningEnabled,
+            scanIntervalSeconds: settings.scanIntervalSeconds,
+            archiveNamingTemplate: settings.archiveNamingTemplate,
+            archiveRootPath: settings.archiveRootPath,
+            archiveRootBookmarkData: settings.archiveRootBookmarkData,
+            hasCompletedOnboarding: false
+        ))
+        selectedAppID = "protection"
     }
 
     func chooseArchiveFolder() {
@@ -345,7 +375,8 @@ final class AppModel: ObservableObject {
                 scanIntervalSeconds: settings.scanIntervalSeconds,
                 archiveNamingTemplate: settings.archiveNamingTemplate,
                 archiveRootPath: url.path,
-                archiveRootBookmarkData: bookmark
+                archiveRootBookmarkData: bookmark,
+                hasCompletedOnboarding: settings.hasCompletedOnboarding
             ))
             refresh()
             statusMessage = "Archive folder set to \(url.lastPathComponent)"
@@ -359,7 +390,8 @@ final class AppModel: ObservableObject {
         saveSettings(AppSettings(
             automaticScanningEnabled: settings.automaticScanningEnabled,
             scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate
+            archiveNamingTemplate: settings.archiveNamingTemplate,
+            hasCompletedOnboarding: settings.hasCompletedOnboarding
         ))
         refresh()
         statusMessage = "Archive folder reset to ~/Music/DJMemory"

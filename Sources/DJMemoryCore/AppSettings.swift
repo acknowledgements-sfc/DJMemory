@@ -8,19 +8,22 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let archiveNamingTemplate: String
     public let archiveRootPath: String?
     public let archiveRootBookmarkData: Data?
+    public let hasCompletedOnboarding: Bool
 
     public init(
         automaticScanningEnabled: Bool = true,
         scanIntervalSeconds: Int = 60,
         archiveNamingTemplate: String = Self.defaultArchiveNamingTemplate,
         archiveRootPath: String? = nil,
-        archiveRootBookmarkData: Data? = nil
+        archiveRootBookmarkData: Data? = nil,
+        hasCompletedOnboarding: Bool = false
     ) {
         self.automaticScanningEnabled = automaticScanningEnabled
         self.scanIntervalSeconds = scanIntervalSeconds
         self.archiveNamingTemplate = archiveNamingTemplate
         self.archiveRootPath = archiveRootPath
         self.archiveRootBookmarkData = archiveRootBookmarkData
+        self.hasCompletedOnboarding = hasCompletedOnboarding
     }
 
     public static let `default` = AppSettings()
@@ -31,6 +34,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case archiveNamingTemplate
         case archiveRootPath
         case archiveRootBookmarkData
+        case hasCompletedOnboarding
     }
 
     public init(from decoder: Decoder) throws {
@@ -41,6 +45,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
             ?? Self.defaultArchiveNamingTemplate
         archiveRootPath = try container.decodeIfPresent(String.self, forKey: .archiveRootPath)
         archiveRootBookmarkData = try container.decodeIfPresent(Data.self, forKey: .archiveRootBookmarkData)
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
     }
 }
 
