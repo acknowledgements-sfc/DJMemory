@@ -574,11 +574,13 @@ private struct ProtectionSourceRow: View {
                 Label("Setup", systemImage: "slider.horizontal.3")
             }
             .help("Open setup for \(result.software.displayName).")
+            .accessibilityIdentifier("protectionSource.\(result.software.id).setup")
 
             Button(action: chooseRecording) {
                 Label("Folder", systemImage: "folder.badge.plus")
             }
             .help("Choose the recording folder for \(result.software.displayName).")
+            .accessibilityIdentifier("protectionSource.\(result.software.id).recordingFolder")
         }
         .padding(12)
         .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
@@ -860,6 +862,7 @@ private struct HistoryImportView: View {
                                     Label("Delete", systemImage: "trash")
                                 }
                                 .help("Delete this imported tracklist from DJMemory. The original file is not changed.")
+                                .accessibilityIdentifier("historyImport.\(result.software.id).\(imported.id).delete")
                             }
 
                             ForEach(imported.tracks.prefix(5)) { track in
@@ -973,6 +976,7 @@ private struct FolderSetupView: View {
 
             FolderRow(
                 title: "Recordings",
+                accessibilityPrefix: "folderAccess.\(result.software.id).recordings",
                 folders: model.recordingFolders(for: result.software.id),
                 chooseAction: { model.chooseFolder(appID: result.software.id, kind: .recordings) },
                 clearAction: { model.clearFolder(appID: result.software.id, kind: .recordings) },
@@ -981,6 +985,7 @@ private struct FolderSetupView: View {
 
             FolderRow(
                 title: "History",
+                accessibilityPrefix: "folderAccess.\(result.software.id).history",
                 folders: model.historyFolders(for: result.software.id),
                 chooseAction: { model.chooseFolder(appID: result.software.id, kind: .history) },
                 clearAction: { model.clearFolder(appID: result.software.id, kind: .history) },
@@ -992,6 +997,7 @@ private struct FolderSetupView: View {
 
 private struct FolderRow: View {
     let title: String
+    let accessibilityPrefix: String
     let folders: [URL]
     let chooseAction: () -> Void
     let clearAction: () -> Void
@@ -1030,6 +1036,7 @@ private struct FolderRow: View {
                 Label("Choose", systemImage: "folder.badge.plus")
             }
             .help("Choose the \(title.lowercased()) folder DJMemory can access.")
+            .accessibilityIdentifier("\(accessibilityPrefix).choose")
 
             Button {
                 if let folder = folders.first {
@@ -1040,6 +1047,7 @@ private struct FolderRow: View {
             }
             .disabled(folders.isEmpty)
             .help("Reveal the selected \(title.lowercased()) folder in Finder.")
+            .accessibilityIdentifier("\(accessibilityPrefix).reveal")
 
             Button {
                 clearAction()
@@ -1048,6 +1056,7 @@ private struct FolderRow: View {
             }
             .disabled(folders.isEmpty)
             .help("Forget the selected \(title.lowercased()) folder. Files are not deleted.")
+            .accessibilityIdentifier("\(accessibilityPrefix).clear")
         }
         .padding(14)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
@@ -1196,6 +1205,7 @@ private struct SessionLibraryView: View {
                                 Label("Reveal", systemImage: "arrow.up.forward.app")
                             }
                             .help("Reveal this archived recording in Finder.")
+                            .accessibilityIdentifier("library.session.\(summary.id).revealArchive")
                         }
                     }
                 }
@@ -1252,6 +1262,7 @@ private struct SessionLibraryView: View {
                                 Label("Reveal", systemImage: "arrow.up.forward.app")
                             }
                             .help("Reveal this imported tracklist in Finder.")
+                            .accessibilityIdentifier("library.importedTracklist.\(tracklist.id).reveal")
                         }
                     }
                     TableColumn("App") { tracklist in
@@ -1398,6 +1409,7 @@ private struct TracklistDetailView: View {
                     Label("Reveal", systemImage: "arrow.up.forward.app")
                 }
                 .help("Reveal the source tracklist in Finder.")
+                .accessibilityIdentifier("tracklistDetail.\(tracklist.id).reveal")
             }
 
             Table(filteredTracks) {
@@ -1501,11 +1513,13 @@ private struct SetDetailView: View {
                     Label("Source", systemImage: "arrow.up.forward.app")
                 }
                 .help(summary.archive.sourcePath)
+                .accessibilityIdentifier("setDetail.\(summary.id).revealSource")
 
                 Button(action: revealArchive) {
                     Label("Archive", systemImage: "folder")
                 }
                 .help(summary.archive.archivePath)
+                .accessibilityIdentifier("setDetail.\(summary.id).revealArchive")
             }
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
@@ -1548,6 +1562,7 @@ private struct SetDetailView: View {
                 }
                 .disabled(selectedTracklistID == summary.context.manualTracklistID)
                 .help("Save this tracklist match for the selected archived set.")
+                .accessibilityIdentifier("setDetail.\(summary.id).applyMatch")
 
                 Button {
                     selectedTracklistID = nil
@@ -1557,6 +1572,7 @@ private struct SetDetailView: View {
                 }
                 .disabled(summary.matchedTracklist == nil && summary.context.manualTracklistID == nil)
                 .help("Remove the manual tracklist attachment for this set.")
+                .accessibilityIdentifier("setDetail.\(summary.id).detachMatch")
 
                 Spacer()
 
@@ -1568,6 +1584,7 @@ private struct SetDetailView: View {
                 }
                 .keyboardShortcut("s", modifiers: [.command])
                 .help("Save event, venue, city, tags, notes, and manual tracklist selection.")
+                .accessibilityIdentifier("setDetail.\(summary.id).saveDetails")
             }
 
             if let tracklist = summary.matchedTracklist {

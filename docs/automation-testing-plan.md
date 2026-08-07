@@ -2,6 +2,17 @@
 
 Last updated: August 6, 2026.
 
+## Current Passing Baseline
+
+Verified on August 6, 2026:
+
+- `swift test` passes the current Swift test suite.
+- `bash scripts/build-app.sh debug` builds `.build/DJMemory.app`.
+- `bash scripts/smoke-app.sh` builds, verifies the app signature, launches DJMemory, confirms the app process exists, performs a best-effort main-window check, and quits cleanly.
+- `codesign --verify --deep --strict .build/DJMemory.app` verifies the ad hoc signed app bundle.
+
+The smoke test treats process launch as required. Main-window detection is best-effort because macOS automation permissions can block System Events inspection on a tester's machine.
+
 ## Automation Layers
 
 ### 1. Swift Unit Tests
@@ -25,6 +36,8 @@ Run:
 ```bash
 swift test
 ```
+
+Current coverage includes archive copy behavior, duplicate prevention through archive metadata/fingerprints, file stability, audio filtering, metadata sidecars, folder stores, settings stores, imported tracklist stores, parser behavior, diagnostics privacy, set context, manual tracklist matching, and a temporary recording-folder integration path.
 
 ### 2. Fixture-Based Integration Tests
 
@@ -69,11 +82,11 @@ Expected checks:
 - Info.plist exists
 - ad hoc signature verifies
 - sandbox entitlements are attached
-- smoke script launches the app process and quits cleanly
+- smoke script launches the app process, performs a best-effort window check, and quits cleanly
 
 ### 4. macOS UI Smoke Automation
 
-Use macOS Automator / AppleScript / JXA where possible. `scripts/smoke-app.sh` already verifies that the app builds, codesigns, launches, and quits; the next enhancement is confirming that the main window exists when macOS automation permissions allow it.
+Use macOS Automator / AppleScript / JXA where possible. `scripts/smoke-app.sh` verifies that the app builds, codesigns, launches, and quits; it also attempts a main-window check and reports a warning when macOS automation permissions block window inspection.
 
 Automatable checks:
 
@@ -113,7 +126,7 @@ Do not use Figma as a functional test tool. Figma is for visual flows and screen
   - tracklist matching controls
   - settings toggle, picker, and text field
   - menu bar actions
-- Extend `scripts/smoke-app.sh` with a main-window check using AppleScript/JXA when automation permissions are available, while keeping a clear fallback for machines where macOS privacy settings block window inspection.
+- Keep `scripts/smoke-app.sh` permissive around the main-window check so macOS privacy settings do not block launch verification.
 - Add small sanitized parser fixtures under `Tests/DJMemoryCoreTests/Fixtures` for Serato, rekordbox, and Traktor once representative samples are available.
 - Keep archive and scanner integration coverage based on generated temporary directories rather than checked-in audio files.
 - Continue running `swift test` after fixture or test changes and `bash scripts/smoke-app.sh` for app bundle verification.

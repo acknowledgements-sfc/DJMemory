@@ -15,21 +15,21 @@ final class ScanCoordinatorTests: XCTestCase {
         tempRoot = nil
     }
 
-    func testScanRecentArchivesAudioFromRequests() throws {
+    func testScanRecentArchivesAudioFromRequestsAndSkipsDuplicateScan() throws {
         let sourceFolder = tempRoot.appendingPathComponent("Source", isDirectory: true)
         let archiveFolder = tempRoot.appendingPathComponent("Archive", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceFolder, withIntermediateDirectories: true)
 
         let sourceURL = sourceFolder.appendingPathComponent("set.wav")
-        try Data("audio".utf8).write(to: sourceURL)
+        let sourceData = Data("audio".utf8)
+        try sourceData.write(to: sourceURL)
         try FileManager.default.setAttributes(
             [.modificationDate: Date(timeIntervalSince1970: 0)],
             ofItemAtPath: sourceURL.path
         )
 
-        let scanner = RecordingFolderScanner(
-            archiveService: ArchiveService(archiveRoot: archiveFolder)
-        )
+        let archiveService = ArchiveService(archiveRoot: archiveFolder)
+        let scanner = RecordingFolderScanner(archiveService: archiveService)
         let coordinator = ScanCoordinator(scanner: scanner)
         let results = coordinator.scanRecent(
             requests: [FolderScanRequest(appID: "serato", folderURL: sourceFolder)],
@@ -39,6 +39,21 @@ final class ScanCoordinatorTests: XCTestCase {
         XCTAssertEqual(results.count, 1)
         XCTAssertNil(results.first?.errorDescription)
         XCTAssertEqual(results.first?.archivedSessions.count, 1)
+
+        let archivedSession = try XCTUnwrap(results.first?.archivedSessions.first)
+        let archiveURL = try XCTUnwrap(archivedSession.archiveURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archiveService.metadataURL(for: archiveURL).path))
+        XCTAssertEqual(try Data(contentsOf: sourceURL), sourceData)
+        XCTAssertEqual(try Data(contentsOf: archiveURL), sourceData)
+
+        let duplicateResults = coordinator.scanRecent(
+            requests: [FolderScanRequest(appID: "serato", folderURL: sourceFolder)],
+            now: Date(timeIntervalSince1970: 120)
+        )
+
+        XCTAssertEqual(duplicateResults.first?.archivedSessions.count, 0)
+        XCTAssertEqual(try archivedAudioFileCount(in: archiveFolder), 1)
     }
 
     func testScanRecentDoesNotArchiveFilesInsideStabilityWindow() throws {
@@ -75,5 +90,18 @@ final class ScanCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(results.count, 1)
         XCTAssertNotNil(results.first?.errorDescription)
+    }
+
+    private func archivedAudioFileCount(in folder: URL) throws -> Int {
+        guard FileManager.default.fileExists(atPath: folder.path) else {
+            return 0
+        }
+
+        let urls = FileManager.default.enumerator(
+            at: folder,
+            includingPropertiesForKeys: nil
+        )?.compactMap { $0 as? URL } ?? []
+
+        return urls.filter { $0.pathExtension.lowercased() == "wav" }.count
     }
 }
