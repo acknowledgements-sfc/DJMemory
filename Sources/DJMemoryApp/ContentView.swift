@@ -72,6 +72,7 @@ private struct OnboardingView: View {
                 OnboardingMetric(title: "Detected apps", value: "\(detectedAppCount)", symbol: "macwindow")
                 OnboardingMetric(title: "Archive", value: model.archiveRoot.lastPathComponent, symbol: "archivebox")
                 OnboardingMetric(title: "Protected", value: "\(model.protectedAdapterCount)", symbol: "checkmark.shield")
+                OnboardingMetric(title: "Next scan", value: model.nextScanDisplayText, symbol: "clock")
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -761,6 +762,10 @@ private struct ProtectionSourceRow: View {
 
     private var sourceDetail: String {
         if let recordingFolder = recordingFolders.first {
+            if !hasReachableRecordingFolder {
+                return "Recording folder needs recovery: \(recordingFolder.path)"
+            }
+
             return "Recording: \(recordingFolder.path)"
         }
 
@@ -777,6 +782,13 @@ private struct ProtectionSourceRow: View {
         }
 
         return "Manual setup available."
+    }
+
+    private var hasReachableRecordingFolder: Bool {
+        recordingFolders.contains { folder in
+            var isDirectory: ObjCBool = false
+            return FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        }
     }
 
     private var statusTint: Color {
