@@ -39,18 +39,31 @@ struct SupportBadge: View {
     }
 }
 
-#Preview("Badge tones") {
+#Preview("Badge tones / light") {
     HStack(spacing: 8) {
         Badge(title: "Matched", tone: .ok)
-        Badge(title: "Partial", tone: .warn)
+        Badge(title: "Unmatched", tone: .warn)
         Badge(title: "Attention", tone: .danger)
         Badge(title: "Scanning", tone: .info)
-        Badge(title: "Research", tone: .neutral)
+        Badge(title: "Neutral", tone: .neutral)
     }
     .padding()
+    .preferredColorScheme(.light)
 }
 
-#Preview("SupportBadge") {
+#Preview("Badge tones / dark") {
+    HStack(spacing: 8) {
+        Badge(title: "Matched", tone: .ok)
+        Badge(title: "Unmatched", tone: .warn)
+        Badge(title: "Attention", tone: .danger)
+        Badge(title: "Scanning", tone: .info)
+        Badge(title: "Neutral", tone: .neutral)
+    }
+    .padding()
+    .preferredColorScheme(.dark)
+}
+
+#Preview("SupportBadge matrix / light") {
     HStack(spacing: 8) {
         SupportBadge(status: .supported)
         SupportBadge(status: .partial)
@@ -58,4 +71,16 @@ struct SupportBadge: View {
         SupportBadge(status: .research)
     }
     .padding()
+    .preferredColorScheme(.light)
+}
+
+#Preview("SupportBadge matrix / dark") {
+    HStack(spacing: 8) {
+        SupportBadge(status: .supported)
+        SupportBadge(status: .partial)
+        SupportBadge(status: .manualSetup)
+        SupportBadge(status: .research)
+    }
+    .padding()
+    .preferredColorScheme(.dark)
 }

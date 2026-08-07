@@ -181,3 +181,61 @@ struct ProtectionDashboardView: View {
         }
     }
 }
+
+#Preview("Protection · Needs Setup / light") {
+    ProtectionDashboardView()
+        .environmentObject(AppModel())
+        .padding()
+        .frame(width: 900, height: 640)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Protection · Needs Setup / dark") {
+    ProtectionDashboardView()
+        .environmentObject(AppModel())
+        .padding()
+        .frame(width: 900, height: 640)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Protection · Protected / light") {
+    protectionPreview(reachable: ["serato", "rekordbox"], scheme: .light)
+}
+
+#Preview("Protection · Scanning / dark") {
+    protectionPreview(reachable: ["serato"], scanning: true, scheme: .dark)
+}
+
+#Preview("Protection · Attention Needed / light") {
+    protectionPreview(unreachable: ["serato"], scheme: .light)
+}
+
+#Preview("Protection · empty no sources / dark") {
+    ProtectionDashboardView()
+        .environmentObject(AppModel())
+        .padding()
+        .frame(width: 900, height: 640)
+        .preferredColorScheme(.dark)
+}
+
+@MainActor
+private func protectionPreview(
+    reachable: [String] = [],
+    unreachable: [String] = [],
+    scanning: Bool = false,
+    scheme: ColorScheme
+) -> some View {
+    let model = AppModel()
+    model.previewApplyConfiguredRecordingsFolders(
+        reachableAppIDs: reachable,
+        unreachableAppIDs: unreachable
+    )
+    if scanning {
+        model.previewSetScanning(true)
+    }
+    return ProtectionDashboardView()
+        .environmentObject(model)
+        .padding()
+        .frame(width: 900, height: 640)
+        .preferredColorScheme(scheme)
+}

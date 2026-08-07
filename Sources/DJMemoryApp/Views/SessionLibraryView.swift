@@ -282,3 +282,72 @@ struct SessionLibraryView: View {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
+
+#Preview("Library no archived sets / light") {
+    SessionLibraryView()
+        .environmentObject(AppModel())
+        .padding()
+        .frame(width: 1000, height: 640)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Library no archived sets / dark") {
+    SessionLibraryView()
+        .environmentObject(AppModel())
+        .padding()
+        .frame(width: 1000, height: 640)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Library matched + unmatched / light") {
+    libraryMatchedPreview(scheme: .light)
+}
+
+#Preview("Library no search results / dark") {
+    librarySeededPreview(scheme: .dark)
+}
+
+@MainActor
+private func libraryMatchedPreview(scheme: ColorScheme) -> some View {
+    let model = AppModel()
+    let matched = PreviewFixtures.archive(id: UUID(), filename: "Matched.wav", matched: true)
+    let unmatched = PreviewFixtures.archive(
+        id: UUID(),
+        filename: "Unmatched.wav",
+        matched: false,
+        event: "",
+        venue: "",
+        city: "",
+        notes: "",
+        tags: ""
+    )
+    let collection = ImportedTracklist(
+        appID: "rekordbox",
+        sourceURL: URL(fileURLWithPath: "/tmp/collection.xml"),
+        kind: .collection,
+        tracks: [TrackPlay(title: "A", artist: "B", startTime: nil, source: "p", confidence: 1)]
+    )
+    model.previewApplyLibrary(
+        archives: [matched.0, unmatched.0],
+        summaries: [matched.1, unmatched.1],
+        imported: [matched.3, collection].compactMap { $0 },
+        contexts: [matched.2, unmatched.2]
+    )
+    return SessionLibraryView()
+        .environmentObject(model)
+        .padding()
+        .frame(width: 1100, height: 700)
+        .preferredColorScheme(scheme)
+}
+
+@MainActor
+private func librarySeededPreview(scheme: ColorScheme) -> some View {
+    let model = AppModel()
+    let sample = PreviewFixtures.archive()
+    model.previewApplyLibrary(archives: [sample.0], summaries: [sample.1], contexts: [sample.2])
+    return SessionLibraryView()
+        .environmentObject(model)
+        .padding()
+        .frame(width: 1100, height: 700)
+        .preferredColorScheme(scheme)
+}

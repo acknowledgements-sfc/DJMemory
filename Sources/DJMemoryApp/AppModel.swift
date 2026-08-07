@@ -24,6 +24,9 @@ final class AppModel: ObservableObject {
     @Published var statusMessage = "Checking protection status"
     @Published private(set) var profile = DJProfile()
 
+    /// Preview-only clock override for greeting matrix (morning / afternoon / evening).
+    @Published private(set) var previewNow: Date?
+
     /// App id when `selectedRoute` is `.app` or `.recovery`.
     var selectedAppID: String? {
         selectedRoute.appID
@@ -251,6 +254,33 @@ final class AppModel: ObservableObject {
     /// Preview / test helper — does not persist.
     func previewSetScanning(_ scanning: Bool) {
         isScanning = scanning
+    }
+
+    /// Preview / test helper — does not persist.
+    func previewApplyProfile(_ profile: DJProfile) {
+        self.profile = profile
+    }
+
+    /// Preview / test helper — forces greeting hour without waiting for wall clock.
+    func previewApplyNow(_ date: Date?) {
+        previewNow = date
+    }
+
+    /// Preview / test helper — does not persist. Seeds library surfaces for Home / Library / Activity.
+    func previewApplyLibrary(
+        archives: [ArchiveMetadata] = [],
+        summaries: [LibrarySessionSummary] = [],
+        activity: [ActivityEvent] = [],
+        imported: [ImportedTracklist] = [],
+        contexts: [SetContext] = []
+    ) {
+        sessions = archives
+        librarySummaries = summaries.isEmpty
+            ? archives.map { LibrarySessionSummary(archive: $0, matchedTracklist: nil) }
+            : summaries
+        activityEvents = activity
+        importedTracklists = Dictionary(grouping: imported, by: \.appID)
+        setContexts = Dictionary(uniqueKeysWithValues: contexts.map { ($0.sessionID, $0) })
     }
 
     func historyFolders(for appID: String) -> [URL] {

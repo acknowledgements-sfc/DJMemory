@@ -6,13 +6,18 @@ struct RecoveryView: View {
     @EnvironmentObject private var model: AppModel
     let appID: String
 
-    @State private var phase: Phase = .problem
+    @State private var phase: Phase
 
-    private enum Phase {
+    enum Phase {
         case problem
         case choosing
         case recovered(archived: Int)
         case cleared
+    }
+
+    init(appID: String, startingPhase: Phase = .problem) {
+        self.appID = appID
+        _phase = State(initialValue: startingPhase)
     }
 
     private var result: SoftwareProbeResult? {
@@ -159,9 +164,42 @@ struct RecoveryView: View {
     }
 }
 
-#Preview("Recovery problem") {
-    RecoveryView(appID: "serato")
-        .environmentObject(AppModel())
+#Preview("Recovery problem / light") {
+    recoveryPreview(phase: .problem, scheme: .light)
+}
+
+#Preview("Recovery problem / dark") {
+    recoveryPreview(phase: .problem, scheme: .dark)
+}
+
+#Preview("Recovery choosing / light") {
+    recoveryPreview(phase: .choosing, scheme: .light)
+}
+
+#Preview("Recovery recovered / dark") {
+    recoveryPreview(phase: .recovered(archived: 2), scheme: .dark, seedUnreachable: false)
+}
+
+#Preview("Recovery cleared / light") {
+    recoveryPreview(phase: .cleared, scheme: .light, seedUnreachable: false)
+}
+
+@MainActor
+private func recoveryPreview(
+    phase: RecoveryView.Phase,
+    scheme: ColorScheme,
+    seedUnreachable: Bool = true
+) -> some View {
+    let model = AppModel()
+    if seedUnreachable {
+        model.previewApplyConfiguredRecordingsFolders(
+            reachableAppIDs: [],
+            unreachableAppIDs: ["serato"]
+        )
+    }
+    return RecoveryView(appID: "serato", startingPhase: phase)
+        .environmentObject(model)
         .padding()
         .frame(width: 560)
+        .preferredColorScheme(scheme)
 }

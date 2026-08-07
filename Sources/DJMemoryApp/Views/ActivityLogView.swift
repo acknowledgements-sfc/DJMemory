@@ -165,3 +165,38 @@ struct ActivityLogView: View {
         }
     }
 }
+
+#Preview("Activity empty / light") {
+    ActivityLogView()
+        .environmentObject(AppModel())
+        .padding()
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Activity empty / dark") {
+    ActivityLogView()
+        .environmentObject(AppModel())
+        .padding()
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Activity all kinds / light") {
+    activityKindsPreview(scheme: .light)
+}
+
+#Preview("Activity all kinds / dark") {
+    activityKindsPreview(scheme: .dark)
+}
+
+@MainActor
+private func activityKindsPreview(scheme: ColorScheme) -> some View {
+    let model = AppModel()
+    model.previewApplyLibrary(activity: PreviewFixtures.activityKinds())
+    return ActivityLogView()
+        .environmentObject(model)
+        .padding()
+        .frame(width: 720, height: 560)
+        .preferredColorScheme(scheme)
+}

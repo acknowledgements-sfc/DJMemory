@@ -55,7 +55,23 @@ struct PathChip: View {
     }
 }
 
-#Preview("PathChip") {
+#Preview("PathChip folder states / light") {
+    VStack(alignment: .leading, spacing: 8) {
+        Text("Set & reachable").microLabelStyle()
+        PathChip(path: "/Users/dj/Music/Serato/_Recordings")
+        Text("Not set").microLabelStyle()
+        PathChip(path: "No folder selected", tone: .warn)
+        Text("Set & unreachable").microLabelStyle()
+        PathChip(path: "/Volumes/GIG-SSD/Recordings", tone: .danger)
+        Text("Optional not set").microLabelStyle()
+        PathChip(path: "History optional — not set", tone: .warn)
+    }
+    .padding()
+    .frame(width: 360)
+    .preferredColorScheme(.light)
+}
+
+#Preview("PathChip folder states / dark") {
     VStack(alignment: .leading, spacing: 8) {
         PathChip(path: "/Users/dj/Music/Serato/_Recordings")
         PathChip(path: "No folder selected", tone: .warn)
@@ -63,4 +79,5 @@ struct PathChip: View {
     }
     .padding()
     .frame(width: 360)
+    .preferredColorScheme(.dark)
 }

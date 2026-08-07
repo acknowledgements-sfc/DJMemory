@@ -3,9 +3,9 @@ import DJMemoryCore
 
 struct OnboardingView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var step: Step = .welcome
+    @State private var step: Step
 
-    private enum Step: Int, CaseIterable {
+    enum Step: Int, CaseIterable {
         case welcome
         case djApps
         case folderAccess
@@ -23,6 +23,10 @@ struct OnboardingView: View {
             case .ready: return "Ready"
             }
         }
+    }
+
+    init(startingStep: Step = .welcome) {
+        _step = State(initialValue: startingStep)
     }
 
     var body: some View {
@@ -231,4 +235,35 @@ struct OnboardingView: View {
             step = next
         }
     }
+}
+
+#Preview("Onboarding Welcome / light") {
+    OnboardingView(startingStep: .welcome)
+        .environmentObject(AppModel())
+        .preferredColorScheme(.light)
+}
+
+#Preview("Onboarding Welcome / dark") {
+    OnboardingView(startingStep: .welcome)
+        .environmentObject(AppModel())
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Onboarding Folder Access · Continue disabled / light") {
+    OnboardingView(startingStep: .folderAccess)
+        .environmentObject(AppModel())
+        .preferredColorScheme(.light)
+}
+
+#Preview("Onboarding Ready / dark") {
+    onboardingReadyPreview()
+}
+
+@MainActor
+private func onboardingReadyPreview() -> some View {
+    let model = AppModel()
+    model.previewApplyConfiguredRecordingsFolders(reachableAppIDs: ["serato"])
+    return OnboardingView(startingStep: .ready)
+        .environmentObject(model)
+        .preferredColorScheme(.dark)
 }
