@@ -380,6 +380,8 @@ private struct AdapterDetailView: View {
                 Text(result.software.displayName)
                     .font(.title2.weight(.semibold))
 
+                FolderQuickActionsView(result: result)
+
                 StatusGrid(
                     result: result,
                     setupState: model.setupState(for: result),
@@ -433,6 +435,41 @@ private struct AdapterDetailView: View {
                 "Manual folder selection will be used before deeper integration."
             ]
         }
+    }
+}
+
+private struct FolderQuickActionsView: View {
+    @EnvironmentObject private var model: AppModel
+    let result: SoftwareProbeResult
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                model.chooseFolder(appID: result.software.id, kind: .recordings)
+            } label: {
+                Label(recordingButtonTitle, systemImage: "folder.badge.plus")
+            }
+            .controlSize(.large)
+            .help("Set the folder DJMemory scans for completed recordings.")
+
+            Button {
+                model.chooseFolder(appID: result.software.id, kind: .history)
+            } label: {
+                Label(historyButtonTitle, systemImage: "list.bullet.rectangle")
+            }
+            .controlSize(.large)
+            .help("Set the folder where DJMemory can find history exports.")
+
+            Spacer()
+        }
+    }
+
+    private var recordingButtonTitle: String {
+        model.recordingFolders(for: result.software.id).isEmpty ? "Set Recording Folder" : "Change Recording Folder"
+    }
+
+    private var historyButtonTitle: String {
+        model.historyFolders(for: result.software.id).isEmpty ? "Set History Folder" : "Change History Folder"
     }
 }
 

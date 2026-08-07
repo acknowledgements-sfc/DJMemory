@@ -3,6 +3,15 @@ import Foundation
 public enum FolderKind: String, Codable, Sendable {
     case recordings
     case history
+
+    public var displayName: String {
+        switch self {
+        case .recordings:
+            return "Recording"
+        case .history:
+            return "History"
+        }
+    }
 }
 
 public struct FolderAccess: Identifiable, Codable, Equatable, Sendable {

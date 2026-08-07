@@ -105,9 +105,11 @@ final class AppModel: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
         panel.prompt = "Choose"
+        panel.title = kind == .recordings ? "Set Recording Folder" : "Set History Folder"
         panel.message = kind == .recordings
             ? "Choose the folder where this DJ app saves recordings."
             : "Choose the folder where this DJ app saves history or exports."
+        panel.directoryURL = defaultFolderPanelURL(appID: appID, kind: kind)
 
         guard panel.runModal() == .OK, let url = panel.url else {
             return
@@ -118,7 +120,9 @@ final class AppModel: ObservableObject {
             let access = FolderAccess(appID: appID, kind: kind, url: url, bookmarkData: bookmark)
             try folderAccessStore.save(access)
             refresh()
+            statusMessage = "Saved \(kind.displayName.lowercased()) folder for \(displayName(for: appID))"
         } catch {
+            appendActivity(kind: .error, message: "Folder access save failed", detail: error.localizedDescription)
             statusMessage = "Could not save folder access: \(error.localizedDescription)"
         }
     }
@@ -349,10 +353,32 @@ final class AppModel: ObservableObject {
     }
 
     private func scanRequests() -> [FolderScanRequest] {
-        probeResults.flatMap { result in
-            recordingFolders(for: result.software.id).map { folderURL in
-                FolderScanRequest(appID: result.software.id, folderURL: folderURL)
-            }
+        probeResults.flatMap { result -> [FolderScanRequest] in
+            let configured = folderAccesses
+                .filter { $0.appID == result.software.id && $0.kind == .recordings }
+                .map { access in
+                    FolderScanRequest(
+                        appID: result.software.id,
+                        folderURL: folderAccessStore.resolve(access),
+                        bookmarkData: access.bookmarkData
+                    )
+                }
+
+            let configuredPaths = Set(configured.map(\.folderURL.path))
+            let discovered = result.existingRecordingURLs
+                .filter { !configuredPaths.contains($0.path) }
+                .map { FolderScanRequest(appID: result.software.id, folderURL: $0) }
+
+            return configured + discovered
+        }
+    }
+
+    private func defaultFolderPanelURL(appID: String, kind: FolderKind) -> URL? {
+        switch kind {
+        case .recordings:
+            return recordingFolders(for: appID).first
+        case .history:
+            return historyFolders(for: appID).first
         }
     }
 

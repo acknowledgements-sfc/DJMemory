@@ -3,10 +3,12 @@ import Foundation
 public struct FolderScanRequest: Equatable, Sendable {
     public let appID: String
     public let folderURL: URL
+    public let bookmarkData: Data?
 
-    public init(appID: String, folderURL: URL) {
+    public init(appID: String, folderURL: URL, bookmarkData: Data? = nil) {
         self.appID = appID
         self.folderURL = folderURL
+        self.bookmarkData = bookmarkData
     }
 }
 
@@ -45,12 +47,14 @@ public struct ScanCoordinator {
 
         return requests.map { request in
             do {
-                let sessions = try scanner.archiveRecentStableFiles(
-                    in: request.folderURL,
-                    sourceAppID: request.appID,
-                    modifiedAfter: cutoff,
-                    stableBefore: stableBefore
-                )
+                let sessions = try withSecurityScopedFolder(request) { folderURL in
+                    try scanner.archiveRecentStableFiles(
+                        in: folderURL,
+                        sourceAppID: request.appID,
+                        modifiedAfter: cutoff,
+                        stableBefore: stableBefore
+                    )
+                }
 
                 return FolderScanResult(
                     appID: request.appID,
@@ -67,5 +71,34 @@ public struct ScanCoordinator {
                 )
             }
         }
+    }
+
+    private func withSecurityScopedFolder<T>(
+        _ request: FolderScanRequest,
+        operation: (URL) throws -> T
+    ) throws -> T {
+        guard let bookmarkData = request.bookmarkData else {
+            return try operation(request.folderURL)
+        }
+
+        var isStale = false
+        let url = try URL(
+            resolvingBookmarkData: bookmarkData,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        )
+        guard !isStale else {
+            return try operation(request.folderURL)
+        }
+
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try operation(url)
     }
 }
