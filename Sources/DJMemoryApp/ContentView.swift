@@ -600,6 +600,10 @@ private struct AdapterDetailView: View {
 
                 HistoryImportView(result: result)
 
+                if result.software.id == "virtualdj" {
+                    VirtualDJNetworkControlView()
+                }
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Setup")
                         .font(.headline)
@@ -655,6 +659,71 @@ private struct AdapterDetailView: View {
                 "Manual folder selection will be used before deeper integration."
             ]
         }
+    }
+}
+
+private struct VirtualDJNetworkControlView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Network Control")
+                        .font(.headline)
+                    Text(statusText)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    model.checkVirtualDJNetworkControl()
+                } label: {
+                    Label(buttonTitle, systemImage: model.isCheckingVirtualDJNetwork ? "hourglass" : "network")
+                }
+                .disabled(model.isCheckingVirtualDJNetwork)
+                .help("Check whether VirtualDJ Network Control is reachable on this Mac.")
+            }
+
+            if let result = model.virtualDJNetworkProbeResult {
+                HStack(spacing: 10) {
+                    Label(result.reachable ? "Reachable" : "Not reachable", systemImage: result.reachable ? "checkmark.circle.fill" : "xmark.circle")
+                        .foregroundStyle(result.reachable ? .green : .orange)
+
+                    Text(result.endpoint.absoluteString)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    if let statusCode = result.statusCode {
+                        Text("HTTP \(statusCode)")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var buttonTitle: String {
+        model.isCheckingVirtualDJNetwork ? "Checking" : "Check"
+    }
+
+    private var statusText: String {
+        if model.isCheckingVirtualDJNetwork {
+            return "Checking the local VirtualDJ endpoint."
+        }
+
+        guard let result = model.virtualDJNetworkProbeResult else {
+            return "Optional local probe for future deeper VirtualDJ support."
+        }
+
+        return result.reachable
+            ? "VirtualDJ responded locally. File watching still remains the active MVP path."
+            : "Not reachable. VirtualDJ may be closed or Network Control may be disabled."
     }
 }
 

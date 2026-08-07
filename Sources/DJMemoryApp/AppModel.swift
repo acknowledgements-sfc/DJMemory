@@ -14,6 +14,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var setContexts: [UUID: SetContext] = [:]
     @Published private(set) var activityEvents: [ActivityEvent] = []
     @Published private(set) var settings = AppSettings.default
+    @Published private(set) var virtualDJNetworkProbeResult: VirtualDJNetworkProbeResult?
+    @Published private(set) var isCheckingVirtualDJNetwork = false
     @Published private(set) var isScanning = false
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
@@ -251,6 +253,30 @@ final class AppModel: ObservableObject {
                 appendScanActivity(results)
                 refresh()
                 statusMessage = scanStatusMessage(for: results)
+            }
+        }
+    }
+
+    func checkVirtualDJNetworkControl() {
+        guard !isCheckingVirtualDJNetwork else { return }
+
+        isCheckingVirtualDJNetwork = true
+        statusMessage = "Checking VirtualDJ Network Control"
+
+        Task {
+            let result = await VirtualDJNetworkProbe().probe()
+
+            await MainActor.run {
+                virtualDJNetworkProbeResult = result
+                isCheckingVirtualDJNetwork = false
+                appendActivity(
+                    kind: result.reachable ? .scan : .error,
+                    message: result.reachable ? "VirtualDJ Network Control reachable" : "VirtualDJ Network Control not reachable",
+                    detail: result.errorDescription ?? result.endpoint.absoluteString
+                )
+                statusMessage = result.reachable
+                    ? "VirtualDJ Network Control is reachable"
+                    : "VirtualDJ Network Control is not reachable"
             }
         }
     }
