@@ -142,8 +142,65 @@ final class AppModel: ObservableObject {
         return configured + discovered
     }
 
+    /// User-chosen recordings folder via security-scoped `FolderAccess` (HANDOFF-2 §4.10).
+    func hasConfiguredRecordingsFolder(appID: String) -> Bool {
+        folderAccesses.contains { $0.appID == appID && $0.kind == .recordings }
+    }
+
+    var configuredProbeResults: [SoftwareProbeResult] {
+        probeResults.filter { hasConfiguredRecordingsFolder(appID: $0.software.id) }
+    }
+
+    var unconfiguredProbeResults: [SoftwareProbeResult] {
+        probeResults.filter { !hasConfiguredRecordingsFolder(appID: $0.software.id) }
+    }
+
+    /// Configured recordings folder exists but none of its resolved URLs are reachable.
+    func isConfiguredRecordingsFolderUnreachable(appID: String) -> Bool {
+        let configuredURLs = folderAccesses
+            .filter { $0.appID == appID && $0.kind == .recordings }
+            .map { folderAccessStore.resolve($0) }
+
+        guard !configuredURLs.isEmpty else {
+            return false
+        }
+
+        return !configuredURLs.contains(where: isReachableDirectory(_:))
+    }
+
     func reachableRecordingFolders(for appID: String) -> [URL] {
         recordingFolders(for: appID).filter(isReachableDirectory(_:))
+    }
+
+    /// Preview / test helper — does not persist. Seeds `FolderAccess` rows for sidebar matrix previews.
+    func previewApplyConfiguredRecordingsFolders(
+        reachableAppIDs: [String],
+        unreachableAppIDs: [String] = []
+    ) {
+        var accesses: [FolderAccess] = []
+
+        for appID in reachableAppIDs {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("djmemory-preview-\(appID)", isDirectory: true)
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            accesses.append(
+                FolderAccess(appID: appID, kind: .recordings, url: url, bookmarkData: nil)
+            )
+        }
+
+        for appID in unreachableAppIDs {
+            let url = URL(fileURLWithPath: "/Volumes/MissingDrive-\(appID)/Recordings", isDirectory: true)
+            accesses.append(
+                FolderAccess(appID: appID, kind: .recordings, url: url, bookmarkData: nil)
+            )
+        }
+
+        folderAccesses = accesses
+    }
+
+    /// Preview / test helper — does not persist.
+    func previewSetScanning(_ scanning: Bool) {
+        isScanning = scanning
     }
 
     func historyFolders(for appID: String) -> [URL] {

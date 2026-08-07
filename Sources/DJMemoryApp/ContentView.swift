@@ -6,7 +6,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            Sidebar()
+            SidebarView()
         } detail: {
             DashboardView()
         }
@@ -154,49 +154,6 @@ private struct OnboardingMetric: View {
         .padding(12)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
         .help("\(title): \(value)")
-    }
-}
-
-private struct Sidebar: View {
-    @EnvironmentObject private var model: AppModel
-
-    var body: some View {
-        List(selection: $model.selectedAppID) {
-            Section("DJMemory") {
-                Label("Protection", systemImage: model.protectionSymbolName)
-                    .tag("protection")
-                    .accessibilityIdentifier("sidebar.protection")
-                Label("Library", systemImage: "music.note.list")
-                    .tag("library")
-                    .accessibilityIdentifier("sidebar.library")
-                Label("Activity", systemImage: "clock.arrow.circlepath")
-                    .tag("activity")
-                    .accessibilityIdentifier("sidebar.activity")
-                Label("Settings", systemImage: "gearshape")
-                    .tag("settings")
-                    .accessibilityIdentifier("sidebar.settings")
-            }
-
-            Section("DJ Apps") {
-                ForEach(model.probeResults, id: \.software.id) { result in
-                    Label(result.software.displayName, systemImage: iconName(for: result))
-                        .tag(result.software.id)
-                        .accessibilityIdentifier("sidebar.app.\(result.software.id)")
-                }
-            }
-        }
-        .navigationTitle("DJMemory")
-    }
-
-    private func iconName(for result: SoftwareProbeResult) -> String {
-        switch result.status {
-        case "running":
-            return "play.circle.fill"
-        case "installed", "folders-found":
-            return "checkmark.circle"
-        default:
-            return "circle"
-        }
     }
 }
 
