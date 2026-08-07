@@ -122,7 +122,26 @@ final class ScanCoordinatorTests: XCTestCase {
         )
 
         XCTAssertEqual(results.count, 1)
-        XCTAssertNotNil(results.first?.errorDescription)
+        XCTAssertEqual(
+            results.first?.errorDescription,
+            "Recording folder was moved or deleted. Choose the folder again in setup."
+        )
+    }
+
+    func testScanRecentReportsPlainLanguageErrorWhenPathIsAFile() throws {
+        let fileURL = tempRoot.appendingPathComponent("not-a-folder.wav")
+        try Data("audio".utf8).write(to: fileURL)
+
+        let coordinator = ScanCoordinator()
+        let results = coordinator.scanRecent(
+            requests: [FolderScanRequest(appID: "serato", folderURL: fileURL)]
+        )
+
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(
+            results.first?.errorDescription,
+            "Saved recording folder points to a file. Choose the recording folder again in setup."
+        )
     }
 
     private func archivedAudioFileCount(in folder: URL) throws -> Int {

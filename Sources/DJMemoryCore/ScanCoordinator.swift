@@ -82,10 +82,34 @@ public struct ScanCoordinator {
                     appID: request.appID,
                     folderURL: request.folderURL,
                     archivedSessions: [],
-                    errorDescription: error.localizedDescription
+                    errorDescription: scanErrorDescription(error, folderURL: request.folderURL)
                 )
             }
         }
+    }
+
+    private func scanErrorDescription(_ error: Error, folderURL: URL) -> String {
+        var isDirectory: ObjCBool = false
+        let folderExists = FileManager.default.fileExists(atPath: folderURL.path, isDirectory: &isDirectory)
+
+        if !folderExists {
+            return "Recording folder was moved or deleted. Choose the folder again in setup."
+        }
+
+        if !isDirectory.boolValue {
+            return "Saved recording folder points to a file. Choose the recording folder again in setup."
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoPermissionError {
+            return "DJMemory cannot read this folder. Choose it again to refresh permission."
+        }
+
+        if nsError.domain == NSPOSIXErrorDomain, nsError.code == Int(EACCES) {
+            return "DJMemory cannot read this folder. Choose it again to refresh permission."
+        }
+
+        return "Could not scan this folder. Choose it again in setup. \(error.localizedDescription)"
     }
 
     private func withSecurityScopedFolder<T>(

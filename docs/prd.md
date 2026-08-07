@@ -276,6 +276,8 @@ Implementation note: scans now report active recordings separately from archived
 - Failure state with plain-language next step.
 - Basic diagnostics export for support/debugging.
 
+Implementation note: scan failures now map missing, moved, file-backed, and unreadable recording folders into recovery-oriented messages instead of raw system errors.
+
 ### Could Have
 
 - Tracklist import for Serato CSV/TXT.
