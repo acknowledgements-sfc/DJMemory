@@ -23,6 +23,15 @@ Archived recordings are copied to `~/Music/DJMemory` by default with a JSON meta
 
 `DJMemoryApp` launches the first SwiftUI app shell with setup status, menu-bar status, and an archived-session library view.
 
+For a clickable local macOS app bundle:
+
+```bash
+bash scripts/build-app.sh
+open .build/DJMemory.app
+```
+
+The local bundle is signed ad hoc with sandbox-oriented entitlements in `packaging/DJMemory.entitlements`. Xcode is still needed later for Developer ID/App Store signing, icons, notarization, and archived release export.
+
 The app can save recording/history folder selections using macOS security-scoped bookmarks, which keeps the setup path compatible with sandboxed distribution.
 
 Configured recording folders can be scanned from the app with **Scan Now**. While the app is open, it also checks configured folders once per minute.
@@ -33,7 +42,7 @@ To open the package in Xcode:
 bash scripts/open-xcode.sh
 ```
 
-Xcode is not required for day-to-day preview, but it will be needed for signing, sandbox entitlement inspection, icons, and packaged app export.
+Xcode is not required for day-to-day preview, but it will be needed for production signing, sandbox entitlement inspection, icons, notarization, and packaged app export.
 
 ## Product Direction
 
