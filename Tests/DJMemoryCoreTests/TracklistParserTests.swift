@@ -111,4 +111,49 @@ final class TracklistParserTests: XCTestCase {
         XCTAssertEqual(tracks.first?.startTime, "00:00")
         XCTAssertEqual(tracks.first?.source, "history.nml")
     }
+
+    func testVirtualDJHistoryParserReadsDatabaseSongAttributes() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <VirtualDJ_Database Version="8">
+          <Song FilePath="/Music/Inner City - Good Life.mp3" Title="Good Life" Author="Inner City" />
+          <Song FilePath="/Music/Robin S - Show Me Love.mp3" Title="Show Me Love" Author="Robin S" />
+        </VirtualDJ_Database>
+        """
+
+        let tracks = try VirtualDJHistoryParser().parse(data: Data(xml.utf8), sourceName: "database.xml")
+
+        XCTAssertEqual(tracks.count, 2)
+        XCTAssertEqual(tracks.first?.title, "Good Life")
+        XCTAssertEqual(tracks.first?.artist, "Inner City")
+    }
+
+    func testVirtualDJHistoryParserReadsM3UEntries() throws {
+        let m3u = """
+        #EXTM3U
+        #EXTINF:351,Inner City - Good Life
+        /Music/Inner City - Good Life.mp3
+        #EXTINF:320,Robin S - Show Me Love
+        /Music/Robin S - Show Me Love.mp3
+        """
+
+        let tracks = try VirtualDJHistoryParser().parse(data: Data(m3u.utf8), sourceName: "history.m3u")
+
+        XCTAssertEqual(tracks.count, 2)
+        XCTAssertEqual(tracks.first?.title, "Good Life")
+        XCTAssertEqual(tracks.first?.artist, "Inner City")
+    }
+
+    func testVirtualDJHistoryParserFallsBackToDelimitedText() throws {
+        let text = """
+        Artist,Title,Time
+        Cajmere,Percolator,00:00
+        """
+
+        let tracks = try VirtualDJHistoryParser().parse(data: Data(text.utf8), sourceName: "history.txt")
+
+        XCTAssertEqual(tracks.count, 1)
+        XCTAssertEqual(tracks.first?.title, "Percolator")
+        XCTAssertEqual(tracks.first?.artist, "Cajmere")
+    }
 }

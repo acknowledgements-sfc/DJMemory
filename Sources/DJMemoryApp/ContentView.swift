@@ -643,6 +643,12 @@ private struct AdapterDetailView: View {
                 "Versioned Traktor History folders are detected under Native Instruments.",
                 "Import Traktor .nml history playlists for tracklists."
             ]
+        case "virtualdj":
+            return [
+                "DJMemory checks ~/Documents/VirtualDJ when it exists.",
+                "History imports support VirtualDJ text, M3U, XML, and .vdjfolder files.",
+                "Deeper Network Control or plugin support remains a later decision."
+            ]
         default:
             return [
                 "Coming after Serato and rekordbox MVP support.",
@@ -771,6 +777,8 @@ private struct HistoryImportView: View {
             return "Import a rekordbox XML or history export to test metadata compatibility."
         case "traktor":
             return "Import a Traktor NML history playlist to preview tracklist parsing."
+        case "virtualdj":
+            return "Import a VirtualDJ history, M3U, XML, or .vdjfolder file to preview tracklist parsing."
         default:
             return "History import is planned after Serato and rekordbox support."
         }

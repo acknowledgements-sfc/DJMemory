@@ -153,7 +153,10 @@ final class AppModel: ObservableObject {
             .tabSeparatedText,
             .plainText,
             .xml,
-            UTType(filenameExtension: "nml") ?? .xml
+            UTType(filenameExtension: "nml") ?? .xml,
+            UTType(filenameExtension: "m3u") ?? .plainText,
+            UTType(filenameExtension: "m3u8") ?? .plainText,
+            UTType(filenameExtension: "vdjfolder") ?? .xml
         ]
         panel.prompt = "Import"
         panel.message = "Choose a history export or tracklist file."
@@ -512,6 +515,8 @@ final class AppModel: ObservableObject {
             return RekordboxXMLParser()
         case "traktor":
             return TraktorNMLParser()
+        case "virtualdj":
+            return VirtualDJHistoryParser()
         default:
             return DelimitedTracklistParser()
         }

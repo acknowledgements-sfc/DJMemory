@@ -238,3 +238,155 @@ public final class TraktorNMLParser: NSObject, TracklistParser, XMLParserDelegat
         return nil
     }
 }
+
+public struct VirtualDJHistoryParser: TracklistParser {
+    private let delimitedParser: DelimitedTracklistParser
+    private let databaseParser: VirtualDJDatabaseParser
+
+    public init(
+        delimitedParser: DelimitedTracklistParser = DelimitedTracklistParser(),
+        databaseParser: VirtualDJDatabaseParser = VirtualDJDatabaseParser()
+    ) {
+        self.delimitedParser = delimitedParser
+        self.databaseParser = databaseParser
+    }
+
+    public func parse(data: Data, sourceName: String = "VirtualDJ History") throws -> [TrackPlay] {
+        let extensionName = (sourceName as NSString).pathExtension.lowercased()
+
+        if ["xml", "vdjfolder"].contains(extensionName) {
+            let databaseTracks = try databaseParser.parse(data: data, sourceName: sourceName)
+            if !databaseTracks.isEmpty {
+                return databaseTracks
+            }
+        }
+
+        if shouldParseAsM3U(data: data, sourceName: sourceName),
+           let m3uTracks = try? parseM3U(data: data, sourceName: sourceName),
+           !m3uTracks.isEmpty {
+            return m3uTracks
+        }
+
+        return try delimitedParser.parse(data: data, sourceName: sourceName)
+    }
+
+    private func shouldParseAsM3U(data: Data, sourceName: String) -> Bool {
+        let extensionName = (sourceName as NSString).pathExtension.lowercased()
+        if ["m3u", "m3u8"].contains(extensionName) {
+            return true
+        }
+
+        guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .macOSRoman) else {
+            return false
+        }
+
+        return text
+            .components(separatedBy: .newlines)
+            .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .localizedCaseInsensitiveCompare("#EXTM3U") == .orderedSame
+    }
+
+    private func parseM3U(data: Data, sourceName: String) throws -> [TrackPlay] {
+        guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .macOSRoman) else {
+            throw TracklistParserError.unreadableText
+        }
+
+        var pendingTitle: String?
+        var pendingArtist: String?
+        var tracks: [TrackPlay] = []
+
+        for rawLine in text.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else { continue }
+
+            if line.hasPrefix("#EXTINF:") {
+                let info = line.components(separatedBy: ",").dropFirst().joined(separator: ",")
+                let parts = info.components(separatedBy: " - ")
+                if parts.count >= 2 {
+                    pendingArtist = parts.first?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    pendingTitle = parts.dropFirst().joined(separator: " - ").trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    pendingTitle = info.trimmingCharacters(in: .whitespacesAndNewlines)
+                    pendingArtist = ""
+                }
+            } else if !line.hasPrefix("#") {
+                let fallbackTitle = URL(fileURLWithPath: line).deletingPathExtension().lastPathComponent
+                let title = pendingTitle?.isEmpty == false ? pendingTitle ?? fallbackTitle : fallbackTitle
+                tracks.append(
+                    TrackPlay(
+                        title: StringDecoding.decodedEntities(title),
+                        artist: StringDecoding.decodedEntities(pendingArtist ?? ""),
+                        startTime: nil,
+                        source: sourceName,
+                        confidence: pendingTitle == nil ? 0.55 : 0.8
+                    )
+                )
+                pendingTitle = nil
+                pendingArtist = nil
+            }
+        }
+
+        return tracks
+    }
+}
+
+public final class VirtualDJDatabaseParser: NSObject, TracklistParser, XMLParserDelegate {
+    private var tracks: [TrackPlay] = []
+    private var sourceName = "VirtualDJ Database"
+
+    public override init() {}
+
+    public func parse(data: Data, sourceName: String = "VirtualDJ Database") throws -> [TrackPlay] {
+        self.tracks = []
+        self.sourceName = sourceName
+
+        let parser = XMLParser(data: data)
+        parser.delegate = self
+        parser.parse()
+
+        return tracks
+    }
+
+    public func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        guard ["SONG", "TRACK"].contains(elementName.uppercased()) else { return }
+
+        let title = value(from: attributeDict, keys: ["Title", "TITLE", "Name", "NAME"])
+            ?? titleFromFilePath(value(from: attributeDict, keys: ["FilePath", "FILEPATH", "Path", "PATH"]))
+        let artist = value(from: attributeDict, keys: ["Author", "AUTHOR", "Artist", "ARTIST"]) ?? ""
+        let startTime = value(from: attributeDict, keys: ["StartTime", "STARTTIME", "Time", "TIME"])
+
+        guard let title, !title.isEmpty else { return }
+
+        tracks.append(
+            TrackPlay(
+                title: StringDecoding.decodedEntities(title),
+                artist: StringDecoding.decodedEntities(artist),
+                startTime: startTime,
+                source: sourceName,
+                confidence: 0.75
+            )
+        )
+    }
+
+    private func value(from attributes: [String: String], keys: [String]) -> String? {
+        for key in keys {
+            if let value = attributes[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty {
+                return value
+            }
+        }
+
+        return nil
+    }
+
+    private func titleFromFilePath(_ filePath: String?) -> String? {
+        guard let filePath, !filePath.isEmpty else { return nil }
+        return URL(fileURLWithPath: filePath).deletingPathExtension().lastPathComponent
+    }
+}
