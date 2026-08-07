@@ -77,4 +77,24 @@ final class ImportedTracklistStoreTests: XCTestCase {
 
         XCTAssertEqual(imported.first?.kind, .setHistory)
     }
+
+    func testDecodeLegacyRekordboxXMLImportDefaultsToCollection() throws {
+        let store = ImportedTracklistStore(storageURL: tempRoot.appendingPathComponent("tracklists.json"))
+        let json = """
+        [
+          {
+            "appID" : "rekordbox",
+            "id" : "00000000-0000-0000-0000-000000000002",
+            "importedAt" : "2026-08-06T12:00:00Z",
+            "sourceURL" : "file:///tmp/rekordbox.xml",
+            "tracks" : []
+          }
+        ]
+        """
+        try Data(json.utf8).write(to: store.storageURL)
+
+        let imported = try store.all()
+
+        XCTAssertEqual(imported.first?.kind, .collection)
+    }
 }

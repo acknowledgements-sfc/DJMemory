@@ -47,8 +47,17 @@ public struct ImportedTracklist: Identifiable, Codable, Equatable, Sendable {
         id = try container.decode(UUID.self, forKey: .id)
         appID = try container.decode(String.self, forKey: .appID)
         sourceURL = try container.decode(URL.self, forKey: .sourceURL)
-        kind = try container.decodeIfPresent(ImportedTracklistKind.self, forKey: .kind) ?? .setHistory
+        kind = try container.decodeIfPresent(ImportedTracklistKind.self, forKey: .kind)
+            ?? Self.defaultKind(appID: appID, sourceURL: sourceURL)
         tracks = try container.decode([TrackPlay].self, forKey: .tracks)
         importedAt = try container.decode(Date.self, forKey: .importedAt)
+    }
+
+    private static func defaultKind(appID: String, sourceURL: URL) -> ImportedTracklistKind {
+        if appID == "rekordbox", sourceURL.pathExtension.localizedCaseInsensitiveCompare("xml") == .orderedSame {
+            return .collection
+        }
+
+        return .setHistory
     }
 }
