@@ -422,7 +422,7 @@ private struct SessionLibraryView: View {
             Text("Archived Sets")
                 .font(.title2.weight(.semibold))
 
-            if model.sessions.isEmpty {
+            if model.librarySummaries.isEmpty {
                 ContentUnavailableView(
                     "No archived sets yet",
                     systemImage: "music.note",
@@ -430,15 +430,21 @@ private struct SessionLibraryView: View {
                 )
                 .frame(maxWidth: .infinity, minHeight: 280)
             } else {
-                Table(model.sessions, selection: .constant(nil)) {
-                    TableColumn("Original") { metadata in
-                        Text(metadata.originalFilename)
+                Table(model.librarySummaries, selection: .constant(nil)) {
+                    TableColumn("Recording") { summary in
+                        Text(summary.archive.originalFilename)
                     }
-                    TableColumn("Source") { metadata in
-                        Text(metadata.sourceAppID)
+                    TableColumn("App") { summary in
+                        Text(summary.archive.sourceAppID)
                     }
-                    TableColumn("Archived") { metadata in
-                        Text(metadata.archivePath)
+                    TableColumn("Tracks") { summary in
+                        Text(summary.trackCount == 0 ? "No tracklist" : "\(summary.trackCount)")
+                    }
+                    TableColumn("Tracklist") { summary in
+                        Text(summary.matchedTracklist?.sourceURL.lastPathComponent ?? "None")
+                    }
+                    TableColumn("Archived") { summary in
+                        Text(summary.archive.archivePath)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }

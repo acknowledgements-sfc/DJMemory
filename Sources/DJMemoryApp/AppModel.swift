@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var folderAccesses: [FolderAccess] = []
     @Published private(set) var lastScanResults: [FolderScanResult] = []
     @Published private(set) var importedTracklists: [String: [ImportedTracklist]] = [:]
+    @Published private(set) var librarySummaries: [LibrarySessionSummary] = []
     @Published private(set) var isScanning = false
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
@@ -51,6 +52,10 @@ final class AppModel: ObservableObject {
             grouping: (try? importedTracklistStore.all()) ?? [],
             by: \.appID
         ).mapValues { $0.sorted { $0.importedAt > $1.importedAt } }
+        librarySummaries = LibrarySessionMatcher().summaries(
+            archives: sessions,
+            importedTracklists: importedTracklists.values.flatMap { $0 }
+        )
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
