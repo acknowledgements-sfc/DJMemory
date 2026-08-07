@@ -45,6 +45,7 @@ bash scripts/package-beta.sh
 The local bundle is signed ad hoc with sandbox-oriented entitlements in `packaging/DJMemory.entitlements`. Xcode is still needed later for Developer ID/App Store signing, icons, notarization, and archived release export.
 
 Beta handoff checks live in `docs/beta-release-checklist.md`.
+MVP acceptance evidence lives in `docs/mvp-readiness-audit.md`.
 Current DJ app support levels live in `docs/integration-status.md`.
 Local smoke-test coverage lives in `scripts/smoke-app.sh`.
 

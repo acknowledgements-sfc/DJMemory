@@ -12,6 +12,7 @@ Last updated: August 6, 2026.
 - Confirm `.build/DJMemory.app` exists.
 - Confirm `codesign --verify --deep --strict .build/DJMemory.app` passes.
 - Confirm `.build/distribution/` contains a zip and JSON manifest with a SHA-256 checksum.
+- Review `docs/mvp-readiness-audit.md` for automated evidence and remaining manual checks.
 
 ## Signing and Distribution
 
