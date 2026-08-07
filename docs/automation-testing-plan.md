@@ -120,10 +120,7 @@ Do not use Figma as a functional test tool. Figma is for visual flows and screen
 ## Recommended Next Automation Work
 
 - Add accessibility identifiers to uncovered app controls:
-  - setup-row buttons
-  - library/session actions
   - track search
-  - tracklist matching controls
   - settings toggle, picker, and text field
   - menu bar actions
 - Keep `scripts/smoke-app.sh` permissive around the main-window check so macOS privacy settings do not block launch verification.
