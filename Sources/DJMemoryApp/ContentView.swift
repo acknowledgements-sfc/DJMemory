@@ -200,28 +200,44 @@ private struct HistoryImportView: View {
                 }
             }
 
-            if let imported = model.importedTracklist(for: result.software.id) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("\(imported.tracks.count) track\(imported.tracks.count == 1 ? "" : "s") from \(imported.sourceURL.lastPathComponent)")
-                        .foregroundStyle(.secondary)
+            let imports = model.importedTracklists(for: result.software.id)
 
-                    ForEach(imported.tracks.prefix(5)) { track in
-                        HStack {
-                            Text(track.artist.isEmpty ? "Unknown Artist" : track.artist)
-                                .frame(width: 180, alignment: .leading)
-                            Text(track.title)
-                            Spacer()
-                            if let startTime = track.startTime {
-                                Text(startTime)
-                                    .font(.caption.monospacedDigit())
+            if !imports.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(imports) { imported in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("\(imported.tracks.count) track\(imported.tracks.count == 1 ? "" : "s") from \(imported.sourceURL.lastPathComponent)")
                                     .foregroundStyle(.secondary)
+
+                                Spacer()
+
+                                Button {
+                                    model.deleteImportedTracklist(id: imported.id)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+
+                            ForEach(imported.tracks.prefix(5)) { track in
+                                HStack {
+                                    Text(track.artist.isEmpty ? "Unknown Artist" : track.artist)
+                                        .frame(width: 180, alignment: .leading)
+                                    Text(track.title)
+                                    Spacer()
+                                    if let startTime = track.startTime {
+                                        Text(startTime)
+                                            .font(.caption.monospacedDigit())
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .font(.callout)
                             }
                         }
-                        .font(.callout)
+                        .padding(14)
+                        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
-                .padding(14)
-                .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             } else {
                 Text(historyPrompt(for: result.software.id))
                     .foregroundStyle(.secondary)

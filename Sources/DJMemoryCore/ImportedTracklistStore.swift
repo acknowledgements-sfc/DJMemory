@@ -38,6 +38,12 @@ public struct ImportedTracklistStore {
         try write(tracklists)
     }
 
+    public func remove(id: UUID) throws {
+        var tracklists = try all()
+        tracklists.removeAll { $0.id == id }
+        try write(tracklists)
+    }
+
     private func write(_ tracklists: [ImportedTracklist]) throws {
         try fileManager.createDirectory(
             at: storageURL.deletingLastPathComponent(),

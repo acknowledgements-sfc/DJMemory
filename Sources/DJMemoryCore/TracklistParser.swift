@@ -63,8 +63,8 @@ public struct DelimitedTracklistParser: TracklistParser {
         }
 
         return TrackPlay(
-            title: title,
-            artist: artist ?? "",
+            title: StringDecoding.decodedEntities(title),
+            artist: StringDecoding.decodedEntities(artist ?? ""),
             startTime: startTime,
             source: sourceName,
             confidence: header.isEmpty ? 0.55 : 0.85
@@ -175,8 +175,8 @@ public final class RekordboxXMLParser: NSObject, TracklistParser, XMLParserDeleg
 
         tracks.append(
             TrackPlay(
-                title: title,
-                artist: artist,
+                title: StringDecoding.decodedEntities(title),
+                artist: StringDecoding.decodedEntities(artist),
                 startTime: nil,
                 source: sourceName,
                 confidence: 0.8

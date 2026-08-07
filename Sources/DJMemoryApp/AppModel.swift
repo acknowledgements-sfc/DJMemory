@@ -8,7 +8,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var sessions: [ArchiveMetadata] = []
     @Published private(set) var folderAccesses: [FolderAccess] = []
     @Published private(set) var lastScanResults: [FolderScanResult] = []
-    @Published private(set) var importedTracklists: [String: ImportedTracklist] = [:]
+    @Published private(set) var importedTracklists: [String: [ImportedTracklist]] = [:]
     @Published private(set) var isScanning = false
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
@@ -50,7 +50,7 @@ final class AppModel: ObservableObject {
         importedTracklists = Dictionary(
             grouping: (try? importedTracklistStore.all()) ?? [],
             by: \.appID
-        ).compactMapValues { $0.sorted { $0.importedAt > $1.importedAt }.first }
+        ).mapValues { $0.sorted { $0.importedAt > $1.importedAt } }
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
@@ -138,10 +138,19 @@ final class AppModel: ObservableObject {
             let tracks = try parser.parse(data: data, sourceName: url.lastPathComponent)
             let importedTracklist = ImportedTracklist(appID: appID, sourceURL: url, tracks: tracks)
             try importedTracklistStore.save(importedTracklist)
-            importedTracklists[appID] = importedTracklist
+            refresh()
             statusMessage = "Imported \(tracks.count) track\(tracks.count == 1 ? "" : "s") from \(url.lastPathComponent)"
         } catch {
             statusMessage = "Could not import history: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteImportedTracklist(id: UUID) {
+        do {
+            try importedTracklistStore.remove(id: id)
+            refresh()
+        } catch {
+            statusMessage = "Could not delete import: \(error.localizedDescription)"
         }
     }
 
@@ -169,8 +178,8 @@ final class AppModel: ObservableObject {
         lastScanResults.filter { $0.appID == appID }
     }
 
-    func importedTracklist(for appID: String) -> ImportedTracklist? {
-        importedTracklists[appID]
+    func importedTracklists(for appID: String) -> [ImportedTracklist] {
+        importedTracklists[appID] ?? []
     }
 
     private func startBackgroundScanning() {

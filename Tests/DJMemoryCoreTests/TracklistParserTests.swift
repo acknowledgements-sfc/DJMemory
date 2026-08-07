@@ -58,6 +58,17 @@ final class TracklistParserTests: XCTestCase {
         XCTAssertEqual(tracks.first?.startTime, "7:55:45 PM PDT")
     }
 
+    func testDelimitedParserDecodesHtmlEntities() throws {
+        let csv = """
+        name,start time
+        Big Pimpin&#39;,8:11:00 PM PDT
+        """
+
+        let tracks = try SeratoHistoryParser().parse(data: Data(csv.utf8), sourceName: "test.csv")
+
+        XCTAssertEqual(tracks.first?.title, "Big Pimpin'")
+    }
+
     func testRekordboxXMLParserReadsCollectionTracks() throws {
         let xml = """
         <?xml version="1.0" encoding="UTF-8"?>

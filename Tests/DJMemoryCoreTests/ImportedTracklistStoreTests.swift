@@ -46,4 +46,14 @@ final class ImportedTracklistStoreTests: XCTestCase {
         XCTAssertEqual(imported.count, 1)
         XCTAssertEqual(imported.first?.tracks.first?.title, "Show Me Love")
     }
+
+    func testRemoveDeletesImportedTracklistByID() throws {
+        let store = ImportedTracklistStore(storageURL: tempRoot.appendingPathComponent("tracklists.json"))
+        let tracklist = ImportedTracklist(appID: "serato", sourceURL: URL(fileURLWithPath: "/tmp/test.csv"), tracks: [])
+
+        try store.save(tracklist)
+        try store.remove(id: tracklist.id)
+
+        XCTAssertTrue(try store.all().isEmpty)
+    }
 }
