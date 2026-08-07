@@ -319,6 +319,8 @@ The app should answer one question first:
 
 Implementation note: the current app shows a first-run setup sheet with detected apps, archive location, protected-source count, and actions to start folder setup or review archive settings. The flow can be reopened from Settings.
 
+Implementation note: protected-source counts only include reachable recording folders. Saved folders that moved or became inaccessible show an attention state until the user chooses the folder again.
+
 ### Post-Set Flow
 
 1. DJ stops or saves recording in DJ software.

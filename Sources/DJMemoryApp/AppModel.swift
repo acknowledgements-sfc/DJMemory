@@ -45,7 +45,7 @@ final class AppModel: ObservableObject {
 
     var protectedAdapterCount: Int {
         probeResults.filter { result in
-            !recordingFolders(for: result.software.id).isEmpty
+            !reachableRecordingFolders(for: result.software.id).isEmpty
         }.count
     }
 
@@ -96,6 +96,10 @@ final class AppModel: ObservableObject {
             .existingRecordingURLs ?? []
 
         return configured + discovered
+    }
+
+    func reachableRecordingFolders(for appID: String) -> [URL] {
+        recordingFolders(for: appID).filter(isReachableDirectory(_:))
     }
 
     func historyFolders(for appID: String) -> [URL] {
@@ -459,8 +463,13 @@ final class AppModel: ObservableObject {
             return "Archived"
         }
 
-        if recordingFolders(for: result.software.id).isEmpty {
+        let recordingFolders = recordingFolders(for: result.software.id)
+        if recordingFolders.isEmpty {
             return result.installedApplicationURLs.isEmpty && !result.isRunning ? "App not found" : "Needs folder access"
+        }
+
+        if !recordingFolders.contains(where: isReachableDirectory(_:)) {
+            return "Attention Needed"
         }
 
         if isScanning {
@@ -560,6 +569,11 @@ final class AppModel: ObservableObject {
                     ).isEmpty
                 }) ?? false
             }
+    }
+
+    private func isReachableDirectory(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 
     private func withSecurityScopedFolder<T>(

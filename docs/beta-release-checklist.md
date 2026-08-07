@@ -37,6 +37,7 @@ Last updated: August 6, 2026.
 
 - Move or revoke access to a saved folder.
 - Confirm the folder row shows an attention state.
+- Confirm the protected-source count does not include the inaccessible folder.
 - Choose the folder again.
 - Confirm the warning clears and scanning can run.
 
