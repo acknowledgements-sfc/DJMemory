@@ -23,9 +23,11 @@ final class AppModel: ObservableObject {
     private let importedTracklistStore = ImportedTracklistStore()
     private let activityLogStore = ActivityLogStore()
     private let appSettingsStore = AppSettingsStore()
+    private let notificationService = LocalNotificationService()
     private var scanTask: Task<Void, Never>?
 
     init() {
+        notificationService.requestAuthorization()
         refresh()
         startBackgroundScanning()
     }
@@ -361,6 +363,7 @@ final class AppModel: ObservableObject {
                     message: "Archived \(result.archivedSessions.count) recording\(result.archivedSessions.count == 1 ? "" : "s")",
                     detail: result.folderURL.path
                 )
+                notificationService.notifyArchiveSaved(count: result.archivedSessions.count)
             }
         }
     }

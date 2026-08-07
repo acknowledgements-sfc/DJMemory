@@ -1,15 +1,27 @@
 import AppKit
 import SwiftUI
 import DJMemoryCore
+import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
         DispatchQueue.main.async {
             NSApp.windows.first(where: { $0.canBecomeKey })?.makeKeyAndOrderFront(nil)
         }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
     }
 }
 
