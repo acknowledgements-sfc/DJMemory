@@ -51,6 +51,7 @@ final class DiagnosticsReportTests: XCTestCase {
                 SoftwareProbeResult(
                     software: app,
                     installedApplicationURLs: [URL(fileURLWithPath: "/Applications/Serato DJ Pro.app")],
+                    runningApplicationBundleIdentifiers: ["com.serato.dj"],
                     existingRecordingURLs: [],
                     existingHistoryURLs: []
                 )
@@ -78,6 +79,8 @@ final class DiagnosticsReportTests: XCTestCase {
         )
 
         XCTAssertEqual(report.generatedAt, generatedAt)
+        XCTAssertEqual(report.software.first?.probeStatus, "running")
+        XCTAssertEqual(report.software.first?.isRunning, true)
         XCTAssertEqual(report.totals.protectedSourceCount, 1)
         XCTAssertEqual(report.totals.configuredFolderCount, 1)
         XCTAssertEqual(report.totals.archivedSetCount, 1)

@@ -248,6 +248,7 @@ Later:
 
 - Native macOS app shell with a full app window and menu-bar presence.
 - First-run setup that scans for supported DJ apps.
+- Supported-app scanning includes installed apps, likely folders, and running app processes when macOS exposes the bundle identifier.
 - Per-app setup state:
   - App Found
   - App Not Found
@@ -277,6 +278,8 @@ Implementation note: scans now report active recordings separately from archived
 - Basic diagnostics export for support/debugging.
 
 Implementation note: scan failures now map missing, moved, file-backed, and unreadable recording folders into recovery-oriented messages instead of raw system errors.
+
+Implementation note: software probing now marks an adapter as `running` when a supported app process is active, and diagnostics include that boolean state.
 
 ### Could Have
 

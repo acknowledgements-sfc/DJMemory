@@ -460,7 +460,7 @@ final class AppModel: ObservableObject {
         }
 
         if recordingFolders(for: result.software.id).isEmpty {
-            return result.installedApplicationURLs.isEmpty ? "App not found" : "Needs folder access"
+            return result.installedApplicationURLs.isEmpty && !result.isRunning ? "App not found" : "Needs folder access"
         }
 
         if isScanning {

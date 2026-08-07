@@ -36,6 +36,10 @@ private func runProbe() {
     for result in results {
         print("\(result.software.displayName): \(result.status)")
 
+        for bundleIdentifier in result.runningApplicationBundleIdentifiers {
+            print("  running: \(bundleIdentifier)")
+        }
+
         for url in result.installedApplicationURLs {
             print("  app: \(url.path)")
         }

@@ -31,4 +31,18 @@ final class SupportedDJSoftwareTests: XCTestCase {
         XCTAssertEqual(djay.defaultRecordingPaths, ["~/Music/djay/Recordings", "~/Music/djay Pro 2/Recordings"])
         XCTAssertTrue(djay.defaultHistoryPaths.isEmpty)
     }
+
+    func testProbeResultReportsRunningStatusFirst() throws {
+        let software = try XCTUnwrap(SupportedDJSoftware.all.first { $0.id == "serato" })
+        let result = SoftwareProbeResult(
+            software: software,
+            installedApplicationURLs: [],
+            runningApplicationBundleIdentifiers: ["com.serato.dj"],
+            existingRecordingURLs: [],
+            existingHistoryURLs: []
+        )
+
+        XCTAssertTrue(result.isRunning)
+        XCTAssertEqual(result.status, "running")
+    }
 }

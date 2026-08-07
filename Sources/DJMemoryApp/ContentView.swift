@@ -189,6 +189,8 @@ private struct Sidebar: View {
 
     private func iconName(for result: SoftwareProbeResult) -> String {
         switch result.status {
+        case "running":
+            return "play.circle.fill"
         case "installed", "folders-found":
             return "checkmark.circle"
         default:
@@ -736,6 +738,10 @@ private struct ProtectionSourceRow: View {
             return "Recording: \(recordingFolder.path)"
         }
 
+        if result.isRunning {
+            return "App running. Recording folder still needs access."
+        }
+
         if !result.installedApplicationURLs.isEmpty {
             return "App found. Recording folder still needs access."
         }
@@ -1254,7 +1260,11 @@ private struct StatusGrid: View {
     }
 
     private var appStatus: String {
-        result.installedApplicationURLs.isEmpty ? "Not found" : "Found"
+        if result.isRunning {
+            return "Running"
+        }
+
+        return result.installedApplicationURLs.isEmpty ? "Not found" : "Found"
     }
 
     private var recordingStatus: String {

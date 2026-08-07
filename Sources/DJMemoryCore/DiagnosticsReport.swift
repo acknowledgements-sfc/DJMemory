@@ -32,6 +32,7 @@ public struct DiagnosticsSoftware: Codable, Equatable, Sendable {
     public let appID: String
     public let displayName: String
     public let probeStatus: String
+    public let isRunning: Bool
     public let installedApplicationPaths: [String]
     public let recordingFolderPaths: [String]
     public let historyFolderPaths: [String]
@@ -40,6 +41,7 @@ public struct DiagnosticsSoftware: Codable, Equatable, Sendable {
         appID: String,
         displayName: String,
         probeStatus: String,
+        isRunning: Bool,
         installedApplicationPaths: [String],
         recordingFolderPaths: [String],
         historyFolderPaths: [String]
@@ -47,6 +49,7 @@ public struct DiagnosticsSoftware: Codable, Equatable, Sendable {
         self.appID = appID
         self.displayName = displayName
         self.probeStatus = probeStatus
+        self.isRunning = isRunning
         self.installedApplicationPaths = installedApplicationPaths
         self.recordingFolderPaths = recordingFolderPaths
         self.historyFolderPaths = historyFolderPaths
@@ -157,6 +160,7 @@ public struct DiagnosticsReportBuilder {
                 appID: result.software.id,
                 displayName: result.software.displayName,
                 probeStatus: result.status,
+                isRunning: result.isRunning,
                 installedApplicationPaths: result.installedApplicationURLs.map { redactedPath($0.path) },
                 recordingFolderPaths: recordingFolders(result.software.id).map { redactedPath($0.path) },
                 historyFolderPaths: historyFolders(result.software.id).map { redactedPath($0.path) }
