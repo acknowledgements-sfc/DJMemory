@@ -382,6 +382,7 @@ private struct AdapterDetailView: View {
 
                 StatusGrid(
                     result: result,
+                    setupState: model.setupState(for: result),
                     recordingFolders: model.recordingFolders(for: result.software.id),
                     historyFolders: model.historyFolders(for: result.software.id)
                 )
@@ -670,12 +671,14 @@ private struct FolderRow: View {
 
 private struct StatusGrid: View {
     let result: SoftwareProbeResult
+    let setupState: String
     let recordingFolders: [URL]
     let historyFolders: [URL]
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
             GridRow {
+                StatusTile(title: "State", value: setupState, symbol: stateSymbol)
                 StatusTile(title: "App", value: appStatus, symbol: "macwindow")
                 StatusTile(title: "Recordings", value: recordingStatus, symbol: "waveform")
                 StatusTile(title: "History", value: historyStatus, symbol: "list.bullet.rectangle")
@@ -693,6 +696,23 @@ private struct StatusGrid: View {
 
     private var historyStatus: String {
         historyFolders.isEmpty ? "Optional" : "Found"
+    }
+
+    private var stateSymbol: String {
+        switch setupState {
+        case "Archived":
+            return "checkmark.seal"
+        case "Error":
+            return "exclamationmark.triangle"
+        case "Needs folder access":
+            return "folder.badge.questionmark"
+        case "App not found":
+            return "questionmark.app"
+        case "Scanning":
+            return "waveform.badge.magnifyingglass"
+        default:
+            return "record.circle"
+        }
     }
 }
 

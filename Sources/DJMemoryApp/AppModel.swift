@@ -281,6 +281,24 @@ final class AppModel: ObservableObject {
         lastScanResults.filter { $0.appID == appID }
     }
 
+    func setupState(for result: SoftwareProbeResult) -> String {
+        let appScanResults = scanResults(for: result.software.id)
+
+        if appScanResults.contains(where: { $0.errorDescription != nil }) {
+            return "Error"
+        }
+
+        if appScanResults.contains(where: { !$0.archivedSessions.isEmpty }) {
+            return "Archived"
+        }
+
+        if recordingFolders(for: result.software.id).isEmpty {
+            return result.installedApplicationURLs.isEmpty ? "App not found" : "Needs folder access"
+        }
+
+        return isScanning ? "Scanning" : "Watching"
+    }
+
     func importedTracklists(for appID: String) -> [ImportedTracklist] {
         importedTracklists[appID] ?? []
     }
