@@ -415,6 +415,7 @@ Future naming variables:
 - DJMemory processes files locally by default.
 - No cloud account is required for v0.1.
 - No audio or library metadata leaves the Mac without explicit user action.
+- Diagnostics exports redact the user's home-folder prefix and exclude full imported track titles/artists by default.
 - Streaming-service restrictions must be respected.
 - The app should avoid language suggesting it can bypass disabled recording features.
 

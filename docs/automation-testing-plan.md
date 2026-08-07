@@ -39,7 +39,7 @@ Run:
 swift test
 ```
 
-Current coverage includes archive copy behavior, duplicate prevention through archive metadata/fingerprints, file stability, audio filtering, metadata sidecars, folder stores, settings stores, imported tracklist stores, parser behavior, diagnostics privacy, set context, manual tracklist matching, and a temporary recording-folder integration path.
+Current coverage includes archive copy behavior, duplicate prevention through archive metadata/fingerprints, file stability, audio filtering, metadata sidecars, folder stores, settings stores, imported tracklist stores, parser behavior, diagnostics privacy redaction, set context, manual tracklist matching, and a temporary recording-folder integration path.
 
 ### 2. Fixture-Based Integration Tests
 

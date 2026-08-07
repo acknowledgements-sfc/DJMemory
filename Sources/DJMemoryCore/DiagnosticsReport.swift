@@ -135,7 +135,11 @@ public struct DiagnosticsActivity: Codable, Equatable, Sendable {
 }
 
 public struct DiagnosticsReportBuilder {
-    public init() {}
+    private let homeDirectory: URL
+
+    public init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
+        self.homeDirectory = homeDirectory
+    }
 
     public func build(
         generatedAt: Date = Date(),
@@ -153,9 +157,9 @@ public struct DiagnosticsReportBuilder {
                 appID: result.software.id,
                 displayName: result.software.displayName,
                 probeStatus: result.status,
-                installedApplicationPaths: result.installedApplicationURLs.map(\.path),
-                recordingFolderPaths: recordingFolders(result.software.id).map(\.path),
-                historyFolderPaths: historyFolders(result.software.id).map(\.path)
+                installedApplicationPaths: result.installedApplicationURLs.map { redactedPath($0.path) },
+                recordingFolderPaths: recordingFolders(result.software.id).map { redactedPath($0.path) },
+                historyFolderPaths: historyFolders(result.software.id).map { redactedPath($0.path) }
             )
         }
 
@@ -164,7 +168,7 @@ public struct DiagnosticsReportBuilder {
             .map {
                 DiagnosticsImport(
                     appID: $0.appID,
-                    sourcePath: $0.sourceURL.path,
+                    sourcePath: redactedPath($0.sourceURL.path),
                     importedAt: $0.importedAt,
                     trackCount: $0.tracks.count
                 )
@@ -177,8 +181,8 @@ public struct DiagnosticsReportBuilder {
                     appID: $0.sourceAppID,
                     originalFilename: $0.originalFilename,
                     detectedAt: $0.detectedAt,
-                    sourcePath: $0.sourcePath,
-                    archivePath: $0.archivePath,
+                    sourcePath: redactedPath($0.sourcePath),
+                    archivePath: redactedPath($0.archivePath),
                     fileSize: $0.fileSize,
                     durationSeconds: $0.durationSeconds
                 )
@@ -191,14 +195,14 @@ public struct DiagnosticsReportBuilder {
                 DiagnosticsActivity(
                     kind: $0.kind.rawValue,
                     message: $0.message,
-                    detail: $0.detail,
+                    detail: $0.detail.map(redactedText(_:)),
                     createdAt: $0.createdAt
                 )
             }
 
         return DiagnosticsReport(
             generatedAt: generatedAt,
-            archiveRootPath: archiveRoot.path,
+            archiveRootPath: redactedPath(archiveRoot.path),
             software: software,
             totals: DiagnosticsTotals(
                 protectedSourceCount: software.filter { !$0.recordingFolderPaths.isEmpty }.count,
@@ -212,5 +216,28 @@ public struct DiagnosticsReportBuilder {
             archives: diagnosticArchives,
             recentActivity: Array(activity)
         )
+    }
+
+    private func redactedPath(_ path: String) -> String {
+        let homePath = homeDirectory.standardizedFileURL.path
+        guard !homePath.isEmpty else { return path }
+
+        if path == homePath {
+            return "~"
+        }
+
+        let homePrefix = homePath.hasSuffix("/") ? homePath : "\(homePath)/"
+        if path.hasPrefix(homePrefix) {
+            return "~/" + path.dropFirst(homePrefix.count)
+        }
+
+        return path
+    }
+
+    private func redactedText(_ text: String) -> String {
+        let homePath = homeDirectory.standardizedFileURL.path
+        guard !homePath.isEmpty else { return text }
+
+        return text.replacingOccurrences(of: homePath, with: "~")
     }
 }

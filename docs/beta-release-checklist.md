@@ -45,7 +45,7 @@ Last updated: August 6, 2026.
 - Confirm no audio files are uploaded.
 - Confirm no tracklists are uploaded by default.
 - Confirm diagnostics are saved only when the user chooses Export Diagnostics.
-- Confirm diagnostics include counts and paths, not full track contents.
+- Confirm diagnostics include counts and redacted paths, not full track contents.
 
 ## Known Issues Template
 
