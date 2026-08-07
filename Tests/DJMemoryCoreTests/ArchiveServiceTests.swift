@@ -47,6 +47,25 @@ final class ArchiveServiceTests: XCTestCase {
         XCTAssertNil(metadata.durationSeconds)
     }
 
+    func testArchiveMetadataStoresMeasuredDuration() throws {
+        let sourceURL = tempRoot.appendingPathComponent("source.wav")
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try Data("audio".utf8).write(to: sourceURL)
+
+        let service = ArchiveService(
+            archiveRoot: archiveRoot,
+            durationReader: StubAudioDurationReader(duration: 3_661.5)
+        )
+        let session = try service.archive(sourceURL: sourceURL, sourceAppID: "serato")
+        let archiveURL = try XCTUnwrap(session.archiveURL)
+        let data = try Data(contentsOf: service.metadataURL(for: archiveURL))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let metadata = try decoder.decode(ArchiveMetadata.self, from: data)
+
+        XCTAssertEqual(metadata.durationSeconds, 3_661.5)
+    }
+
     func testArchiveDoesNotOverwriteExistingArchive() throws {
         let sourceURL = tempRoot.appendingPathComponent("source.wav")
         let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
@@ -78,5 +97,13 @@ final class ArchiveServiceTests: XCTestCase {
         let root = ArchiveService.defaultArchiveRoot()
 
         XCTAssertTrue(root.path.hasSuffix("/Music/DJMemory"))
+    }
+}
+
+private struct StubAudioDurationReader: AudioDurationReading {
+    let duration: Double?
+
+    func durationSeconds(for url: URL) -> Double? {
+        duration
     }
 }

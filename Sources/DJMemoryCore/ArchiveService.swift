@@ -10,15 +10,18 @@ public struct ArchiveService {
     public let archiveRoot: URL
     private let fileManager: FileManager
     private let calendar: Calendar
+    private let durationReader: any AudioDurationReading
 
     public init(
         archiveRoot: URL = Self.defaultArchiveRoot(),
         fileManager: FileManager = .default,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        durationReader: any AudioDurationReading = AudioDurationReader()
     ) {
         self.archiveRoot = archiveRoot
         self.fileManager = fileManager
         self.calendar = calendar
+        self.durationReader = durationReader
     }
 
     public static func defaultArchiveRoot() -> URL {
@@ -106,7 +109,7 @@ public struct ArchiveService {
             archivePath: archiveURL.path,
             fileSize: session.fileSize ?? 0,
             originalFilename: originalFilename,
-            durationSeconds: nil
+            durationSeconds: durationReader.durationSeconds(for: archiveURL)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
