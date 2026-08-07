@@ -30,6 +30,7 @@ Last updated: August 6, 2026.
 - Quit and relaunch.
 - Confirm the folder still appears.
 - Run Scan Now against a folder with no new files.
+- Confirm the Protection dashboard and menu-bar status show last-scan and next-scan timing.
 - Import one supported tracklist file.
 - Export diagnostics and confirm the report avoids track titles by default.
 

@@ -17,6 +17,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var virtualDJNetworkProbeResult: VirtualDJNetworkProbeResult?
     @Published private(set) var isCheckingVirtualDJNetwork = false
     @Published private(set) var isScanning = false
+    @Published private(set) var lastScanDate: Date?
+    @Published private(set) var nextScanDate: Date?
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
 
@@ -55,6 +57,38 @@ final class AppModel: ObservableObject {
 
     var headlineStatus: String {
         protectedAdapterCount > 0 ? "Protected" : "Needs setup"
+    }
+
+    var lastScanDisplayText: String {
+        guard let lastScanDate else {
+            return "Not yet"
+        }
+
+        return lastScanDate.formatted(date: .omitted, time: .shortened)
+    }
+
+    var nextScanDisplayText: String {
+        guard settings.automaticScanningEnabled else {
+            return "Off"
+        }
+
+        if isScanning {
+            return "Scanning now"
+        }
+
+        guard let nextScanDate else {
+            return "Pending"
+        }
+
+        return nextScanDate.formatted(date: .omitted, time: .shortened)
+    }
+
+    var scanScheduleDisplayText: String {
+        if settings.automaticScanningEnabled {
+            return "Every \(settings.scanIntervalSeconds) seconds"
+        }
+
+        return "Automatic scanning is off"
     }
 
     func refresh() {
@@ -246,6 +280,7 @@ final class AppModel: ObservableObject {
         guard !isScanning else { return }
 
         isScanning = true
+        nextScanDate = nil
         let requests = scanRequests()
         let coordinator = scanCoordinator()
 
@@ -256,9 +291,11 @@ final class AppModel: ObservableObject {
 
             await MainActor.run {
                 lastScanResults = results
+                lastScanDate = Date()
                 isScanning = false
                 appendScanActivity(results)
                 refresh()
+                scheduleNextScanIfNeeded()
                 statusMessage = scanStatusMessage(for: results)
             }
         }
@@ -520,16 +557,24 @@ final class AppModel: ObservableObject {
         scanTask?.cancel()
         guard settings.automaticScanningEnabled else {
             scanTask = nil
+            nextScanDate = nil
             return
         }
 
         let intervalSeconds = settings.scanIntervalSeconds
+        scheduleNextScanIfNeeded()
         scanTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(intervalSeconds))
                 self?.scanNow()
             }
         }
+    }
+
+    private func scheduleNextScanIfNeeded() {
+        nextScanDate = settings.automaticScanningEnabled
+            ? Date().addingTimeInterval(TimeInterval(settings.scanIntervalSeconds))
+            : nil
     }
 
     private func scanRequests() -> [FolderScanRequest] {

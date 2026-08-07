@@ -11,6 +11,14 @@ struct MenuBarStatusView: View {
             Text(model.statusMessage)
                 .foregroundStyle(.secondary)
 
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Last scan: \(model.lastScanDisplayText)", systemImage: "checkmark.circle")
+                Label("Next scan: \(model.nextScanDisplayText)", systemImage: "clock")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .help("Shows when DJMemory last checked folders and when automatic scanning will run again.")
+
             Divider()
 
             Button {

@@ -268,6 +268,8 @@ Later:
 
 Implementation note: scans now report active recordings separately from archived recordings so the app can show "Recording Detected" while DJMemory waits for a file to finish.
 
+Implementation note: the Protection dashboard and menu-bar status now show last-scan and next-scan timing so automatic protection is visible while the app is open.
+
 ### Should Have
 
 - Serato default folder detection.
@@ -315,7 +317,7 @@ The app should answer one question first:
 2. Scan: detect installed DJ apps and likely folders.
 3. Permissions: ask for folder access only where needed.
 4. Library: confirm default archive location at `~/Music/DJMemory` or choose a different folder in Settings.
-5. Ready screen: show protected apps and folders.
+5. Ready screen: show protected apps, watched folders, and next scan time.
 
 Implementation note: the current app shows a first-run setup sheet with detected apps, archive location, protected-source count, and actions to start folder setup or review archive settings. The flow can be reopened from Settings.
 

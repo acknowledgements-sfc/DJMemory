@@ -364,6 +364,12 @@ private struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .help("How often DJMemory checks configured recording folders while automatic scanning is on.")
                 .accessibilityIdentifier("settings.scanInterval")
+
+                SettingsStatusRow(
+                    title: "Scan schedule",
+                    value: model.scanScheduleDisplayText,
+                    symbol: "clock"
+                )
             }
             .padding(14)
             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
@@ -446,6 +452,18 @@ private struct SettingsView: View {
                     title: "Protected sources",
                     value: "\(model.protectedAdapterCount)",
                     symbol: "record.circle"
+                )
+
+                SettingsStatusRow(
+                    title: "Last scan",
+                    value: model.lastScanDisplayText,
+                    symbol: "checkmark.circle"
+                )
+
+                SettingsStatusRow(
+                    title: "Next scan",
+                    value: model.nextScanDisplayText,
+                    symbol: "clock"
                 )
 
                 SettingsStatusRow(
@@ -595,6 +613,12 @@ private struct ProtectionDashboardView: View {
                     value: "\(model.allImportedTracklists.count)",
                     symbol: "list.bullet.rectangle",
                     tint: .purple
+                )
+                ProtectionMetric(
+                    title: "Next Scan",
+                    value: model.nextScanDisplayText,
+                    symbol: "clock",
+                    tint: model.settings.automaticScanningEnabled ? .orange : .secondary
                 )
             }
 
