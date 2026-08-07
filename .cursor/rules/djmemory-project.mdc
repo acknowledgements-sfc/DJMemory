@@ -1,0 +1,63 @@
+---
+description: DJMemory project rules — read the specs, respect the product commitments
+alwaysApply: true
+---
+
+DJMemory is a native macOS utility that automatically archives DJ set recordings from Serato DJ Pro,
+rekordbox, Traktor, VirtualDJ, and djay Pro. SwiftUI, macOS 14+, SwiftPM tools 5.10, **no external
+dependencies**.
+
+## Specs
+
+`HANDOFF.md` is the authoritative design spec: §2 tokens, §3 prototype→Swift type mapping and gaps
+G1–G6, §4.1–§4.8 screens, §5 state matrix, §6 tasks, §7 non-negotiables.
+`HANDOFF-2-HOME.md` adds §4.9 (Home dashboard), §4.10 (sidebar sources + add-app picker), gaps
+G7–G9, and tasks T12–T13. Both are current. Read the relevant sections before writing UI.
+
+The design prototype these specs describe is **not** checked out here. Prototype filenames in the
+specs are provenance notes, not files you can open. If something is genuinely ambiguous, say so
+rather than inventing a layout.
+
+## Commands
+
+- `swift build` / `swift test`
+- `swift run DJMemoryApp`
+- `swift run djmemory probe|scan|watch|virtualdj-network`
+- `bash scripts/build-app.sh`, `bash scripts/smoke-app.sh`
+
+You cannot launch and observe the macOS UI in a headless environment. Verification is builds, tests,
+and `#Preview` coverage. Never claim a screen looks correct on that basis.
+
+## Architecture
+
+- `AppModel` is the only view model. `@MainActor ObservableObject`, state as `@Published
+  private(set)`, mutated through methods. Do not add sibling view models or move state into views.
+- `DJMemoryCore` stays UI-agnostic — no SwiftUI import, no `Color`.
+- New fields on `Codable` models need defaults so existing stores keep decoding.
+- Check whether a field already exists before adding a model. `ArchiveMetadata.durationSeconds` and
+  `.fileSize` in particular already exist.
+
+## Product commitments
+
+These are commitments, not preferences. If a task appears to require breaking one, the task is wrong
+— stop and say so.
+
+1. Local-first.
+2. Audio files are never uploaded by default.
+3. Full tracklists are never uploaded by default.
+4. Admins cannot access user audio or full tracklists.
+5. Diagnostics exports contain metadata only.
+6. Source recordings are never moved, renamed, or deleted — DJMemory copies.
+7. Support labels are honest. "Partial" stays "Partial"; never round up to "Supported".
+8. No dead ends. Every failure state names a cause and offers an action.
+
+## Copy
+
+Strings in the specs are load-bearing and often carry commitment 8 (a failure message that also says
+what is still safe). Copy them verbatim. Do not paraphrase, shorten, or make them friendlier.
+
+## Scope
+
+One task per session, surgical edits. Do not rewrite a whole file to make a local change. Never
+rename or remove an existing `accessibilityIdentifier`. Show your plan before editing more than one
+view.

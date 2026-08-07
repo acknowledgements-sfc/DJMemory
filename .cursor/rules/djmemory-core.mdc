@@ -1,0 +1,40 @@
+---
+description: Rules for DJMemoryCore — UI-agnostic domain layer
+globs: Sources/DJMemoryCore/**/*.swift
+alwaysApply: false
+---
+
+`DJMemoryCore` is the domain layer. **No SwiftUI, no AppKit, no `Color`.** If a change here needs a
+UI type, the change belongs in `DJMemoryApp` instead.
+
+## Models
+
+- New `Codable` fields need defaults so previously written stores keep decoding. Migration by silent
+  failure is not acceptable — a user's archive index is the thing they trust us with.
+- Search for an existing field before adding one. `ArchiveMetadata` already carries
+  `durationSeconds` and `fileSize`.
+
+## Aggregation (gaps G7–G9, `HANDOFF-2-HOME.md`)
+
+The Home dashboard needs three additions. All are pure functions over data that already exists,
+except the profile store.
+
+- **G7 — `DJProfile`** (`profile.json`): display name, handle, city, residency. Every field optional.
+  Consumers must degrade honestly — no name means no name. Never substitute a placeholder.
+- **G8 — library statistics**: total archived hours, archive size on disk, sets this month, unmatched
+  count. Summation over `SessionLibrary`, not new capture. The "N weeks running" streak counts
+  consecutive ISO weeks containing at least one archive; test the boundary where the current week has
+  no set yet, and return nil rather than 0.
+- **G9 — cross-set aggregation**: top tracks count `TrackPlay` across `ImportedTracklist`s of kind
+  `.setHistory` **only** — a `.collection` import can hold thousands of tracks and would swamp the
+  counts. Venue and tag tallies come from `SetContext.venue` and `.tags`. `tags` is free text the user
+  typed: split on commas, trim, lowercase for counting, preserve original casing for display.
+
+These are the easiest things in the project to get subtly wrong and the hardest to notice, so they get
+unit tests: empty library, single set, ties in play counts, mixed-case tags, and a `.collection`
+import that must not contribute.
+
+## Filesystem
+
+Source recordings are read and copied, never moved, renamed, or deleted. Folder access goes through
+security-scoped bookmarks; a stale bookmark is a recoverable state to report, not a crash.

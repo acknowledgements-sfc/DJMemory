@@ -1,0 +1,40 @@
+---
+description: SwiftUI view rules for DJMemoryApp
+globs: Sources/DJMemoryApp/**/*.swift
+alwaysApply: false
+---
+
+## Aesthetic
+
+A quiet native macOS system utility. Dense and compact, low corner radii, hairline dividers,
+translucent sidebar, `NavigationSplitView` shell with traffic-light chrome. Inter throughout, strict
+macOS light/dark system colors. Tabular numerals on every metric.
+
+Not this: gradients, glow, drop shadows beyond system elevation, marketing copy, hero images,
+photography, album art, emoji, animated flourishes.
+
+## Tokens
+
+Use the token layer only. **No hex literals in view files** — a `Color(hex:)` helper already exists,
+do not add another. Per-app accents come from the accent map in `HANDOFF.md` §2; never hardcode one
+inline.
+
+## Structure
+
+- One view per file, named after the screen or component it renders.
+- Prefer `Table`, `ContentUnavailableView`, `Menu`, `.popover`, and other system controls over custom
+  reimplementations. The add-app picker in §4.10 is a `Menu`/`.popover`, not a custom overlay.
+- Extract a shared primitive only when it is used by two or more screens.
+- Views read `AppModel` state; they do not compute aggregates. Aggregation belongs in `DJMemoryCore`.
+
+## Previews
+
+Every new view gets a `#Preview` per state in the relevant state matrix row (`HANDOFF.md` §5,
+`HANDOFF-2-HOME.md`), in both light and dark. **Zero states are not optional** — a brand-new user has
+no archived sets, no matched tracklists, no venues, and no tags, and every section must degrade to an
+honest empty state that offers an action rather than rendering a blank panel.
+
+## Accessibility
+
+Preserve every existing `accessibilityIdentifier`; the smoke tests depend on them. New ones follow
+the existing shape, e.g. `sidebar.addApp`, `sidebar.addApp.<appID>`.
