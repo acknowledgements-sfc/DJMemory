@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var importedTracklists: [String: [ImportedTracklist]] = [:]
     @Published private(set) var librarySummaries: [LibrarySessionSummary] = []
     @Published private(set) var activityEvents: [ActivityEvent] = []
+    @Published private(set) var settings = AppSettings.default
     @Published private(set) var isScanning = false
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
@@ -21,6 +22,7 @@ final class AppModel: ObservableObject {
     private let folderAccessStore = FolderAccessStore()
     private let importedTracklistStore = ImportedTracklistStore()
     private let activityLogStore = ActivityLogStore()
+    private let appSettingsStore = AppSettingsStore()
     private var scanTask: Task<Void, Never>?
 
     init() {
@@ -59,6 +61,7 @@ final class AppModel: ObservableObject {
             importedTracklists: importedTracklists.values.flatMap { $0 }
         )
         activityEvents = (try? activityLogStore.all()) ?? []
+        settings = (try? appSettingsStore.load()) ?? .default
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
@@ -200,6 +203,20 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func updateAutomaticScanning(enabled: Bool) {
+        saveSettings(AppSettings(
+            automaticScanningEnabled: enabled,
+            scanIntervalSeconds: settings.scanIntervalSeconds
+        ))
+    }
+
+    func updateScanInterval(seconds: Int) {
+        saveSettings(AppSettings(
+            automaticScanningEnabled: settings.automaticScanningEnabled,
+            scanIntervalSeconds: seconds
+        ))
+    }
+
     func exportDiagnostics() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
@@ -275,9 +292,15 @@ final class AppModel: ObservableObject {
 
     private func startBackgroundScanning() {
         scanTask?.cancel()
+        guard settings.automaticScanningEnabled else {
+            scanTask = nil
+            return
+        }
+
+        let intervalSeconds = settings.scanIntervalSeconds
         scanTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
+                try? await Task.sleep(for: .seconds(intervalSeconds))
                 self?.scanNow()
             }
         }
@@ -337,6 +360,20 @@ final class AppModel: ObservableObject {
             activityEvents = (try? activityLogStore.all()) ?? activityEvents
         } catch {
             statusMessage = "Could not write activity: \(error.localizedDescription)"
+        }
+    }
+
+    private func saveSettings(_ newSettings: AppSettings) {
+        do {
+            try appSettingsStore.save(newSettings)
+            settings = newSettings
+            startBackgroundScanning()
+            statusMessage = newSettings.automaticScanningEnabled
+                ? "Automatic scan runs every \(newSettings.scanIntervalSeconds) seconds"
+                : "Automatic scan is off"
+        } catch {
+            appendActivity(kind: .error, message: "Settings save failed", detail: error.localizedDescription)
+            statusMessage = "Could not save settings: \(error.localizedDescription)"
         }
     }
 

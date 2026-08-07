@@ -50,6 +50,8 @@ private struct Sidebar: View {
                     .tag("library")
                 Label("Activity", systemImage: "clock.arrow.circlepath")
                     .tag("activity")
+                Label("Settings", systemImage: "gearshape")
+                    .tag("settings")
             }
         }
         .navigationTitle("DJMemory")
@@ -77,6 +79,8 @@ private struct DashboardView: View {
                     SessionLibraryView()
                 } else if model.selectedAppID == "activity" {
                     ActivityLogView()
+                } else if model.selectedAppID == "settings" {
+                    SettingsView()
                 } else {
                     AdapterDetailView()
                 }
@@ -185,6 +189,103 @@ private struct ActivityLogView: View {
 
     private func activityHelp(for event: ActivityEvent) -> String {
         [event.message, event.detail].compactMap { $0 }.joined(separator: "\n")
+    }
+}
+
+private struct SettingsView: View {
+    @EnvironmentObject private var model: AppModel
+
+    private let intervalOptions = [30, 60, 120, 300]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Settings")
+                .font(.title2.weight(.semibold))
+
+            VStack(alignment: .leading, spacing: 14) {
+                Toggle(
+                    "Automatic scanning",
+                    isOn: Binding(
+                        get: { model.settings.automaticScanningEnabled },
+                        set: { model.updateAutomaticScanning(enabled: $0) }
+                    )
+                )
+                .help("When on, DJMemory scans configured recording folders while the app is open.")
+
+                Picker(
+                    "Scan interval",
+                    selection: Binding(
+                        get: { model.settings.scanIntervalSeconds },
+                        set: { model.updateScanInterval(seconds: $0) }
+                    )
+                ) {
+                    ForEach(intervalOptions, id: \.self) { seconds in
+                        Text(intervalLabel(seconds)).tag(seconds)
+                    }
+                }
+                .disabled(!model.settings.automaticScanningEnabled)
+                .pickerStyle(.segmented)
+                .help("How often DJMemory checks configured recording folders while automatic scanning is on.")
+            }
+            .padding(14)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Current State")
+                    .font(.headline)
+
+                SettingsStatusRow(
+                    title: "Archive folder",
+                    value: model.archiveRoot.path,
+                    symbol: "archivebox"
+                )
+
+                SettingsStatusRow(
+                    title: "Protected sources",
+                    value: "\(model.protectedAdapterCount)",
+                    symbol: "record.circle"
+                )
+
+                SettingsStatusRow(
+                    title: "Imported tracklists",
+                    value: "\(model.allImportedTracklists.count)",
+                    symbol: "list.bullet.rectangle"
+                )
+            }
+        }
+    }
+
+    private func intervalLabel(_ seconds: Int) -> String {
+        if seconds < 60 {
+            return "\(seconds)s"
+        }
+
+        return "\(seconds / 60)m"
+    }
+}
+
+private struct SettingsStatusRow: View {
+    let title: String
+    let value: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+            Text(title)
+                .font(.callout.weight(.medium))
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(value)
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+        .help("\(title): \(value)")
     }
 }
 
