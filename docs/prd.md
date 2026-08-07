@@ -475,6 +475,45 @@ Status: complete.
 - Network Control probe.
 - Decision memo on plugin vs local-control path.
 
+### Milestone 6: Core Set Experience
+
+- Archived set detail view.
+- Editable event, venue, city, tags, and private notes.
+- Manual tracklist attach/detach for incorrect automatic matches.
+- Related recording metadata and activity context.
+
+### Milestone 7: App UI + Visual Product Pass
+
+- Protection-first dashboard.
+- Clear top-level navigation for Protection, Library, Activity, and Settings.
+- Strong empty states and clearer folder setup paths.
+- Visual hierarchy and product-language cleanup.
+
+### Milestone 8: Onboarding, Accounts, Backend Admin + Security Design
+
+- New-user onboarding flow.
+- Optional account model.
+- Backend entity scope.
+- Admin roles, permissions, and audit requirements.
+- Security requirements and local-first data boundaries.
+
+Status: documented in `docs/onboarding-accounts-security.md`.
+
+### Milestone 9: Beta Readiness
+
+- Reproducible packaged app build.
+- Signing/notarization path.
+- Permission recovery.
+- Diagnostics privacy review.
+- Release checklist.
+
+### Milestone 10: Integration Expansion
+
+- Finish Traktor recording setup and history support.
+- Add VirtualDJ file-based support.
+- Add djay manual folder support.
+- Add honest per-app integration status labels.
+
 ## Acceptance Criteria For v0.1
 
 - User can install/run DJMemory on macOS.
