@@ -19,6 +19,7 @@ struct ContentView: View {
                 }
                 .disabled(model.isScanning)
                 .help("Scan configured recording folders for new completed audio files.")
+                .accessibilityIdentifier("toolbar.scanNow")
             }
 
             ToolbarItem(placement: .primaryAction) {
@@ -28,6 +29,7 @@ struct ContentView: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .help("Refresh app detection, folder access, imports, archive metadata, and activity.")
+                .accessibilityIdentifier("toolbar.refresh")
             }
         }
     }
@@ -41,18 +43,23 @@ private struct Sidebar: View {
             Section("DJMemory") {
                 Label("Protection", systemImage: model.protectionSymbolName)
                     .tag("protection")
+                    .accessibilityIdentifier("sidebar.protection")
                 Label("Library", systemImage: "music.note.list")
                     .tag("library")
+                    .accessibilityIdentifier("sidebar.library")
                 Label("Activity", systemImage: "clock.arrow.circlepath")
                     .tag("activity")
+                    .accessibilityIdentifier("sidebar.activity")
                 Label("Settings", systemImage: "gearshape")
                     .tag("settings")
+                    .accessibilityIdentifier("sidebar.settings")
             }
 
             Section("DJ Apps") {
                 ForEach(model.probeResults, id: \.software.id) { result in
                     Label(result.software.displayName, systemImage: iconName(for: result))
                         .tag(result.software.id)
+                        .accessibilityIdentifier("sidebar.app.\(result.software.id)")
                 }
             }
         }
@@ -112,6 +119,7 @@ private struct ActivityLogView: View {
                     Label("Export Diagnostics", systemImage: "doc.badge.gearshape")
                 }
                 .help("Save a JSON diagnostics report for troubleshooting DJMemory setup and library state.")
+                .accessibilityIdentifier("activity.exportDiagnostics")
 
                 Button {
                     model.clearActivity()
@@ -120,6 +128,7 @@ private struct ActivityLogView: View {
                 }
                 .disabled(model.activityEvents.isEmpty)
                 .help("Clear the local activity log.")
+                .accessibilityIdentifier("activity.clear")
             }
 
             if model.activityEvents.isEmpty {
@@ -365,6 +374,7 @@ private struct HeaderView: View {
                         Label("Open", systemImage: "folder")
                     }
                     .help("Open the DJMemory archive folder in Finder.")
+                    .accessibilityIdentifier("header.openArchiveFolder")
                 }
             }
         }
@@ -390,6 +400,7 @@ private struct ProtectionDashboardView: View {
                 .disabled(model.isScanning)
                 .controlSize(.large)
                 .help("Scan every configured recording folder now.")
+                .accessibilityIdentifier("protection.scanNow")
             }
 
             HStack(spacing: 12) {
@@ -684,6 +695,7 @@ private struct VirtualDJNetworkControlView: View {
                 }
                 .disabled(model.isCheckingVirtualDJNetwork)
                 .help("Check whether VirtualDJ Network Control is reachable on this Mac.")
+                .accessibilityIdentifier("virtualdj.networkControl.check")
             }
 
             if let result = model.virtualDJNetworkProbeResult {
@@ -740,6 +752,7 @@ private struct FolderQuickActionsView: View {
             }
             .controlSize(.large)
             .help("Set the folder DJMemory scans for completed recordings.")
+            .accessibilityIdentifier("setup.\(result.software.id).recordingFolder")
 
             Button {
                 model.chooseFolder(appID: result.software.id, kind: .history)
@@ -748,6 +761,7 @@ private struct FolderQuickActionsView: View {
             }
             .controlSize(.large)
             .help("Set the folder where DJMemory can find history exports.")
+            .accessibilityIdentifier("setup.\(result.software.id).historyFolder")
 
             Spacer()
         }
@@ -780,6 +794,7 @@ private struct HistoryImportView: View {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
                 .help("Import a history or tracklist export for \(result.software.displayName).")
+                .accessibilityIdentifier("historyImport.\(result.software.id).import")
             }
 
             let imports = model.importedTracklists(for: result.software.id)

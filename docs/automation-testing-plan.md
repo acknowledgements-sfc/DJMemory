@@ -105,7 +105,7 @@ Do not use Figma as a functional test tool. Figma is for visual flows and screen
 
 ## Recommended Next Automation Work
 
-- Add accessibility identifiers to key SwiftUI controls.
+- Extend accessibility identifiers beyond the first-pass main controls as new UI surfaces stabilize.
 - Add fixture folders under `Tests/Fixtures` if file sizes stay small.
 - Extend `scripts/smoke-app.sh` with a window check if a stable UI automation permission path is available.
 - Add a sample recording-folder integration test using temporary directories.
