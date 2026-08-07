@@ -28,9 +28,9 @@ struct AddAppPickerView: View {
                             onPick(result.software.id)
                         } label: {
                             HStack(spacing: 8) {
-                                RoundedRectangle(cornerRadius: 2)
+                                RoundedRectangle(cornerRadius: DJToken.Radius.swatch)
                                     .fill(DJToken.accent(forAppID: result.software.id))
-                                    .frame(width: 10, height: 10)
+                                    .frame(width: 3, height: 14)
 
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(result.software.displayName)

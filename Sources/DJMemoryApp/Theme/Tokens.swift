@@ -66,6 +66,7 @@ enum DJToken {
     )
 
     enum Radius {
+        static let swatch: CGFloat = 2
         static let badge: CGFloat = 3
         static let control: CGFloat = 5
         static let maximum: CGFloat = 8

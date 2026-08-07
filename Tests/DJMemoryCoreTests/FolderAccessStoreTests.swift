@@ -37,4 +37,21 @@ final class FolderAccessStoreTests: XCTestCase {
 
         XCTAssertTrue(try store.all().isEmpty)
     }
+
+    func testIsReachableWhenDirectoryExists() throws {
+        let store = FolderAccessStore(storageURL: tempRoot.appendingPathComponent("folder-access.json"))
+        let folder = tempRoot.appendingPathComponent("recordings", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let access = FolderAccess(appID: "serato", kind: .recordings, url: folder, bookmarkData: nil)
+
+        XCTAssertTrue(store.isReachable(access))
+    }
+
+    func testIsReachableWhenDirectoryMissing() throws {
+        let store = FolderAccessStore(storageURL: tempRoot.appendingPathComponent("folder-access.json"))
+        let missing = tempRoot.appendingPathComponent("gone", isDirectory: true)
+        let access = FolderAccess(appID: "serato", kind: .recordings, url: missing, bookmarkData: nil)
+
+        XCTAssertFalse(store.isReachable(access))
+    }
 }

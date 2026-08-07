@@ -71,6 +71,13 @@ public struct FolderAccessStore {
         return access.url
     }
 
+    /// Resolve the bookmark, then check the path still exists as a directory (HANDOFF G3).
+    public func isReachable(_ access: FolderAccess) -> Bool {
+        let url = resolve(access)
+        var isDirectory: ObjCBool = false
+        return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
     private func write(_ records: [FolderAccess]) throws {
         try fileManager.createDirectory(
             at: storageURL.deletingLastPathComponent(),

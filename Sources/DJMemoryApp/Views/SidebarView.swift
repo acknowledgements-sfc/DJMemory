@@ -7,19 +7,22 @@ struct SidebarView: View {
     var initiallyPresentAddApp: Bool = false
 
     var body: some View {
-        List(selection: $model.selectedAppID) {
+        List(selection: $model.selectedRoute) {
             Section("DJMemory") {
+                Label("Home", systemImage: "house")
+                    .tag(Route.home)
+                    .accessibilityIdentifier("sidebar.home")
                 Label("Protection", systemImage: model.protectionSymbolName)
-                    .tag("protection")
+                    .tag(Route.protection)
                     .accessibilityIdentifier("sidebar.protection")
                 Label("Library", systemImage: "music.note.list")
-                    .tag("library")
+                    .tag(Route.library)
                     .accessibilityIdentifier("sidebar.library")
                 Label("Activity", systemImage: "clock.arrow.circlepath")
-                    .tag("activity")
+                    .tag(Route.activity)
                     .accessibilityIdentifier("sidebar.activity")
                 Label("Settings", systemImage: "gearshape")
-                    .tag("settings")
+                    .tag(Route.settings)
                     .accessibilityIdentifier("sidebar.settings")
             }
 
@@ -33,7 +36,7 @@ struct SidebarView: View {
                 } else {
                     ForEach(model.configuredProbeResults, id: \.software.id) { result in
                         configuredAppRow(result)
-                            .tag(result.software.id)
+                            .tag(Route.app(result.software.id))
                             .accessibilityIdentifier("sidebar.app.\(result.software.id)")
                     }
                 }
@@ -62,7 +65,7 @@ struct SidebarView: View {
                         AddAppPickerView(
                             options: model.unconfiguredProbeResults,
                             onPick: { appID in
-                                model.selectedAppID = appID
+                                model.selectedRoute = .app(appID)
                                 isAddAppPresented = false
                             }
                         )
@@ -94,9 +97,9 @@ struct SidebarView: View {
         }()
 
         HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: DJToken.Radius.swatch)
                 .fill(DJToken.accent(forAppID: result.software.id))
-                .frame(width: 10, height: 10)
+                .frame(width: 3, height: 14)
 
             Text(result.software.displayName)
                 .font(.system(size: DJToken.TypeSize.body, weight: .medium))

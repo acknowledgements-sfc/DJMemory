@@ -2,18 +2,30 @@ import Foundation
 import UserNotifications
 
 struct LocalNotificationService {
-    private let center: UNUserNotificationCenter
+    /// UserNotifications requires a real `.app` bundle. SPM/Xcode package runs
+    /// (Products/Debug/DJMemoryApp) have no bundle proxy and assert on `.current()`.
+    static var canUseUserNotifications: Bool {
+        Bundle.main.bundleURL.pathExtension.lowercased() == "app"
+    }
 
-    init(center: UNUserNotificationCenter = .current()) {
-        self.center = center
+    private let center: UNUserNotificationCenter?
+
+    init(center: UNUserNotificationCenter? = nil) {
+        if let center {
+            self.center = center
+        } else if Self.canUseUserNotifications {
+            self.center = .current()
+        } else {
+            self.center = nil
+        }
     }
 
     func requestAuthorization() {
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        center?.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     func notifyArchiveSaved(count: Int) {
-        guard count > 0 else { return }
+        guard let center, count > 0 else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Set saved"

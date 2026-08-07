@@ -53,5 +53,8 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertNil(settings.archiveRootPath)
         XCTAssertNil(settings.archiveRootBookmarkData)
         XCTAssertFalse(settings.hasCompletedOnboarding)
+        XCTAssertTrue(settings.verifyCopies)
+        XCTAssertTrue(settings.notifyAfterArchiving)
+        XCTAssertFalse(settings.launchAtLogin)
     }
 }

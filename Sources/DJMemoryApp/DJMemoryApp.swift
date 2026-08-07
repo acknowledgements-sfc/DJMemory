@@ -5,7 +5,9 @@ import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UNUserNotificationCenter.current().delegate = self
+        if LocalNotificationService.canUseUserNotifications {
+            UNUserNotificationCenter.current().delegate = self
+        }
 
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)

@@ -5,6 +5,13 @@ public enum ActivityEventKind: String, Codable, Sendable {
     case importTracklist
     case scan
     case error
+    case diagnostics
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        self = ActivityEventKind(rawValue: raw) ?? .scan
+    }
 }
 
 public struct ActivityEvent: Identifiable, Codable, Equatable, Sendable {

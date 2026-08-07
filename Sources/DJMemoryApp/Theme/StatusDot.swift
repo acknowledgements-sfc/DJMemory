@@ -1,5 +1,4 @@
 import SwiftUI
-import DJMemoryCore
 
 struct StatusDot: View {
     let tone: StatusTone
@@ -18,35 +17,6 @@ struct StatusDot: View {
     }
 }
 
-struct SupportBadge: View {
-    let status: IntegrationSupportStatus
-
-    private var tone: StatusTone {
-        switch status {
-        case .supported:
-            return .ok
-        case .partial:
-            return .warn
-        case .manualSetup, .research:
-            return .neutral
-        }
-    }
-
-    var body: some View {
-        Text(status.displayName)
-            .font(.system(size: DJToken.TypeSize.micro, weight: .semibold))
-            .tracking(0.2)
-            .foregroundStyle(tone.color)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
-            .background(tone.color.opacity(0.1), in: RoundedRectangle(cornerRadius: DJToken.Radius.badge))
-            .overlay(
-                RoundedRectangle(cornerRadius: DJToken.Radius.badge)
-                    .stroke(tone.color.opacity(0.35), lineWidth: 1)
-            )
-    }
-}
-
 #Preview("StatusDot tones") {
     HStack(spacing: 12) {
         StatusDot(tone: .ok)
@@ -54,16 +24,6 @@ struct SupportBadge: View {
         StatusDot(tone: .danger)
         StatusDot(tone: .info, pulse: true)
         StatusDot(tone: .neutral)
-    }
-    .padding()
-}
-
-#Preview("SupportBadge") {
-    HStack(spacing: 8) {
-        SupportBadge(status: .supported)
-        SupportBadge(status: .partial)
-        SupportBadge(status: .manualSetup)
-        SupportBadge(status: .research)
     }
     .padding()
 }

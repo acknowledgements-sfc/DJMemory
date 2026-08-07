@@ -20,11 +20,33 @@ final class AppModel: ObservableObject {
     @Published private(set) var isFolderChangeScanPending = false
     @Published private(set) var lastScanDate: Date?
     @Published private(set) var nextScanDate: Date?
-    @Published var selectedAppID: String?
+    @Published var selectedRoute: Route = .home
     @Published var statusMessage = "Checking protection status"
+    @Published private(set) var profile = DJProfile()
+
+    /// App id when `selectedRoute` is `.app` or `.recovery`.
+    var selectedAppID: String? {
+        selectedRoute.appID
+    }
 
     var archiveRoot: URL {
         resolvedArchiveRoot()
+    }
+
+    var libraryStatistics: LibraryStatistics {
+        LibraryStatisticsCalculator.calculate(archives: sessions, summaries: librarySummaries)
+    }
+
+    var topTracks: [TrackPlayCount] {
+        CrossSetAggregation.topTracks(from: allImportedTracklists)
+    }
+
+    var venueCounts: [VenueCount] {
+        CrossSetAggregation.venues(from: Array(setContexts.values))
+    }
+
+    var tagCounts: [TagCount] {
+        CrossSetAggregation.tags(from: Array(setContexts.values))
     }
 
     private let probe = SoftwareProbe()
@@ -33,6 +55,7 @@ final class AppModel: ObservableObject {
     private let setContextStore = SetContextStore()
     private let activityLogStore = ActivityLogStore()
     private let appSettingsStore = AppSettingsStore()
+    private let profileStore = DJProfileStore()
     private let notificationService = LocalNotificationService()
     private let folderChangeMonitor = FolderChangeMonitor()
     private var scanTask: Task<Void, Never>?
@@ -57,11 +80,30 @@ final class AppModel: ObservableObject {
     }
 
     var protectionSymbolName: String {
-        protectedAdapterCount > 0 ? "record.circle.fill" : "record.circle"
+        switch protectionState {
+        case .protected, .scanning:
+            return "record.circle.fill"
+        case .needsSetup:
+            return "record.circle"
+        case .attentionNeeded:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+
+    var protectionState: ProtectionState {
+        let hasConfigured = folderAccesses.contains { $0.kind == .recordings }
+        let hasUnreachable = folderAccesses.contains { access in
+            access.kind == .recordings && !folderAccessStore.isReachable(access)
+        }
+        return ProtectionState.derive(
+            isScanning: isScanning,
+            hasUnreachableFolder: hasUnreachable,
+            hasConfiguredRecordingsFolder: hasConfigured
+        )
     }
 
     var headlineStatus: String {
-        protectedAdapterCount > 0 ? "Protected" : "Needs setup"
+        protectionState.headline
     }
 
     var lastScanDisplayText: String {
@@ -119,6 +161,7 @@ final class AppModel: ObservableObject {
             setContexts: Array(setContexts.values)
         )
         activityEvents = (try? activityLogStore.all()) ?? []
+        profile = (try? profileStore.load()) ?? DJProfile()
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
@@ -126,7 +169,6 @@ final class AppModel: ObservableObject {
             statusMessage = "Choose recording folders to start protecting sets"
         }
 
-        selectedAppID = selectedAppID ?? "protection"
         restartFolderChangeMonitoring()
     }
 
@@ -166,6 +208,14 @@ final class AppModel: ObservableObject {
         }
 
         return !configuredURLs.contains(where: isReachableDirectory(_:))
+    }
+
+    func isFolderAccessReachable(_ access: FolderAccess) -> Bool {
+        folderAccessStore.isReachable(access)
+    }
+
+    func unreachableRecordingAccesses() -> [FolderAccess] {
+        folderAccesses.filter { $0.kind == .recordings && !folderAccessStore.isReachable($0) }
     }
 
     func reachableRecordingFolders(for appID: String) -> [URL] {
@@ -403,63 +453,63 @@ final class AppModel: ObservableObject {
     }
 
     func updateAutomaticScanning(enabled: Bool) {
-        saveSettings(AppSettings(
-            automaticScanningEnabled: enabled,
-            scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate,
-            archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData,
-            hasCompletedOnboarding: settings.hasCompletedOnboarding
-        ))
+        saveSettings(settings.updating(automaticScanningEnabled: enabled))
     }
 
     func updateScanInterval(seconds: Int) {
-        saveSettings(AppSettings(
-            automaticScanningEnabled: settings.automaticScanningEnabled,
-            scanIntervalSeconds: seconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate,
-            archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData,
-            hasCompletedOnboarding: settings.hasCompletedOnboarding
-        ))
+        saveSettings(settings.updating(scanIntervalSeconds: seconds))
     }
 
     func updateArchiveNamingTemplate(_ template: String) {
-        saveSettings(AppSettings(
-            automaticScanningEnabled: settings.automaticScanningEnabled,
-            scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: template,
-            archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData,
-            hasCompletedOnboarding: settings.hasCompletedOnboarding
-        ))
+        saveSettings(settings.updating(archiveNamingTemplate: template))
     }
 
-    func completeOnboarding(destinationAppID: String = "protection") {
-        saveSettings(AppSettings(
-            automaticScanningEnabled: settings.automaticScanningEnabled,
-            scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate,
-            archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData,
-            hasCompletedOnboarding: true
-        ))
-        selectedAppID = destinationAppID
+    func updateVerifyCopies(enabled: Bool) {
+        saveSettings(settings.updating(verifyCopies: enabled))
+    }
+
+    func updateNotifyAfterArchiving(enabled: Bool) {
+        saveSettings(settings.updating(notifyAfterArchiving: enabled))
+    }
+
+    func updateLaunchAtLogin(enabled: Bool) {
+        saveSettings(settings.updating(launchAtLogin: enabled))
+        // Launch-at-login wiring lands with SMAppService in a later polish pass; persist preference now.
+    }
+
+    func completeOnboarding(destination: Route = .protection) {
+        saveSettings(settings.updating(hasCompletedOnboarding: true))
+        selectedRoute = destination
         statusMessage = protectedAdapterCount > 0
             ? "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
             : "Choose recording folders to start protecting sets"
     }
 
+    /// Compatibility shim for call sites that still pass a destination string tag.
+    func completeOnboarding(destinationAppID: String) {
+        completeOnboarding(destination: Self.route(fromLegacySelection: destinationAppID))
+    }
+
     func showOnboardingAgain() {
-        saveSettings(AppSettings(
-            automaticScanningEnabled: settings.automaticScanningEnabled,
-            scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate,
-            archiveRootPath: settings.archiveRootPath,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData,
-            hasCompletedOnboarding: false
-        ))
-        selectedAppID = "protection"
+        saveSettings(settings.updating(hasCompletedOnboarding: false))
+        selectedRoute = .protection
+    }
+
+    static func route(fromLegacySelection id: String) -> Route {
+        switch id {
+        case "home":
+            return .home
+        case "protection":
+            return .protection
+        case "library":
+            return .library
+        case "activity":
+            return .activity
+        case "settings":
+            return .settings
+        default:
+            return .app(id)
+        }
     }
 
     func chooseArchiveFolder() {
@@ -480,13 +530,9 @@ final class AppModel: ObservableObject {
         do {
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
             let bookmark = try folderAccessStore.makeBookmarkData(for: url)
-            saveSettings(AppSettings(
-                automaticScanningEnabled: settings.automaticScanningEnabled,
-                scanIntervalSeconds: settings.scanIntervalSeconds,
-                archiveNamingTemplate: settings.archiveNamingTemplate,
-                archiveRootPath: url.path,
-                archiveRootBookmarkData: bookmark,
-                hasCompletedOnboarding: settings.hasCompletedOnboarding
+            saveSettings(settings.updating(
+                archiveRootPath: .some(url.path),
+                archiveRootBookmarkData: .some(bookmark)
             ))
             refresh()
             statusMessage = "Archive folder set to \(url.lastPathComponent)"
@@ -497,11 +543,9 @@ final class AppModel: ObservableObject {
     }
 
     func resetArchiveFolder() {
-        saveSettings(AppSettings(
-            automaticScanningEnabled: settings.automaticScanningEnabled,
-            scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate,
-            hasCompletedOnboarding: settings.hasCompletedOnboarding
+        saveSettings(settings.updating(
+            archiveRootPath: .some(nil),
+            archiveRootBookmarkData: .some(nil)
         ))
         refresh()
         statusMessage = "Archive folder reset to ~/Music/DJMemory"
@@ -536,7 +580,7 @@ final class AppModel: ObservableObject {
 
             try encoder.encode(report).write(to: url, options: .atomic)
             try activityLogStore.append(ActivityEvent(
-                kind: .scan,
+                kind: .diagnostics,
                 message: "Exported diagnostics",
                 detail: url.path
             ))
@@ -553,39 +597,39 @@ final class AppModel: ObservableObject {
         lastScanResults.filter { $0.appID == appID }
     }
 
-    func setupState(for result: SoftwareProbeResult) -> String {
+    func setupState(for result: SoftwareProbeResult) -> AppSetupState {
         let appScanResults = scanResults(for: result.software.id)
 
         if appScanResults.contains(where: { $0.errorDescription != nil }) {
-            return "Error"
+            return .error
         }
 
         if appScanResults.contains(where: { !$0.pendingRecordingURLs.isEmpty }) {
-            return "Recording Detected"
+            return .recordingDetected
         }
 
         if appScanResults.contains(where: { !$0.archivedSessions.isEmpty }) {
-            return "Archived"
+            return .archived
         }
 
         let recordingFolders = recordingFolders(for: result.software.id)
         if recordingFolders.isEmpty {
-            return result.installedApplicationURLs.isEmpty && !result.isRunning ? "App not found" : "Needs folder access"
+            return result.installedApplicationURLs.isEmpty && !result.isRunning ? .appNotFound : .needsFolderAccess
         }
 
         if !recordingFolders.contains(where: isReachableDirectory(_:)) {
-            return "Attention Needed"
+            return .attentionNeeded
         }
 
         if isScanning {
-            return "Saving"
+            return .saving
         }
 
         if hasRecentUnstableRecording(for: result.software.id) {
-            return "Recording Detected"
+            return .recordingDetected
         }
 
-        return "Watching"
+        return .watching
     }
 
     func importedTracklists(for appID: String) -> [ImportedTracklist] {

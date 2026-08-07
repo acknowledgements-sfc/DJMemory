@@ -9,6 +9,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let archiveRootPath: String?
     public let archiveRootBookmarkData: Data?
     public let hasCompletedOnboarding: Bool
+    public let verifyCopies: Bool
+    public let notifyAfterArchiving: Bool
+    public let launchAtLogin: Bool
 
     public init(
         automaticScanningEnabled: Bool = true,
@@ -16,7 +19,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
         archiveNamingTemplate: String = Self.defaultArchiveNamingTemplate,
         archiveRootPath: String? = nil,
         archiveRootBookmarkData: Data? = nil,
-        hasCompletedOnboarding: Bool = false
+        hasCompletedOnboarding: Bool = false,
+        verifyCopies: Bool = true,
+        notifyAfterArchiving: Bool = true,
+        launchAtLogin: Bool = false
     ) {
         self.automaticScanningEnabled = automaticScanningEnabled
         self.scanIntervalSeconds = scanIntervalSeconds
@@ -24,6 +30,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.archiveRootPath = archiveRootPath
         self.archiveRootBookmarkData = archiveRootBookmarkData
         self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.verifyCopies = verifyCopies
+        self.notifyAfterArchiving = notifyAfterArchiving
+        self.launchAtLogin = launchAtLogin
     }
 
     public static let `default` = AppSettings()
@@ -35,6 +44,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case archiveRootPath
         case archiveRootBookmarkData
         case hasCompletedOnboarding
+        case verifyCopies
+        case notifyAfterArchiving
+        case launchAtLogin
     }
 
     public init(from decoder: Decoder) throws {
@@ -46,6 +58,33 @@ public struct AppSettings: Codable, Equatable, Sendable {
         archiveRootPath = try container.decodeIfPresent(String.self, forKey: .archiveRootPath)
         archiveRootBookmarkData = try container.decodeIfPresent(Data.self, forKey: .archiveRootBookmarkData)
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+        verifyCopies = try container.decodeIfPresent(Bool.self, forKey: .verifyCopies) ?? true
+        notifyAfterArchiving = try container.decodeIfPresent(Bool.self, forKey: .notifyAfterArchiving) ?? true
+        launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+    }
+
+    public func updating(
+        automaticScanningEnabled: Bool? = nil,
+        scanIntervalSeconds: Int? = nil,
+        archiveNamingTemplate: String? = nil,
+        archiveRootPath: String?? = nil,
+        archiveRootBookmarkData: Data?? = nil,
+        hasCompletedOnboarding: Bool? = nil,
+        verifyCopies: Bool? = nil,
+        notifyAfterArchiving: Bool? = nil,
+        launchAtLogin: Bool? = nil
+    ) -> AppSettings {
+        AppSettings(
+            automaticScanningEnabled: automaticScanningEnabled ?? self.automaticScanningEnabled,
+            scanIntervalSeconds: scanIntervalSeconds ?? self.scanIntervalSeconds,
+            archiveNamingTemplate: archiveNamingTemplate ?? self.archiveNamingTemplate,
+            archiveRootPath: archiveRootPath ?? self.archiveRootPath,
+            archiveRootBookmarkData: archiveRootBookmarkData ?? self.archiveRootBookmarkData,
+            hasCompletedOnboarding: hasCompletedOnboarding ?? self.hasCompletedOnboarding,
+            verifyCopies: verifyCopies ?? self.verifyCopies,
+            notifyAfterArchiving: notifyAfterArchiving ?? self.notifyAfterArchiving,
+            launchAtLogin: launchAtLogin ?? self.launchAtLogin
+        )
     }
 }
 
