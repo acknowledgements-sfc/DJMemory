@@ -8,7 +8,7 @@ This audit maps the v0.1 PRD acceptance criteria to current implementation evide
 
 Current passing baseline:
 
-- `swift test`: 61 tests, 0 failures.
+- `swift test`: 65 tests, 0 failures.
 - `bash scripts/smoke-cli.sh`: CLI archive/scan/diagnostics smoke path passes.
 - `bash scripts/build-app.sh`: `.build/DJMemory.app` builds and signs with sandbox-oriented entitlements.
 - `bash scripts/smoke-app.sh`: packaged app launches, verifies code signature, performs best-effort window detection, and quits cleanly.
@@ -21,7 +21,7 @@ Current passing baseline:
 | User can install/run DJMemory on macOS. | Ready for local beta | `scripts/build-app.sh`, `scripts/smoke-app.sh`, `scripts/package-beta.sh`, `packaging/DJMemory.entitlements` | Open the packaged zip on a clean tester Mac and confirm macOS launch prompts are understandable. |
 | User can configure at least one watched recording folder. | Ready for local beta | `FolderAccessStoreTests`, folder chooser flow in `AppModel.chooseFolder`, setup controls in `ContentView` | Choose Serato and rekordbox recording folders through the app picker and relaunch to confirm persistence. |
 | DJMemory archives a completed recording without changing the source file. | Automated | `ArchiveServiceTests.testArchiveCopiesSourceAndWritesMetadata`, `ScanCoordinatorTests.testScanRecentArchivesAudioFromRequestsAndSkipsDuplicateScan`, `scripts/smoke-cli.sh` | Place a real short recording in a watched folder and confirm the original remains unchanged. |
-| Archived recordings appear in the library. | Ready for local beta | `SessionLibraryTests`, `LibrarySessionMatcherTests`, library table/detail views in `ContentView` | Archive a test recording from the app, then confirm it appears in Library with reveal actions. |
+| Archived recordings appear in the library. | Ready for local beta | `SessionLibraryTests`, `LibrarySessionMatcherTests`, `LibrarySessionSearchTests`, library table/detail views in `ContentView` | Archive a test recording from the app, then confirm it appears in Library with search and reveal actions. |
 | Each archived recording has a metadata JSON sidecar. | Automated | `ArchiveServiceTests.testArchiveCopiesSourceAndWritesMetadata`, `ArchiveServiceTests.testArchiveMetadataIncludesDurationField`, `SessionLibraryTests` | Open the archived folder and confirm audio plus `.json` sidecar are visible. |
 | Manual rescan can recover recent recordings from watched folders. | Automated | `ScanCoordinatorTests`, `scripts/smoke-cli.sh`, app `Rescan Last 24 Hours` actions | Add a stable audio file while DJMemory is open, click Rescan Last 24 Hours, and confirm archive creation. |
 | Recording folders trigger automatic protection while the app is open. | Automated with manual follow-up | `FolderChangeMonitorTests`, `AppModel` debounced folder-change scan, one-minute scheduled scan backup | Add or modify a file in a watched folder and confirm Next Scan shows `Soon`, then the scan runs. |

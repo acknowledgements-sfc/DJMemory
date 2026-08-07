@@ -1368,12 +1368,23 @@ private struct SessionLibraryView: View {
     @EnvironmentObject private var model: AppModel
     @State private var selectedSessionID: LibrarySessionSummary.ID?
     @State private var selectedTracklistID: ImportedTracklist.ID?
+    @State private var sessionSearch = ""
     @State private var trackSearch = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Archived Sets")
-                .font(.title2.weight(.semibold))
+            HStack(alignment: .firstTextBaseline) {
+                Text("Archived Sets")
+                    .font(.title2.weight(.semibold))
+
+                Spacer()
+
+                TextField("Search archived sets", text: $sessionSearch)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 260)
+                    .help("Filter archived sets by file, app, event, venue, city, tags, notes, or matched tracklist.")
+                    .accessibilityIdentifier("library.archivedSets.search")
+            }
 
             if model.librarySummaries.isEmpty {
                 ContentUnavailableView(
@@ -1382,8 +1393,11 @@ private struct SessionLibraryView: View {
                     description: Text("Choose a recordings folder and run Rescan Last 24 Hours to archive completed audio files.")
                 )
                 .frame(maxWidth: .infinity, minHeight: 280)
+            } else if filteredLibrarySummaries.isEmpty {
+                ContentUnavailableView.search(text: sessionSearch)
+                    .frame(maxWidth: .infinity, minHeight: 280)
             } else {
-                Table(model.librarySummaries, selection: $selectedSessionID) {
+                Table(filteredLibrarySummaries, selection: $selectedSessionID) {
                     TableColumn("Recording") { summary in
                         Text(summary.archive.originalFilename)
                             .help(summary.archive.originalFilename)
@@ -1516,6 +1530,12 @@ private struct SessionLibraryView: View {
         .onChange(of: selectedTracklistID) {
             trackSearch = ""
         }
+        .onChange(of: sessionSearch) {
+            if let selectedSessionID,
+               !filteredLibrarySummaries.contains(where: { $0.id == selectedSessionID }) {
+                self.selectedSessionID = nil
+            }
+        }
         .onChange(of: model.librarySummaries.map(\.id)) {
             if let selectedSessionID,
                !model.librarySummaries.contains(where: { $0.id == selectedSessionID }) {
@@ -1535,9 +1555,17 @@ private struct SessionLibraryView: View {
         return model.allImportedTracklists.first { $0.id == selectedTracklistID }
     }
 
+    private var filteredLibrarySummaries: [LibrarySessionSummary] {
+        LibrarySessionSearch().filter(
+            model.librarySummaries,
+            query: sessionSearch,
+            appDisplayName: model.displayName(for:)
+        )
+    }
+
     private var selectedSession: LibrarySessionSummary? {
         guard let selectedSessionID else { return nil }
-        return model.librarySummaries.first { $0.id == selectedSessionID }
+        return filteredLibrarySummaries.first { $0.id == selectedSessionID }
     }
 
     private func previewText(for tracklist: ImportedTracklist) -> String {
@@ -1617,6 +1645,7 @@ private struct TracklistDetailView: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 240)
                     .help("Filter this tracklist by title, artist, or play time.")
+                    .accessibilityIdentifier("tracklistDetail.\(tracklist.id).search")
 
                 Button(action: revealInFinder) {
                     Label("Reveal", systemImage: "arrow.up.forward.app")

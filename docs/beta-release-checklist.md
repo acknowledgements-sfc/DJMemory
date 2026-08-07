@@ -34,6 +34,7 @@ Last updated: August 6, 2026.
 - Confirm the Protection dashboard and menu-bar status show last-scan and next-scan timing.
 - Add or update an audio file in a watched folder and confirm DJMemory schedules a scan soon.
 - Import one supported tracklist file.
+- Search archived sets by filename, app, venue, or matched track text.
 - Export diagnostics and confirm the report avoids track titles by default.
 - Run `swift run djmemory diagnostics ./DJMemory-Diagnostics.json` and confirm it writes a redacted support report.
 

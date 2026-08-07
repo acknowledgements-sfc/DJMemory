@@ -41,6 +41,7 @@ swift test
 
 Current coverage includes archive copy behavior, duplicate prevention through archive metadata/fingerprints, file stability, audio filtering, metadata sidecars, folder stores, settings stores, imported tracklist stores, parser behavior, diagnostics privacy redaction, set context, manual tracklist matching, and a temporary recording-folder integration path.
 The CLI smoke path also writes a diagnostics report to a temporary file and verifies the home folder path is not leaked into that JSON.
+Library search is covered by `LibrarySessionSearchTests`, and the archived-set and tracklist search fields expose accessibility identifiers for future app automation.
 
 ### 2. Fixture-Based Integration Tests
 
@@ -125,8 +126,6 @@ Do not use Figma as a functional test tool. Figma is for visual flows and screen
 ## Recommended Next Automation Work
 
 - Add accessibility identifiers to uncovered app controls:
-  - track search
-  - settings toggle, picker, and text field
   - menu bar actions
 - Keep `scripts/smoke-app.sh` permissive around the main-window check so macOS privacy settings do not block launch verification.
 - Add small sanitized parser fixtures under `Tests/DJMemoryCoreTests/Fixtures` for Serato, rekordbox, and Traktor once representative samples are available.
