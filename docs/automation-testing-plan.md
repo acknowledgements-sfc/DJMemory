@@ -28,18 +28,18 @@ swift test
 
 ### 2. Fixture-Based Integration Tests
 
-Use generated folders and files to simulate DJ app output.
+Use generated temporary folders and files for archive and scanner behavior. Use small sanitized fixtures for parser behavior when real-world export shape matters.
 
 Test fixtures:
 
-- fake WAV/AIFF/MP3/M4A recordings
-- growing file vs stable file
-- Serato CSV/TXT history export
-- rekordbox XML collection export
-- Traktor NML history file
-- missing folder
-- moved folder
-- duplicate source recording
+- generated fake WAV/AIFF/MP3/M4A recordings
+- generated growing file vs stable file cases
+- generated missing folder, moved folder, and duplicate source recording cases
+- sanitized Serato CSV/TXT history exports under `Tests/DJMemoryCoreTests/Fixtures`
+- sanitized rekordbox XML collection exports under `Tests/DJMemoryCoreTests/Fixtures`
+- sanitized Traktor NML history files under `Tests/DJMemoryCoreTests/Fixtures`
+
+Keep generated temp-directory tests for archive/scanner behavior. Keep real-world DJ exports out of the repo unless they have been sanitized and are small enough to review comfortably.
 
 Expected checks:
 
@@ -52,7 +52,7 @@ Expected checks:
 
 ### 3. App Bundle Verification
 
-Use the packaging script for beta-readiness checks.
+Use the existing packaging and smoke scripts for beta-readiness checks.
 
 Run:
 
@@ -69,16 +69,17 @@ Expected checks:
 - Info.plist exists
 - ad hoc signature verifies
 - sandbox entitlements are attached
+- smoke script launches the app process and quits cleanly
 
 ### 4. macOS UI Smoke Automation
 
-Use macOS Automator / AppleScript / JXA where possible.
+Use macOS Automator / AppleScript / JXA where possible. `scripts/smoke-app.sh` already verifies that the app builds, codesigns, launches, and quits; the next enhancement is confirming that the main window exists when macOS automation permissions allow it.
 
 Automatable checks:
 
 - launch app
 - confirm app process exists
-- confirm main window exists
+- confirm main window exists when accessibility automation is available
 - click sidebar items
 - click Scan Now
 - open Finder reveal actions
@@ -105,8 +106,14 @@ Do not use Figma as a functional test tool. Figma is for visual flows and screen
 
 ## Recommended Next Automation Work
 
-- Extend accessibility identifiers beyond the first-pass main controls as new UI surfaces stabilize.
-- Add fixture folders under `Tests/Fixtures` if file sizes stay small.
-- Extend `scripts/smoke-app.sh` with a window check if a stable UI automation permission path is available.
-- Add a sample recording-folder integration test using temporary directories.
-- Add parser fixture tests for real-world Serato, rekordbox, and Traktor files once sanitized samples are available.
+- Add accessibility identifiers to uncovered app controls:
+  - setup-row buttons
+  - library/session actions
+  - track search
+  - tracklist matching controls
+  - settings toggle, picker, and text field
+  - menu bar actions
+- Extend `scripts/smoke-app.sh` with a main-window check using AppleScript/JXA when automation permissions are available, while keeping a clear fallback for machines where macOS privacy settings block window inspection.
+- Add small sanitized parser fixtures under `Tests/DJMemoryCoreTests/Fixtures` for Serato, rekordbox, and Traktor once representative samples are available.
+- Keep archive and scanner integration coverage based on generated temporary directories rather than checked-in audio files.
+- Continue running `swift test` after fixture or test changes and `bash scripts/smoke-app.sh` for app bundle verification.
