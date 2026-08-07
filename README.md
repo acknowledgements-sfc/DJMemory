@@ -15,6 +15,7 @@ swift run djmemory probe
 swift run djmemory archive /path/to/set.wav serato
 swift run djmemory scan ~/Music/_Serato_/Recording serato
 swift run djmemory watch ~/Music/_Serato_/Recording serato
+swift run djmemory virtualdj-network
 swift run DJMemoryApp
 swift test
 ```

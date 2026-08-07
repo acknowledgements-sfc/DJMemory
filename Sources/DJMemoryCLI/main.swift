@@ -12,6 +12,8 @@ case "scan":
     try runScan(arguments: arguments)
 case "watch":
     try runWatch(arguments: arguments)
+case "virtualdj-network":
+    runVirtualDJNetworkProbe(arguments: arguments)
 default:
     printUsage()
 }
@@ -23,6 +25,7 @@ private func printUsage() {
       djmemory archive <file> [appID]
       djmemory scan <folder> [appID]
       djmemory watch <folder> [appID]
+      djmemory virtualdj-network [endpointURL]
     """)
 }
 
@@ -135,4 +138,29 @@ private func printArchived(_ session: RecordingSession) {
         print("  to: \(archiveURL.path)")
         print("  metadata: \(archiveURL.deletingPathExtension().appendingPathExtension("json").path)")
     }
+}
+
+private func runVirtualDJNetworkProbe(arguments: [String]) {
+    let endpoint = arguments.count >= 2
+        ? URL(string: arguments[1]) ?? VirtualDJNetworkProbe.defaultEndpoint
+        : VirtualDJNetworkProbe.defaultEndpoint
+    let semaphore = DispatchSemaphore(value: 0)
+
+    Task {
+        let result = await VirtualDJNetworkProbe().probe(endpoint: endpoint)
+        print("VirtualDJ Network Control: \(result.reachable ? "reachable" : "not reachable")")
+        print("  endpoint: \(result.endpoint.absoluteString)")
+
+        if let statusCode = result.statusCode {
+            print("  status: \(statusCode)")
+        }
+
+        if let errorDescription = result.errorDescription {
+            print("  error: \(errorDescription)")
+        }
+
+        semaphore.signal()
+    }
+
+    semaphore.wait()
 }
