@@ -144,6 +144,36 @@ final class ScanCoordinatorTests: XCTestCase {
         )
     }
 
+    func testScanRecentReportsArchiveFolderUnavailable() throws {
+        let sourceFolder = tempRoot.appendingPathComponent("Source", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceFolder, withIntermediateDirectories: true)
+
+        let sourceURL = sourceFolder.appendingPathComponent("set.wav")
+        try Data("audio".utf8).write(to: sourceURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 0)],
+            ofItemAtPath: sourceURL.path
+        )
+
+        let archiveFileURL = tempRoot.appendingPathComponent("Archive")
+        try Data("not a folder".utf8).write(to: archiveFileURL)
+
+        let scanner = RecordingFolderScanner(
+            archiveService: ArchiveService(archiveRoot: archiveFileURL)
+        )
+        let coordinator = ScanCoordinator(scanner: scanner)
+        let results = coordinator.scanRecent(
+            requests: [FolderScanRequest(appID: "serato", folderURL: sourceFolder)],
+            now: Date(timeIntervalSince1970: 120)
+        )
+
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(
+            results.first?.errorDescription,
+            "Archive folder is unavailable. Choose a different archive folder in Settings."
+        )
+    }
+
     private func archivedAudioFileCount(in folder: URL) throws -> Int {
         guard FileManager.default.fileExists(atPath: folder.path) else {
             return 0

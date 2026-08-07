@@ -109,6 +109,18 @@ public struct ScanCoordinator {
             return "DJMemory cannot read this folder. Choose it again to refresh permission."
         }
 
+        if case ArchiveServiceError.archiveDirectoryUnavailable = error {
+            return "Archive folder is unavailable. Choose a different archive folder in Settings."
+        }
+
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileWriteOutOfSpaceError {
+            return "Archive folder does not have enough free space. Choose a drive with more space in Settings."
+        }
+
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileWriteNoPermissionError {
+            return "DJMemory cannot write to the archive folder. Choose a different archive folder in Settings."
+        }
+
         return "Could not scan this folder. Choose it again in setup. \(error.localizedDescription)"
     }
 

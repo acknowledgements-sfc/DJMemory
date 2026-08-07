@@ -89,6 +89,11 @@ public struct ArchiveService {
     }
 
     private func ensureArchiveRootExistsWithAccess() throws {
+        var isDirectory: ObjCBool = false
+        if fileManager.fileExists(atPath: archiveRoot.path, isDirectory: &isDirectory), !isDirectory.boolValue {
+            throw ArchiveServiceError.archiveDirectoryUnavailable(archiveRoot)
+        }
+
         try fileManager.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
 
         guard fileManager.fileExists(atPath: archiveRoot.path) else {
