@@ -59,4 +59,17 @@ public struct FileStabilityChecker {
         }
         .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
     }
+
+    public func recentUnstableAudioFiles(
+        in folderURL: URL,
+        modifiedAfter cutoff: Date,
+        unstableAfter: Date
+    ) throws -> [URL] {
+        let urls = try recentAudioFiles(in: folderURL, modifiedAfter: cutoff)
+
+        return try urls.filter { url in
+            let values = try url.resourceValues(forKeys: [.contentModificationDateKey])
+            return (values.contentModificationDate ?? .distantPast) > unstableAfter
+        }
+    }
 }

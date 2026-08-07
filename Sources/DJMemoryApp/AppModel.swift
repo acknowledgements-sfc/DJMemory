@@ -426,7 +426,15 @@ final class AppModel: ObservableObject {
             return result.installedApplicationURLs.isEmpty ? "App not found" : "Needs folder access"
         }
 
-        return isScanning ? "Scanning" : "Watching"
+        if isScanning {
+            return "Saving"
+        }
+
+        if hasRecentUnstableRecording(for: result.software.id) {
+            return "Recording Detected"
+        }
+
+        return "Watching"
     }
 
     func importedTracklists(for appID: String) -> [ImportedTracklist] {
@@ -499,6 +507,53 @@ final class AppModel: ObservableObject {
 
             return configured + discovered
         }
+    }
+
+    private func hasRecentUnstableRecording(for appID: String, now: Date = Date()) -> Bool {
+        let checker = FileStabilityChecker()
+        let cutoff = Calendar.current.date(byAdding: .hour, value: -24, to: now) ?? .distantPast
+        let unstableAfter = now.addingTimeInterval(-30)
+
+        return scanRequests()
+            .filter { $0.appID == appID }
+            .contains { request in
+                (try? withSecurityScopedFolder(request) { folderURL in
+                    try !checker.recentUnstableAudioFiles(
+                        in: folderURL,
+                        modifiedAfter: cutoff,
+                        unstableAfter: unstableAfter
+                    ).isEmpty
+                }) ?? false
+            }
+    }
+
+    private func withSecurityScopedFolder<T>(
+        _ request: FolderScanRequest,
+        operation: (URL) throws -> T
+    ) throws -> T {
+        guard let bookmarkData = request.bookmarkData else {
+            return try operation(request.folderURL)
+        }
+
+        var isStale = false
+        let url = try URL(
+            resolvingBookmarkData: bookmarkData,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        )
+        guard !isStale else {
+            return try operation(request.folderURL)
+        }
+
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try operation(url)
     }
 
     private func defaultFolderPanelURL(appID: String, kind: FolderKind) -> URL? {

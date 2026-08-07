@@ -585,11 +585,15 @@ private struct ProtectionSourceRow: View {
     }
 
     private var sourceSymbol: String {
-        recordingFolders.isEmpty ? "circle" : "checkmark.circle.fill"
+        if state == "Recording Detected" { return "record.circle.fill" }
+        if state == "Saving" { return "tray.and.arrow.down.fill" }
+        return recordingFolders.isEmpty ? "circle" : "checkmark.circle.fill"
     }
 
     private var sourceTint: Color {
         if state == "Error" { return .orange }
+        if state == "Recording Detected" { return .red }
+        if state == "Saving" { return .blue }
         return recordingFolders.isEmpty ? .secondary : .green
     }
 
@@ -1108,8 +1112,10 @@ private struct StatusGrid: View {
             return "folder.badge.questionmark"
         case "App not found":
             return "questionmark.app"
-        case "Scanning":
+        case "Saving":
             return "waveform.badge.magnifyingglass"
+        case "Recording Detected":
+            return "record.circle.fill"
         default:
             return "record.circle"
         }

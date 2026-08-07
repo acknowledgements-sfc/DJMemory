@@ -47,6 +47,30 @@ final class FileStabilityCheckerTests: XCTestCase {
         XCTAssertEqual(urls.map(\.lastPathComponent), [oldURL.lastPathComponent])
     }
 
+    func testRecentUnstableAudioFilesReturnsFilesInsideStabilityWindow() throws {
+        let stableURL = tempRoot.appendingPathComponent("stable.wav")
+        let unstableURL = tempRoot.appendingPathComponent("recording.wav")
+        try Data("audio".utf8).write(to: stableURL)
+        try Data("audio".utf8).write(to: unstableURL)
+
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 100)],
+            ofItemAtPath: stableURL.path
+        )
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 200)],
+            ofItemAtPath: unstableURL.path
+        )
+
+        let urls = try FileStabilityChecker().recentUnstableAudioFiles(
+            in: tempRoot,
+            modifiedAfter: .distantPast,
+            unstableAfter: Date(timeIntervalSince1970: 150)
+        )
+
+        XCTAssertEqual(urls.map(\.lastPathComponent), [unstableURL.lastPathComponent])
+    }
+
     func testIsStableComparesCurrentSnapshotToPreviousSnapshot() throws {
         let wavURL = tempRoot.appendingPathComponent("set.wav")
         try Data("audio".utf8).write(to: wavURL)
