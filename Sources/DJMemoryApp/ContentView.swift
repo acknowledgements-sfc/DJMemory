@@ -204,11 +204,20 @@ private struct HeaderView: View {
                 Text("Archive")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(model.archiveRoot.path)
-                    .font(.callout.monospaced())
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(model.archiveRoot.path)
+                HStack(spacing: 8) {
+                    Text(model.archiveRoot.path)
+                        .font(.callout.monospaced())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(model.archiveRoot.path)
+
+                    Button {
+                        model.openArchiveFolder()
+                    } label: {
+                        Label("Open", systemImage: "folder")
+                    }
+                    .help("Open the DJMemory archive folder in Finder.")
+                }
             }
         }
     }
@@ -422,14 +431,16 @@ private struct FolderSetupView: View {
                 title: "Recordings",
                 folders: model.recordingFolders(for: result.software.id),
                 chooseAction: { model.chooseFolder(appID: result.software.id, kind: .recordings) },
-                clearAction: { model.clearFolder(appID: result.software.id, kind: .recordings) }
+                clearAction: { model.clearFolder(appID: result.software.id, kind: .recordings) },
+                revealAction: { model.revealInFinder($0) }
             )
 
             FolderRow(
                 title: "History",
                 folders: model.historyFolders(for: result.software.id),
                 chooseAction: { model.chooseFolder(appID: result.software.id, kind: .history) },
-                clearAction: { model.clearFolder(appID: result.software.id, kind: .history) }
+                clearAction: { model.clearFolder(appID: result.software.id, kind: .history) },
+                revealAction: { model.revealInFinder($0) }
             )
         }
     }
@@ -440,6 +451,7 @@ private struct FolderRow: View {
     let folders: [URL]
     let chooseAction: () -> Void
     let clearAction: () -> Void
+    let revealAction: (URL) -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -470,6 +482,16 @@ private struct FolderRow: View {
                 Label("Choose", systemImage: "folder.badge.plus")
             }
             .help("Choose the \(title.lowercased()) folder DJMemory can access.")
+
+            Button {
+                if let folder = folders.first {
+                    revealAction(folder)
+                }
+            } label: {
+                Label("Reveal", systemImage: "arrow.up.forward.app")
+            }
+            .disabled(folders.isEmpty)
+            .help("Reveal the selected \(title.lowercased()) folder in Finder.")
 
             Button {
                 clearAction()
@@ -579,10 +601,19 @@ private struct SessionLibraryView: View {
                             .help(summary.matchedTracklist?.sourceURL.path ?? "No tracklist matched")
                     }
                     TableColumn("Archived") { summary in
-                        Text(summary.archive.archivePath)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(summary.archive.archivePath)
+                        HStack {
+                            Text(summary.archive.archivePath)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help(summary.archive.archivePath)
+
+                            Button {
+                                model.revealInFinder(URL(fileURLWithPath: summary.archive.archivePath))
+                            } label: {
+                                Label("Reveal", systemImage: "arrow.up.forward.app")
+                            }
+                            .help("Reveal this archived recording in Finder.")
+                        }
                     }
                 }
                 .frame(minHeight: 340)
@@ -604,8 +635,17 @@ private struct SessionLibraryView: View {
             } else {
                 Table(model.allImportedTracklists, selection: .constant(nil)) {
                     TableColumn("File") { tracklist in
-                        Text(tracklist.sourceURL.lastPathComponent)
-                            .help(tracklist.sourceURL.path)
+                        HStack {
+                            Text(tracklist.sourceURL.lastPathComponent)
+                                .help(tracklist.sourceURL.path)
+
+                            Button {
+                                model.revealInFinder(tracklist.sourceURL)
+                            } label: {
+                                Label("Reveal", systemImage: "arrow.up.forward.app")
+                            }
+                            .help("Reveal this imported tracklist in Finder.")
+                        }
                     }
                     TableColumn("App") { tracklist in
                         Text(tracklist.appID)

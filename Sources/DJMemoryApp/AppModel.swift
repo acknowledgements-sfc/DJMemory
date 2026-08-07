@@ -212,6 +212,25 @@ final class AppModel: ObservableObject {
         importedTracklists.values.flatMap { $0 }.sorted { $0.importedAt > $1.importedAt }
     }
 
+    func revealInFinder(_ url: URL) {
+        let fileManager = FileManager.default
+
+        if fileManager.fileExists(atPath: url.path) {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } else {
+            NSWorkspace.shared.open(url.deletingLastPathComponent())
+        }
+    }
+
+    func openArchiveFolder() {
+        do {
+            try FileManager.default.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(archiveRoot)
+        } catch {
+            statusMessage = "Could not open archive folder: \(error.localizedDescription)"
+        }
+    }
+
     private func startBackgroundScanning() {
         scanTask?.cancel()
         scanTask = Task { [weak self] in

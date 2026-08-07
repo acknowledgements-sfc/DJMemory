@@ -28,6 +28,13 @@ struct MenuBarStatusView: View {
             }
             .help("Refresh app detection, folder access, imports, archive metadata, and activity.")
 
+            Button {
+                model.openArchiveFolder()
+            } label: {
+                Label("Open Archive", systemImage: "folder")
+            }
+            .help("Open the DJMemory archive folder in Finder.")
+
             Text(model.archiveRoot.path)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
