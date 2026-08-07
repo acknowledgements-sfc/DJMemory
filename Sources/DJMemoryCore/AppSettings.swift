@@ -1,18 +1,37 @@
 import Foundation
 
 public struct AppSettings: Codable, Equatable, Sendable {
+    public static let defaultArchiveNamingTemplate = "{date} {time} - {app} - Set"
+
     public let automaticScanningEnabled: Bool
     public let scanIntervalSeconds: Int
+    public let archiveNamingTemplate: String
 
     public init(
         automaticScanningEnabled: Bool = true,
-        scanIntervalSeconds: Int = 60
+        scanIntervalSeconds: Int = 60,
+        archiveNamingTemplate: String = Self.defaultArchiveNamingTemplate
     ) {
         self.automaticScanningEnabled = automaticScanningEnabled
         self.scanIntervalSeconds = scanIntervalSeconds
+        self.archiveNamingTemplate = archiveNamingTemplate
     }
 
     public static let `default` = AppSettings()
+
+    private enum CodingKeys: String, CodingKey {
+        case automaticScanningEnabled
+        case scanIntervalSeconds
+        case archiveNamingTemplate
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        automaticScanningEnabled = try container.decodeIfPresent(Bool.self, forKey: .automaticScanningEnabled) ?? true
+        scanIntervalSeconds = try container.decodeIfPresent(Int.self, forKey: .scanIntervalSeconds) ?? 60
+        archiveNamingTemplate = try container.decodeIfPresent(String.self, forKey: .archiveNamingTemplate)
+            ?? Self.defaultArchiveNamingTemplate
+    }
 }
 
 public struct AppSettingsStore {

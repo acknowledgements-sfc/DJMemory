@@ -185,10 +185,11 @@ final class AppModel: ObservableObject {
 
         isScanning = true
         let requests = scanRequests()
+        let coordinator = scanCoordinator()
 
         Task {
             let results = await Task.detached(priority: .userInitiated) {
-                ScanCoordinator().scanRecent(requests: requests)
+                coordinator.scanRecent(requests: requests)
             }.value
 
             await MainActor.run {
@@ -213,14 +214,24 @@ final class AppModel: ObservableObject {
     func updateAutomaticScanning(enabled: Bool) {
         saveSettings(AppSettings(
             automaticScanningEnabled: enabled,
-            scanIntervalSeconds: settings.scanIntervalSeconds
+            scanIntervalSeconds: settings.scanIntervalSeconds,
+            archiveNamingTemplate: settings.archiveNamingTemplate
         ))
     }
 
     func updateScanInterval(seconds: Int) {
         saveSettings(AppSettings(
             automaticScanningEnabled: settings.automaticScanningEnabled,
-            scanIntervalSeconds: seconds
+            scanIntervalSeconds: seconds,
+            archiveNamingTemplate: settings.archiveNamingTemplate
+        ))
+    }
+
+    func updateArchiveNamingTemplate(_ template: String) {
+        saveSettings(AppSettings(
+            automaticScanningEnabled: settings.automaticScanningEnabled,
+            scanIntervalSeconds: settings.scanIntervalSeconds,
+            archiveNamingTemplate: template
         ))
     }
 
@@ -325,6 +336,12 @@ final class AppModel: ObservableObject {
                 FolderScanRequest(appID: result.software.id, folderURL: folderURL)
             }
         }
+    }
+
+    private func scanCoordinator() -> ScanCoordinator {
+        let archiveService = ArchiveService(namingTemplate: settings.archiveNamingTemplate)
+        let scanner = RecordingFolderScanner(archiveService: archiveService)
+        return ScanCoordinator(scanner: scanner)
     }
 
     private func scanStatusMessage(for results: [FolderScanResult]) -> String {

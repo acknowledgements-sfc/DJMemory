@@ -231,6 +231,29 @@ private struct SettingsView: View {
             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 10) {
+                Text("Archive Naming")
+                    .font(.headline)
+
+                TextField(
+                    "Archive naming template",
+                    text: Binding(
+                        get: { model.settings.archiveNamingTemplate },
+                        set: { model.updateArchiveNamingTemplate($0) }
+                    )
+                )
+                .textFieldStyle(.roundedBorder)
+                .help("Available tokens: {date}, {time}, {app}, {source}.")
+
+                SettingsStatusRow(
+                    title: "Example",
+                    value: exampleArchiveName(),
+                    symbol: "textformat"
+                )
+            }
+            .padding(14)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 10) {
                 Text("Current State")
                     .font(.headline)
 
@@ -261,6 +284,19 @@ private struct SettingsView: View {
         }
 
         return "\(seconds / 60)m"
+    }
+
+    private func exampleArchiveName() -> String {
+        let template = model.settings.archiveNamingTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? AppSettings.defaultArchiveNamingTemplate
+            : model.settings.archiveNamingTemplate
+
+        return template
+            .replacingOccurrences(of: "{date}", with: "2026-08-06")
+            .replacingOccurrences(of: "{time}", with: "2230")
+            .replacingOccurrences(of: "{app}", with: "Serato DJ Pro")
+            .replacingOccurrences(of: "{source}", with: "Club Recording")
+            + ".wav"
     }
 }
 

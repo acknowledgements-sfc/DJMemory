@@ -80,6 +80,28 @@ final class ArchiveServiceTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(second.archiveURL).lastPathComponent.contains(" 2."))
     }
 
+    func testArchiveUsesCustomNamingTemplate() throws {
+        let sourceURL = tempRoot.appendingPathComponent("source.wav")
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try Data("audio".utf8).write(to: sourceURL)
+
+        let service = ArchiveService(
+            archiveRoot: archiveRoot,
+            calendar: Calendar(identifier: .gregorian),
+            namingTemplate: "{date} - {app} - {source}"
+        )
+        let session = try service.archive(
+            sourceURL: sourceURL,
+            sourceAppID: "serato",
+            detectedAt: Date(timeIntervalSince1970: 0)
+        )
+
+        XCTAssertEqual(
+            session.archiveURL?.lastPathComponent,
+            "1969-12-31 - Serato DJ Pro - source.wav"
+        )
+    }
+
     func testIsSourceAlreadyArchivedUsesMetadataSidecar() throws {
         let sourceURL = tempRoot.appendingPathComponent("source.wav")
         let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)

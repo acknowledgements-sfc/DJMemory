@@ -7,21 +7,26 @@ public enum ArchiveServiceError: Error, Equatable {
 }
 
 public struct ArchiveService {
+    public static let defaultNamingTemplate = AppSettings.defaultArchiveNamingTemplate
+
     public let archiveRoot: URL
     private let fileManager: FileManager
     private let calendar: Calendar
     private let durationReader: any AudioDurationReading
+    private let namingTemplate: String
 
     public init(
         archiveRoot: URL = Self.defaultArchiveRoot(),
         fileManager: FileManager = .default,
         calendar: Calendar = .current,
-        durationReader: any AudioDurationReading = AudioDurationReader()
+        durationReader: any AudioDurationReading = AudioDurationReader(),
+        namingTemplate: String = Self.defaultNamingTemplate
     ) {
         self.archiveRoot = archiveRoot
         self.fileManager = fileManager
         self.calendar = calendar
         self.durationReader = durationReader
+        self.namingTemplate = namingTemplate
     }
 
     public static func defaultArchiveRoot() -> URL {
@@ -119,14 +124,26 @@ public struct ArchiveService {
     }
 
     private func uniqueDestinationURL(for sourceURL: URL, sourceAppID: String, detectedAt: Date) -> URL {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.dateFormat = "yyyy-MM-dd HHmm"
+        let dateFormatter = DateFormatter()
+        dateFormatter.calendar = calendar
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.calendar = calendar
+        timeFormatter.dateFormat = "HHmm"
 
         let appName = SupportedDJSoftware.all.first { $0.id == sourceAppID }?.displayName ?? sourceAppID
-        let safeAppName = sanitizeFilenameComponent(appName)
         let ext = sourceURL.pathExtension
-        let baseName = "\(formatter.string(from: detectedAt)) - \(safeAppName) - Set"
+        let renderedName = namingTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? Self.defaultNamingTemplate
+            : namingTemplate
+        let baseName = sanitizeFilenameComponent(
+            renderedName
+                .replacingOccurrences(of: "{date}", with: dateFormatter.string(from: detectedAt))
+                .replacingOccurrences(of: "{time}", with: timeFormatter.string(from: detectedAt))
+                .replacingOccurrences(of: "{app}", with: appName)
+                .replacingOccurrences(of: "{source}", with: sourceURL.deletingPathExtension().lastPathComponent)
+        )
 
         var candidate = archiveRoot.appendingPathComponent(baseName).appendingPathExtension(ext)
         var suffix = 2

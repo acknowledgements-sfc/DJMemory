@@ -23,10 +23,29 @@ final class AppSettingsStoreTests: XCTestCase {
 
     func testSavePersistsSettings() throws {
         let store = AppSettingsStore(storageURL: tempRoot.appendingPathComponent("settings.json"))
-        let settings = AppSettings(automaticScanningEnabled: false, scanIntervalSeconds: 300)
+        let settings = AppSettings(
+            automaticScanningEnabled: false,
+            scanIntervalSeconds: 300,
+            archiveNamingTemplate: "{date} - {app} - {source}"
+        )
 
         try store.save(settings)
 
         XCTAssertEqual(try store.load(), settings)
+    }
+
+    func testLoadLegacySettingsDefaultsArchiveNamingTemplate() throws {
+        let store = AppSettingsStore(storageURL: tempRoot.appendingPathComponent("settings.json"))
+        let json = """
+        {
+          "automaticScanningEnabled" : true,
+          "scanIntervalSeconds" : 60
+        }
+        """
+        try Data(json.utf8).write(to: store.storageURL)
+
+        let settings = try store.load()
+
+        XCTAssertEqual(settings.archiveNamingTemplate, AppSettings.defaultArchiveNamingTemplate)
     }
 }
