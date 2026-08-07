@@ -31,6 +31,7 @@ Last updated: August 6, 2026.
 - Confirm the folder still appears.
 - Run Scan Now against a folder with no new files.
 - Confirm the Protection dashboard and menu-bar status show last-scan and next-scan timing.
+- Add or update an audio file in a watched folder and confirm DJMemory schedules a scan soon.
 - Import one supported tracklist file.
 - Export diagnostics and confirm the report avoids track titles by default.
 

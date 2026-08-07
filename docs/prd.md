@@ -270,6 +270,8 @@ Implementation note: scans now report active recordings separately from archived
 
 Implementation note: the Protection dashboard and menu-bar status now show last-scan and next-scan timing so automatic protection is visible while the app is open.
 
+Implementation note: while automatic scanning is enabled, reachable recording folders are monitored for macOS file-system activity and schedule a short debounced scan; the periodic scan remains a backup.
+
 ### Should Have
 
 - Serato default folder detection.

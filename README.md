@@ -50,7 +50,7 @@ Local smoke-test coverage lives in `scripts/smoke-app.sh`.
 
 The app can save recording/history folder selections using macOS security-scoped bookmarks, which keeps the setup path compatible with sandboxed distribution. Custom archive folders use the same bookmark approach.
 
-Configured recording folders can be scanned from the app with **Rescan Last 24 Hours**. While the app is open, it also checks configured folders once per minute.
+Configured recording folders can be scanned from the app with **Rescan Last 24 Hours**. While the app is open, reachable recording folders also trigger a short debounced scan when macOS reports folder activity, with a one-minute scheduled scan as a backup.
 
 To open the package in Xcode:
 

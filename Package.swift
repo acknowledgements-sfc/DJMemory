@@ -25,6 +25,10 @@ let package = Package(
         .testTarget(
             name: "DJMemoryCoreTests",
             dependencies: ["DJMemoryCore"]
+        ),
+        .testTarget(
+            name: "DJMemoryAppTests",
+            dependencies: ["DJMemoryApp", "DJMemoryCore"]
         )
     ]
 )

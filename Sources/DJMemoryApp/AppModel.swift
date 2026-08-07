@@ -17,6 +17,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var virtualDJNetworkProbeResult: VirtualDJNetworkProbeResult?
     @Published private(set) var isCheckingVirtualDJNetwork = false
     @Published private(set) var isScanning = false
+    @Published private(set) var isFolderChangeScanPending = false
     @Published private(set) var lastScanDate: Date?
     @Published private(set) var nextScanDate: Date?
     @Published var selectedAppID: String?
@@ -33,7 +34,9 @@ final class AppModel: ObservableObject {
     private let activityLogStore = ActivityLogStore()
     private let appSettingsStore = AppSettingsStore()
     private let notificationService = LocalNotificationService()
+    private let folderChangeMonitor = FolderChangeMonitor()
     private var scanTask: Task<Void, Never>?
+    private var folderChangeScanTask: Task<Void, Never>?
 
     init() {
         notificationService.requestAuthorization()
@@ -43,6 +46,8 @@ final class AppModel: ObservableObject {
 
     deinit {
         scanTask?.cancel()
+        folderChangeScanTask?.cancel()
+        folderChangeMonitor.stop()
     }
 
     var protectedAdapterCount: Int {
@@ -74,6 +79,10 @@ final class AppModel: ObservableObject {
 
         if isScanning {
             return "Scanning now"
+        }
+
+        if isFolderChangeScanPending {
+            return "Soon"
         }
 
         guard let nextScanDate else {
@@ -118,6 +127,7 @@ final class AppModel: ObservableObject {
         }
 
         selectedAppID = selectedAppID ?? "protection"
+        restartFolderChangeMonitoring()
     }
 
     func recordingFolders(for appID: String) -> [URL] {
@@ -280,6 +290,7 @@ final class AppModel: ObservableObject {
         guard !isScanning else { return }
 
         isScanning = true
+        isFolderChangeScanPending = false
         nextScanDate = nil
         let requests = scanRequests()
         let coordinator = scanCoordinator()
@@ -557,16 +568,51 @@ final class AppModel: ObservableObject {
         scanTask?.cancel()
         guard settings.automaticScanningEnabled else {
             scanTask = nil
+            folderChangeScanTask?.cancel()
+            isFolderChangeScanPending = false
             nextScanDate = nil
+            folderChangeMonitor.stop()
             return
         }
 
         let intervalSeconds = settings.scanIntervalSeconds
         scheduleNextScanIfNeeded()
+        restartFolderChangeMonitoring()
         scanTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(intervalSeconds))
                 self?.scanNow()
+            }
+        }
+    }
+
+    private func restartFolderChangeMonitoring() {
+        guard settings.automaticScanningEnabled else {
+            folderChangeMonitor.stop()
+            return
+        }
+
+        folderChangeMonitor.start(requests: scanRequests()) { [weak self] in
+            Task { @MainActor in
+                self?.scheduleFolderChangeScan()
+            }
+        }
+    }
+
+    private func scheduleFolderChangeScan() {
+        guard settings.automaticScanningEnabled else { return }
+
+        folderChangeScanTask?.cancel()
+        isFolderChangeScanPending = true
+        nextScanDate = Date().addingTimeInterval(5)
+        statusMessage = "Recording folder changed; scanning soon"
+
+        folderChangeScanTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            await MainActor.run {
+                guard let self, !Task.isCancelled else { return }
+                self.isFolderChangeScanPending = false
+                self.scanNow()
             }
         }
     }
