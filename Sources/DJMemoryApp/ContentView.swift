@@ -429,6 +429,12 @@ private struct AdapterDetailView: View {
                 "Import rekordbox XML or history exports when available.",
                 "DJMemory preserves completed recordings in ~/Music/DJMemory."
             ]
+        case "traktor":
+            return [
+                "DJMemory checks ~/Music/Traktor/Recordings when it exists.",
+                "Versioned Traktor History folders are detected under Native Instruments.",
+                "Import Traktor .nml history playlists for tracklists."
+            ]
         default:
             return [
                 "Coming after Serato and rekordbox MVP support.",
@@ -555,6 +561,8 @@ private struct HistoryImportView: View {
             return "Import a Serato History Export CSV or text file to preview tracklist parsing."
         case "rekordbox":
             return "Import a rekordbox XML or history export to test metadata compatibility."
+        case "traktor":
+            return "Import a Traktor NML history playlist to preview tracklist parsing."
         default:
             return "History import is planned after Serato and rekordbox support."
         }

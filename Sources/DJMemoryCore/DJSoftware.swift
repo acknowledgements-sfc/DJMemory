@@ -78,7 +78,7 @@ public enum SupportedDJSoftware {
             displayName: "Traktor",
             bundleIdentifiers: ["com.native-instruments.Traktor"],
             defaultRecordingPaths: ["~/Music/Traktor/Recordings"],
-            defaultHistoryPaths: ["~/Documents/Native Instruments"],
+            defaultHistoryPaths: ["~/Documents/Native Instruments/Traktor*/History"],
             integrationDepth: .exportImport,
             notes: "History playlists and recordings have known default locations."
         )

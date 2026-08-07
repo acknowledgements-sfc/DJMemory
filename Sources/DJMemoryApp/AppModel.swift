@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import DJMemoryCore
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -141,7 +142,13 @@ final class AppModel: ObservableObject {
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText, .xml]
+        panel.allowedContentTypes = [
+            .commaSeparatedText,
+            .tabSeparatedText,
+            .plainText,
+            .xml,
+            UTType(filenameExtension: "nml") ?? .xml
+        ]
         panel.prompt = "Import"
         panel.message = "Choose a history export or tracklist file."
 
@@ -464,6 +471,8 @@ final class AppModel: ObservableObject {
             return SeratoHistoryParser()
         case "rekordbox":
             return RekordboxXMLParser()
+        case "traktor":
+            return TraktorNMLParser()
         default:
             return DelimitedTracklistParser()
         }

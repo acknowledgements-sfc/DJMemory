@@ -87,4 +87,28 @@ final class TracklistParserTests: XCTestCase {
         XCTAssertEqual(tracks.first?.artist, "Jaydee")
         XCTAssertEqual(tracks.first?.source, "rekordbox.xml")
     }
+
+    func testTraktorNMLParserReadsEntryAttributes() throws {
+        let nml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <NML VERSION="19">
+          <PLAYLISTS>
+            <NODE NAME="History">
+              <PLAYLIST>
+                <ENTRY TITLE="Jaguar" ARTIST="DJ Rolando" STARTTIME="00:00" />
+                <ENTRY TITLE="Can You Feel It" ARTIST="Mr. Fingers" STARTTIME="05:22" />
+              </PLAYLIST>
+            </NODE>
+          </PLAYLISTS>
+        </NML>
+        """
+
+        let tracks = try TraktorNMLParser().parse(data: Data(nml.utf8), sourceName: "history.nml")
+
+        XCTAssertEqual(tracks.count, 2)
+        XCTAssertEqual(tracks.first?.title, "Jaguar")
+        XCTAssertEqual(tracks.first?.artist, "DJ Rolando")
+        XCTAssertEqual(tracks.first?.startTime, "00:00")
+        XCTAssertEqual(tracks.first?.source, "history.nml")
+    }
 }

@@ -184,3 +184,57 @@ public final class RekordboxXMLParser: NSObject, TracklistParser, XMLParserDeleg
         )
     }
 }
+
+public final class TraktorNMLParser: NSObject, TracklistParser, XMLParserDelegate {
+    private var tracks: [TrackPlay] = []
+    private var sourceName = "Traktor NML"
+
+    public override init() {}
+
+    public func parse(data: Data, sourceName: String = "Traktor NML") throws -> [TrackPlay] {
+        self.tracks = []
+        self.sourceName = sourceName
+
+        let parser = XMLParser(data: data)
+        parser.delegate = self
+        parser.parse()
+
+        return tracks
+    }
+
+    public func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        guard elementName.uppercased() == "ENTRY" else { return }
+
+        let title = value(from: attributeDict, keys: ["TITLE", "Title", "Name", "NAME"])
+        let artist = value(from: attributeDict, keys: ["ARTIST", "Artist"]) ?? ""
+        let startTime = value(from: attributeDict, keys: ["STARTTIME", "START_TIME", "PLAYTIME", "TIME"])
+
+        guard let title, !title.isEmpty else { return }
+
+        tracks.append(
+            TrackPlay(
+                title: StringDecoding.decodedEntities(title),
+                artist: StringDecoding.decodedEntities(artist),
+                startTime: startTime,
+                source: sourceName,
+                confidence: 0.75
+            )
+        )
+    }
+
+    private func value(from attributes: [String: String], keys: [String]) -> String? {
+        for key in keys {
+            if let value = attributes[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty {
+                return value
+            }
+        }
+
+        return nil
+    }
+}
