@@ -10,6 +10,7 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
     public let fileSize: Int64
     public let originalFilename: String
     public let durationSeconds: Double?
+    public let sourceFingerprint: String?
 
     public var id: UUID { sessionID }
 
@@ -23,6 +24,7 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
         self.fileSize = session.fileSize ?? 0
         self.originalFilename = originalFilename
         self.durationSeconds = nil
+        self.sourceFingerprint = nil
     }
 
     public init(
@@ -34,7 +36,8 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
         archivePath: String,
         fileSize: Int64,
         originalFilename: String,
-        durationSeconds: Double?
+        durationSeconds: Double?,
+        sourceFingerprint: String? = nil
     ) {
         self.sessionID = sessionID
         self.sourceAppID = sourceAppID
@@ -45,5 +48,6 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
         self.fileSize = fileSize
         self.originalFilename = originalFilename
         self.durationSeconds = durationSeconds
+        self.sourceFingerprint = sourceFingerprint
     }
 }

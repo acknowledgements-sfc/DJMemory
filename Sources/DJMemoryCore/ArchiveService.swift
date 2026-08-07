@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 public enum ArchiveServiceError: Error, Equatable {
     case sourceFileMissing(URL)
@@ -53,6 +54,7 @@ public struct ArchiveService {
         }
 
         let fileSize = try sourceURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        let sourceFingerprint = try contentFingerprint(for: sourceURL)
         let destinationURL = uniqueDestinationURL(for: sourceURL, sourceAppID: sourceAppID, detectedAt: detectedAt)
 
         try fileManager.copyItem(at: sourceURL, to: destinationURL)
@@ -67,7 +69,11 @@ public struct ArchiveService {
             status: .archived
         )
 
-        try writeMetadata(for: session, originalFilename: sourceURL.lastPathComponent)
+        try writeMetadata(
+            for: session,
+            originalFilename: sourceURL.lastPathComponent,
+            sourceFingerprint: sourceFingerprint
+        )
         return session
     }
 
@@ -87,6 +93,8 @@ public struct ArchiveService {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let sourcePath = sourceURL.path
+        let sourceFileSize = (try? sourceURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init)
+        var sourceFingerprint: String?
 
         return metadataURLs
             .filter { $0.pathExtension.lowercased() == "json" }
@@ -98,11 +106,32 @@ public struct ArchiveService {
                     return false
                 }
 
-                return metadata.sourcePath == sourcePath
+                if metadata.sourcePath == sourcePath {
+                    return true
+                }
+
+                guard
+                    let sourceFileSize,
+                    let metadataFingerprint = metadata.sourceFingerprint
+                else {
+                    return false
+                }
+
+                if sourceFingerprint == nil {
+                    sourceFingerprint = try? contentFingerprint(for: sourceURL)
+                }
+
+                guard let sourceFingerprint else {
+                    return false
+                }
+
+                return metadata.fileSize > 0
+                    && metadata.fileSize == sourceFileSize
+                    && metadataFingerprint == sourceFingerprint
             }
     }
 
-    private func writeMetadata(for session: RecordingSession, originalFilename: String) throws {
+    private func writeMetadata(for session: RecordingSession, originalFilename: String, sourceFingerprint: String) throws {
         guard let archiveURL = session.archiveURL else { return }
 
         let metadata = ArchiveMetadata(
@@ -114,7 +143,8 @@ public struct ArchiveService {
             archivePath: archiveURL.path,
             fileSize: session.fileSize ?? 0,
             originalFilename: originalFilename,
-            durationSeconds: durationReader.durationSeconds(for: archiveURL)
+            durationSeconds: durationReader.durationSeconds(for: archiveURL),
+            sourceFingerprint: sourceFingerprint
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -159,5 +189,20 @@ public struct ArchiveService {
     private func sanitizeFilenameComponent(_ value: String) -> String {
         let invalid = CharacterSet(charactersIn: "/:")
         return value.components(separatedBy: invalid).joined(separator: "-")
+    }
+
+    private func contentFingerprint(for url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer {
+            try? handle.close()
+        }
+
+        var hasher = SHA256()
+
+        while let chunk = try handle.read(upToCount: 1_048_576), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
+
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 }

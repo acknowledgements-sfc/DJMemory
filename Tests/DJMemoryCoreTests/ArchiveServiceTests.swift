@@ -45,6 +45,7 @@ final class ArchiveServiceTests: XCTestCase {
         let metadata = try decoder.decode(ArchiveMetadata.self, from: data)
 
         XCTAssertNil(metadata.durationSeconds)
+        XCTAssertNotNil(metadata.sourceFingerprint)
     }
 
     func testArchiveMetadataStoresMeasuredDuration() throws {
@@ -113,6 +114,20 @@ final class ArchiveServiceTests: XCTestCase {
         try service.archive(sourceURL: sourceURL, sourceAppID: "serato")
 
         XCTAssertTrue(service.isSourceAlreadyArchived(sourceURL))
+    }
+
+    func testIsSourceAlreadyArchivedUsesFingerprintForRenamedSource() throws {
+        let firstSourceURL = tempRoot.appendingPathComponent("source.wav")
+        let renamedSourceURL = tempRoot.appendingPathComponent("renamed.wav")
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        let audioData = Data("same-recording-content".utf8)
+        try audioData.write(to: firstSourceURL)
+        try audioData.write(to: renamedSourceURL)
+
+        let service = ArchiveService(archiveRoot: archiveRoot)
+        try service.archive(sourceURL: firstSourceURL, sourceAppID: "serato")
+
+        XCTAssertTrue(service.isSourceAlreadyArchived(renamedSourceURL))
     }
 
     func testDefaultArchiveRootIsMusicDJMemory() {
