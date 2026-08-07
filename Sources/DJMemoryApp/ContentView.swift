@@ -693,7 +693,8 @@ private struct SessionLibraryView: View {
                             .help(summary.archive.originalFilename)
                     }
                     TableColumn("App") { summary in
-                        Text(summary.archive.sourceAppID)
+                        Text(model.displayName(for: summary.archive.sourceAppID))
+                            .help(summary.archive.sourceAppID)
                     }
                     TableColumn("Tracks") { summary in
                         Text(summary.trackCount == 0 ? "No tracklist" : "\(summary.trackCount)")
@@ -756,7 +757,8 @@ private struct SessionLibraryView: View {
                         }
                     }
                     TableColumn("App") { tracklist in
-                        Text(tracklist.appID)
+                        Text(model.displayName(for: tracklist.appID))
+                            .help(tracklist.appID)
                     }
                     TableColumn("Tracks") { tracklist in
                         Text("\(tracklist.tracks.count)")

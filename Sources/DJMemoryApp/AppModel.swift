@@ -267,6 +267,12 @@ final class AppModel: ObservableObject {
         importedTracklists[appID] ?? []
     }
 
+    func displayName(for appID: String) -> String {
+        probeResults.first { $0.software.id == appID }?.software.displayName
+            ?? SupportedDJSoftware.all.first { $0.id == appID }?.displayName
+            ?? appID
+    }
+
     var allImportedTracklists: [ImportedTracklist] {
         importedTracklists.values.flatMap { $0 }.sorted { $0.importedAt > $1.importedAt }
     }
