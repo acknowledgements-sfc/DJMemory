@@ -15,19 +15,22 @@ public struct ArchiveService {
     private let calendar: Calendar
     private let durationReader: any AudioDurationReading
     private let namingTemplate: String
+    private let archiveRootBookmarkData: Data?
 
     public init(
         archiveRoot: URL = Self.defaultArchiveRoot(),
         fileManager: FileManager = .default,
         calendar: Calendar = .current,
         durationReader: any AudioDurationReading = AudioDurationReader(),
-        namingTemplate: String = Self.defaultNamingTemplate
+        namingTemplate: String = Self.defaultNamingTemplate,
+        archiveRootBookmarkData: Data? = nil
     ) {
         self.archiveRoot = archiveRoot
         self.fileManager = fileManager
         self.calendar = calendar
         self.durationReader = durationReader
         self.namingTemplate = namingTemplate
+        self.archiveRootBookmarkData = archiveRootBookmarkData
     }
 
     public static func defaultArchiveRoot() -> URL {
@@ -38,6 +41,12 @@ public struct ArchiveService {
 
     @discardableResult
     public func archive(sourceURL: URL, sourceAppID: String, detectedAt: Date = Date()) throws -> RecordingSession {
+        try withSecurityScopedArchiveRoot {
+            try archiveWithAccess(sourceURL: sourceURL, sourceAppID: sourceAppID, detectedAt: detectedAt)
+        }
+    }
+
+    private func archiveWithAccess(sourceURL: URL, sourceAppID: String, detectedAt: Date) throws -> RecordingSession {
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory) else {
             throw ArchiveServiceError.sourceFileMissing(sourceURL)
@@ -82,6 +91,12 @@ public struct ArchiveService {
     }
 
     public func isSourceAlreadyArchived(_ sourceURL: URL) -> Bool {
+        withSecurityScopedArchiveRoot {
+            isSourceAlreadyArchivedWithAccess(sourceURL)
+        }
+    }
+
+    private func isSourceAlreadyArchivedWithAccess(_ sourceURL: URL) -> Bool {
         guard let metadataURLs = try? fileManager.contentsOfDirectory(
             at: archiveRoot,
             includingPropertiesForKeys: nil,
@@ -129,6 +144,34 @@ public struct ArchiveService {
                     && metadata.fileSize == sourceFileSize
                     && metadataFingerprint == sourceFingerprint
             }
+    }
+
+    private func withSecurityScopedArchiveRoot<T>(_ operation: () throws -> T) rethrows -> T {
+        guard let archiveRootBookmarkData else {
+            return try operation()
+        }
+
+        var isStale = false
+        guard
+            let url = try? URL(
+                resolvingBookmarkData: archiveRootBookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ),
+            !isStale
+        else {
+            return try operation()
+        }
+
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try operation()
     }
 
     private func writeMetadata(for session: RecordingSession, originalFilename: String, sourceFingerprint: String) throws {

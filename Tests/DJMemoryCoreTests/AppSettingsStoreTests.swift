@@ -26,7 +26,9 @@ final class AppSettingsStoreTests: XCTestCase {
         let settings = AppSettings(
             automaticScanningEnabled: false,
             scanIntervalSeconds: 300,
-            archiveNamingTemplate: "{date} - {app} - {source}"
+            archiveNamingTemplate: "{date} - {app} - {source}",
+            archiveRootPath: "/tmp/DJMemory Archive",
+            archiveRootBookmarkData: Data("bookmark".utf8)
         )
 
         try store.save(settings)
@@ -47,5 +49,7 @@ final class AppSettingsStoreTests: XCTestCase {
         let settings = try store.load()
 
         XCTAssertEqual(settings.archiveNamingTemplate, AppSettings.defaultArchiveNamingTemplate)
+        XCTAssertNil(settings.archiveRootPath)
+        XCTAssertNil(settings.archiveRootBookmarkData)
     }
 }

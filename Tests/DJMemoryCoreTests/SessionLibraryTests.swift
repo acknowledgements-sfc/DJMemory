@@ -29,4 +29,19 @@ final class SessionLibraryTests: XCTestCase {
         XCTAssertEqual(sessions.count, 1)
         XCTAssertEqual(sessions.first?.originalFilename, "source.wav")
     }
+
+    func testArchivedMetadataReadsCustomArchiveRoot() throws {
+        let sourceURL = tempRoot.appendingPathComponent("source.wav")
+        let customArchiveRoot = tempRoot.appendingPathComponent("Custom Archive", isDirectory: true)
+        try Data("audio".utf8).write(to: sourceURL)
+
+        let archiveService = ArchiveService(archiveRoot: customArchiveRoot)
+        try archiveService.archive(sourceURL: sourceURL, sourceAppID: "rekordbox")
+
+        let defaultLibrary = SessionLibrary(archiveRoot: tempRoot.appendingPathComponent("Default Archive", isDirectory: true))
+        let customLibrary = SessionLibrary(archiveRoot: customArchiveRoot)
+
+        XCTAssertTrue(try defaultLibrary.archivedMetadata().isEmpty)
+        XCTAssertEqual(try customLibrary.archivedMetadata().first?.sourceAppID, "rekordbox")
+    }
 }

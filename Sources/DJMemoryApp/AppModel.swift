@@ -20,9 +20,11 @@ final class AppModel: ObservableObject {
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
 
-    let archiveRoot = ArchiveService.defaultArchiveRoot()
+    var archiveRoot: URL {
+        resolvedArchiveRoot()
+    }
+
     private let probe = SoftwareProbe()
-    private let library = SessionLibrary()
     private let folderAccessStore = FolderAccessStore()
     private let importedTracklistStore = ImportedTracklistStore()
     private let setContextStore = SetContextStore()
@@ -57,8 +59,9 @@ final class AppModel: ObservableObject {
 
     func refresh() {
         probeResults = probe.probeAll()
-        sessions = (try? library.archivedMetadata()) ?? []
         folderAccesses = (try? folderAccessStore.all()) ?? []
+        settings = (try? appSettingsStore.load()) ?? .default
+        sessions = (try? sessionLibrary().archivedMetadata()) ?? []
         importedTracklists = Dictionary(
             grouping: (try? importedTracklistStore.all()) ?? [],
             by: \.appID
@@ -72,7 +75,6 @@ final class AppModel: ObservableObject {
             setContexts: Array(setContexts.values)
         )
         activityEvents = (try? activityLogStore.all()) ?? []
-        settings = (try? appSettingsStore.load()) ?? .default
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
@@ -294,7 +296,9 @@ final class AppModel: ObservableObject {
         saveSettings(AppSettings(
             automaticScanningEnabled: enabled,
             scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate
+            archiveNamingTemplate: settings.archiveNamingTemplate,
+            archiveRootPath: settings.archiveRootPath,
+            archiveRootBookmarkData: settings.archiveRootBookmarkData
         ))
     }
 
@@ -302,7 +306,9 @@ final class AppModel: ObservableObject {
         saveSettings(AppSettings(
             automaticScanningEnabled: settings.automaticScanningEnabled,
             scanIntervalSeconds: seconds,
-            archiveNamingTemplate: settings.archiveNamingTemplate
+            archiveNamingTemplate: settings.archiveNamingTemplate,
+            archiveRootPath: settings.archiveRootPath,
+            archiveRootBookmarkData: settings.archiveRootBookmarkData
         ))
     }
 
@@ -310,8 +316,53 @@ final class AppModel: ObservableObject {
         saveSettings(AppSettings(
             automaticScanningEnabled: settings.automaticScanningEnabled,
             scanIntervalSeconds: settings.scanIntervalSeconds,
-            archiveNamingTemplate: template
+            archiveNamingTemplate: template,
+            archiveRootPath: settings.archiveRootPath,
+            archiveRootBookmarkData: settings.archiveRootBookmarkData
         ))
+    }
+
+    func chooseArchiveFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.title = "Set Archive Folder"
+        panel.message = "Choose where DJMemory stores protected recording copies."
+        panel.directoryURL = archiveRoot
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            let bookmark = try folderAccessStore.makeBookmarkData(for: url)
+            saveSettings(AppSettings(
+                automaticScanningEnabled: settings.automaticScanningEnabled,
+                scanIntervalSeconds: settings.scanIntervalSeconds,
+                archiveNamingTemplate: settings.archiveNamingTemplate,
+                archiveRootPath: url.path,
+                archiveRootBookmarkData: bookmark
+            ))
+            refresh()
+            statusMessage = "Archive folder set to \(url.lastPathComponent)"
+        } catch {
+            appendActivity(kind: .error, message: "Archive folder save failed", detail: error.localizedDescription)
+            statusMessage = "Could not save archive folder: \(error.localizedDescription)"
+        }
+    }
+
+    func resetArchiveFolder() {
+        saveSettings(AppSettings(
+            automaticScanningEnabled: settings.automaticScanningEnabled,
+            scanIntervalSeconds: settings.scanIntervalSeconds,
+            archiveNamingTemplate: settings.archiveNamingTemplate
+        ))
+        refresh()
+        statusMessage = "Archive folder reset to ~/Music/DJMemory"
     }
 
     func exportDiagnostics() {
@@ -404,8 +455,10 @@ final class AppModel: ObservableObject {
 
     func openArchiveFolder() {
         do {
-            try FileManager.default.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
-            NSWorkspace.shared.open(archiveRoot)
+            try withSecurityScopedArchiveRoot {
+                try FileManager.default.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
+                NSWorkspace.shared.open(archiveRoot)
+            }
         } catch {
             statusMessage = "Could not open archive folder: \(error.localizedDescription)"
         }
@@ -458,9 +511,68 @@ final class AppModel: ObservableObject {
     }
 
     private func scanCoordinator() -> ScanCoordinator {
-        let archiveService = ArchiveService(namingTemplate: settings.archiveNamingTemplate)
+        let archiveService = ArchiveService(
+            archiveRoot: archiveRoot,
+            namingTemplate: settings.archiveNamingTemplate,
+            archiveRootBookmarkData: settings.archiveRootBookmarkData
+        )
         let scanner = RecordingFolderScanner(archiveService: archiveService)
         return ScanCoordinator(scanner: scanner)
+    }
+
+    private func sessionLibrary() -> SessionLibrary {
+        SessionLibrary(
+            archiveRoot: archiveRoot,
+            archiveRootBookmarkData: settings.archiveRootBookmarkData
+        )
+    }
+
+    private func resolvedArchiveRoot() -> URL {
+        if let bookmarkData = settings.archiveRootBookmarkData {
+            var isStale = false
+            if let url = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ), !isStale {
+                return url
+            }
+        }
+
+        if let archiveRootPath = settings.archiveRootPath, !archiveRootPath.isEmpty {
+            return URL(fileURLWithPath: (archiveRootPath as NSString).expandingTildeInPath, isDirectory: true)
+        }
+
+        return ArchiveService.defaultArchiveRoot()
+    }
+
+    private func withSecurityScopedArchiveRoot<T>(_ operation: () throws -> T) rethrows -> T {
+        guard let bookmarkData = settings.archiveRootBookmarkData else {
+            return try operation()
+        }
+
+        var isStale = false
+        guard
+            let url = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ),
+            !isStale
+        else {
+            return try operation()
+        }
+
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try operation()
     }
 
     private func scanStatusMessage(for results: [FolderScanResult]) -> String {

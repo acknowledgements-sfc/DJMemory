@@ -267,14 +267,54 @@ private struct SettingsView: View {
             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Current State")
-                    .font(.headline)
+                HStack {
+                    Text("Archive Location")
+                        .font(.headline)
+
+                    Spacer()
+
+                    Button {
+                        model.chooseArchiveFolder()
+                    } label: {
+                        Label("Choose", systemImage: "folder.badge.plus")
+                    }
+                    .help("Choose where DJMemory stores protected recording copies.")
+                    .accessibilityIdentifier("settings.archive.choose")
+
+                    Button {
+                        model.openArchiveFolder()
+                    } label: {
+                        Label("Open", systemImage: "folder")
+                    }
+                    .help("Open the current archive folder in Finder.")
+                    .accessibilityIdentifier("settings.archive.open")
+
+                    Button {
+                        model.resetArchiveFolder()
+                    } label: {
+                        Label("Reset", systemImage: "arrow.uturn.backward")
+                    }
+                    .disabled(model.settings.archiveRootPath == nil)
+                    .help("Use the default ~/Music/DJMemory archive folder.")
+                    .accessibilityIdentifier("settings.archive.reset")
+                }
 
                 SettingsStatusRow(
-                    title: "Archive folder",
+                    title: "Current folder",
                     value: model.archiveRoot.path,
                     symbol: "archivebox"
                 )
+
+                Text("Source recordings stay where they are. DJMemory writes protected copies and metadata sidecars here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Current State")
+                    .font(.headline)
 
                 SettingsStatusRow(
                     title: "Protected sources",

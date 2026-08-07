@@ -6,15 +6,21 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let automaticScanningEnabled: Bool
     public let scanIntervalSeconds: Int
     public let archiveNamingTemplate: String
+    public let archiveRootPath: String?
+    public let archiveRootBookmarkData: Data?
 
     public init(
         automaticScanningEnabled: Bool = true,
         scanIntervalSeconds: Int = 60,
-        archiveNamingTemplate: String = Self.defaultArchiveNamingTemplate
+        archiveNamingTemplate: String = Self.defaultArchiveNamingTemplate,
+        archiveRootPath: String? = nil,
+        archiveRootBookmarkData: Data? = nil
     ) {
         self.automaticScanningEnabled = automaticScanningEnabled
         self.scanIntervalSeconds = scanIntervalSeconds
         self.archiveNamingTemplate = archiveNamingTemplate
+        self.archiveRootPath = archiveRootPath
+        self.archiveRootBookmarkData = archiveRootBookmarkData
     }
 
     public static let `default` = AppSettings()
@@ -23,6 +29,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case automaticScanningEnabled
         case scanIntervalSeconds
         case archiveNamingTemplate
+        case archiveRootPath
+        case archiveRootBookmarkData
     }
 
     public init(from decoder: Decoder) throws {
@@ -31,6 +39,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         scanIntervalSeconds = try container.decodeIfPresent(Int.self, forKey: .scanIntervalSeconds) ?? 60
         archiveNamingTemplate = try container.decodeIfPresent(String.self, forKey: .archiveNamingTemplate)
             ?? Self.defaultArchiveNamingTemplate
+        archiveRootPath = try container.decodeIfPresent(String.self, forKey: .archiveRootPath)
+        archiveRootBookmarkData = try container.decodeIfPresent(Data.self, forKey: .archiveRootBookmarkData)
     }
 }
 

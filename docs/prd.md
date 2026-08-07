@@ -307,7 +307,7 @@ The app should answer one question first:
 1. Welcome: "DJMemory keeps a backup of your recorded sets."
 2. Scan: detect installed DJ apps and likely folders.
 3. Permissions: ask for folder access only where needed.
-4. Library: confirm default archive location at `~/Music/DJMemory` or choose a different folder.
+4. Library: confirm default archive location at `~/Music/DJMemory` or choose a different folder in Settings.
 5. Ready screen: show protected apps and folders.
 
 ### Post-Set Flow
@@ -390,6 +390,8 @@ Default archive naming:
 Default archive folder:
 
 `~/Music/DJMemory`
+
+Users can choose a custom archive folder in Settings. Custom archive folders use security-scoped bookmarks for sandbox-safe access.
 
 Future naming variables:
 
@@ -525,7 +527,7 @@ Status: documented in `docs/onboarding-accounts-security.md`.
 - Manual rescan can recover recent recordings from watched folders.
 - Serato defaults are detected when folders exist.
 - rekordbox installation is detected when available.
-- Default archive location is `~/Music/DJMemory`.
+- Default archive location is `~/Music/DJMemory`, with Settings support for a custom archive folder.
 - Permission errors are visible and understandable.
 
 ## Resolved Decisions
