@@ -38,20 +38,22 @@ private struct Sidebar: View {
 
     var body: some View {
         List(selection: $model.selectedAppID) {
-            Section("Setup") {
-                ForEach(model.probeResults, id: \.software.id) { result in
-                    Label(result.software.displayName, systemImage: iconName(for: result))
-                        .tag(result.software.id)
-                }
-            }
-
-            Section("Library") {
-                Label("Archived Sets", systemImage: "music.note.list")
+            Section("DJMemory") {
+                Label("Protection", systemImage: model.protectionSymbolName)
+                    .tag("protection")
+                Label("Library", systemImage: "music.note.list")
                     .tag("library")
                 Label("Activity", systemImage: "clock.arrow.circlepath")
                     .tag("activity")
                 Label("Settings", systemImage: "gearshape")
                     .tag("settings")
+            }
+
+            Section("DJ Apps") {
+                ForEach(model.probeResults, id: \.software.id) { result in
+                    Label(result.software.displayName, systemImage: iconName(for: result))
+                        .tag(result.software.id)
+                }
             }
         }
         .navigationTitle("DJMemory")
@@ -75,7 +77,9 @@ private struct DashboardView: View {
             VStack(alignment: .leading, spacing: 24) {
                 HeaderView()
 
-                if model.selectedAppID == "library" {
+                if model.selectedAppID == "protection" {
+                    ProtectionDashboardView()
+                } else if model.selectedAppID == "library" {
                     SessionLibraryView()
                 } else if model.selectedAppID == "activity" {
                     ActivityLogView()
@@ -364,6 +368,186 @@ private struct HeaderView: View {
                 }
             }
         }
+    }
+}
+
+private struct ProtectionDashboardView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Protection")
+                    .font(.title2.weight(.semibold))
+
+                Spacer()
+
+                Button {
+                    model.scanNow()
+                } label: {
+                    Label(model.isScanning ? "Scanning" : "Scan Now", systemImage: "waveform.badge.magnifyingglass")
+                }
+                .disabled(model.isScanning)
+                .controlSize(.large)
+                .help("Scan every configured recording folder now.")
+            }
+
+            HStack(spacing: 12) {
+                ProtectionMetric(
+                    title: "Protected Sources",
+                    value: "\(model.protectedAdapterCount)",
+                    symbol: "record.circle",
+                    tint: model.protectedAdapterCount > 0 ? .green : .secondary
+                )
+                ProtectionMetric(
+                    title: "Archived Sets",
+                    value: "\(model.sessions.count)",
+                    symbol: "archivebox",
+                    tint: .blue
+                )
+                ProtectionMetric(
+                    title: "Imported Histories",
+                    value: "\(model.allImportedTracklists.count)",
+                    symbol: "list.bullet.rectangle",
+                    tint: .purple
+                )
+            }
+
+            if model.protectedAdapterCount == 0 {
+                ContentUnavailableView(
+                    "Choose a recording folder",
+                    systemImage: "folder.badge.plus",
+                    description: Text("Pick a DJ app below, then set the folder where it saves recordings.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 180)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Sources")
+                    .font(.headline)
+
+                ForEach(model.probeResults, id: \.software.id) { result in
+                    ProtectionSourceRow(
+                        result: result,
+                        state: model.setupState(for: result),
+                        recordingFolders: model.recordingFolders(for: result.software.id),
+                        historyFolders: model.historyFolders(for: result.software.id),
+                        chooseRecording: {
+                            model.selectedAppID = result.software.id
+                            model.chooseFolder(appID: result.software.id, kind: .recordings)
+                        },
+                        openSetup: {
+                            model.selectedAppID = result.software.id
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private struct ProtectionMetric: View {
+    let title: String
+    let value: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .foregroundStyle(tint)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(value)
+                    .font(.title2.weight(.semibold))
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
+        .padding(14)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+        .help("\(title): \(value)")
+    }
+}
+
+private struct ProtectionSourceRow: View {
+    let result: SoftwareProbeResult
+    let state: String
+    let recordingFolders: [URL]
+    let historyFolders: [URL]
+    let chooseRecording: () -> Void
+    let openSetup: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: sourceSymbol)
+                .font(.title3)
+                .foregroundStyle(sourceTint)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(result.software.displayName)
+                    .font(.callout.weight(.medium))
+                Text(sourceDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(sourceDetail)
+            }
+
+            Spacer()
+
+            Text(state)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(sourceTint)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(sourceTint.opacity(0.12), in: Capsule())
+
+            Button(action: openSetup) {
+                Label("Setup", systemImage: "slider.horizontal.3")
+            }
+            .help("Open setup for \(result.software.displayName).")
+
+            Button(action: chooseRecording) {
+                Label("Folder", systemImage: "folder.badge.plus")
+            }
+            .help("Choose the recording folder for \(result.software.displayName).")
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var sourceSymbol: String {
+        recordingFolders.isEmpty ? "circle" : "checkmark.circle.fill"
+    }
+
+    private var sourceTint: Color {
+        if state == "Error" { return .orange }
+        return recordingFolders.isEmpty ? .secondary : .green
+    }
+
+    private var sourceDetail: String {
+        if let recordingFolder = recordingFolders.first {
+            return "Recording: \(recordingFolder.path)"
+        }
+
+        if !result.installedApplicationURLs.isEmpty {
+            return "App found. Recording folder still needs access."
+        }
+
+        if let historyFolder = historyFolders.first {
+            return "History found: \(historyFolder.path)"
+        }
+
+        return "Manual setup available."
     }
 }
 

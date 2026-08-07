@@ -78,7 +78,7 @@ final class AppModel: ObservableObject {
             statusMessage = "Choose recording folders to start protecting sets"
         }
 
-        selectedAppID = selectedAppID ?? probeResults.first?.software.id
+        selectedAppID = selectedAppID ?? "protection"
     }
 
     func recordingFolders(for appID: String) -> [URL] {
