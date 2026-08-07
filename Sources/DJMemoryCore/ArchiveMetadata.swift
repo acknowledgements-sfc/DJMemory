@@ -9,6 +9,7 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
     public let archivePath: String
     public let fileSize: Int64
     public let originalFilename: String
+    public let durationSeconds: Double?
 
     public var id: UUID { sessionID }
 
@@ -21,5 +22,28 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
         self.archivePath = session.archiveURL?.path ?? ""
         self.fileSize = session.fileSize ?? 0
         self.originalFilename = originalFilename
+        self.durationSeconds = nil
+    }
+
+    public init(
+        sessionID: UUID,
+        sourceAppID: String,
+        detectedAt: Date,
+        completedAt: Date?,
+        sourcePath: String,
+        archivePath: String,
+        fileSize: Int64,
+        originalFilename: String,
+        durationSeconds: Double?
+    ) {
+        self.sessionID = sessionID
+        self.sourceAppID = sourceAppID
+        self.detectedAt = detectedAt
+        self.completedAt = completedAt
+        self.sourcePath = sourcePath
+        self.archivePath = archivePath
+        self.fileSize = fileSize
+        self.originalFilename = originalFilename
+        self.durationSeconds = durationSeconds
     }
 }

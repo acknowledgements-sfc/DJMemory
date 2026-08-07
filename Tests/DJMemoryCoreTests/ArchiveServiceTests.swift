@@ -30,6 +30,23 @@ final class ArchiveServiceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: sourceURL), try Data(contentsOf: archiveURL))
     }
 
+    func testArchiveMetadataIncludesDurationField() throws {
+        let sourceURL = tempRoot.appendingPathComponent("source.wav")
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try Data("audio".utf8).write(to: sourceURL)
+
+        let service = ArchiveService(archiveRoot: archiveRoot)
+        let session = try service.archive(sourceURL: sourceURL, sourceAppID: "serato", detectedAt: Date(timeIntervalSince1970: 0))
+        let archiveURL = try XCTUnwrap(session.archiveURL)
+        let metadataURL = service.metadataURL(for: archiveURL)
+        let data = try Data(contentsOf: metadataURL)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let metadata = try decoder.decode(ArchiveMetadata.self, from: data)
+
+        XCTAssertNil(metadata.durationSeconds)
+    }
+
     func testArchiveDoesNotOverwriteExistingArchive() throws {
         let sourceURL = tempRoot.appendingPathComponent("source.wav")
         let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)

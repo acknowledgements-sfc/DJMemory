@@ -440,6 +440,12 @@ private struct SessionLibraryView: View {
                     TableColumn("Tracks") { summary in
                         Text(summary.trackCount == 0 ? "No tracklist" : "\(summary.trackCount)")
                     }
+                    TableColumn("Duration") { summary in
+                        Text(formatDuration(summary.archive.durationSeconds))
+                    }
+                    TableColumn("Size") { summary in
+                        Text(formatBytes(summary.archive.fileSize))
+                    }
                     TableColumn("Tracklist") { summary in
                         Text(summary.matchedTracklist?.sourceURL.lastPathComponent ?? "None")
                     }
@@ -452,5 +458,23 @@ private struct SessionLibraryView: View {
                 .frame(minHeight: 340)
             }
         }
+    }
+
+    private func formatDuration(_ seconds: Double?) -> String {
+        guard let seconds else { return "Unknown" }
+        let totalSeconds = Int(seconds.rounded())
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let remainingSeconds = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, remainingSeconds)
+        }
+
+        return String(format: "%d:%02d", minutes, remainingSeconds)
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }

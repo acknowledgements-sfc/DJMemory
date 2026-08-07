@@ -97,7 +97,17 @@ public struct ArchiveService {
     private func writeMetadata(for session: RecordingSession, originalFilename: String) throws {
         guard let archiveURL = session.archiveURL else { return }
 
-        let metadata = ArchiveMetadata(session: session, originalFilename: originalFilename)
+        let metadata = ArchiveMetadata(
+            sessionID: session.id,
+            sourceAppID: session.sourceAppID,
+            detectedAt: session.detectedAt,
+            completedAt: session.completedAt,
+            sourcePath: session.sourceURL.path,
+            archivePath: archiveURL.path,
+            fileSize: session.fileSize ?? 0,
+            originalFilename: originalFilename,
+            durationSeconds: nil
+        )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
