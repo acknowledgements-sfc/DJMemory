@@ -57,5 +57,6 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 PLIST
 
 codesign --force --sign - --entitlements "$ENTITLEMENTS_PATH" "$BUNDLE_DIR" >/dev/null
+codesign --verify --deep --strict "$BUNDLE_DIR"
 
 echo "$BUNDLE_DIR"

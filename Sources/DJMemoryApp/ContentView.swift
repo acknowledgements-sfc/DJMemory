@@ -847,12 +847,16 @@ private struct FolderRow: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(folders, id: \.self) { folder in
-                        Text(folder.path)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(folder.path)
+                        HStack(spacing: 6) {
+                            Image(systemName: folderIsReachable(folder) ? "checkmark.circle" : "exclamationmark.triangle")
+                                .foregroundStyle(folderIsReachable(folder) ? .green : .orange)
+                            Text(folder.path)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help(folder.path)
+                        }
                     }
                 }
             }
@@ -894,7 +898,17 @@ private struct FolderRow: View {
             return "No \(title.lowercased()) folder is selected yet."
         }
 
+        let inaccessible = folders.filter { !folderIsReachable($0) }
+        if !inaccessible.isEmpty {
+            return "Some saved folders are not reachable. Choose the folder again to recover access.\n\(inaccessible.map(\.path).joined(separator: "\n"))"
+        }
+
         return folders.map(\.path).joined(separator: "\n")
+    }
+
+    private func folderIsReachable(_ folder: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 }
 

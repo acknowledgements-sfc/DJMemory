@@ -32,6 +32,8 @@ open .build/DJMemory.app
 
 The local bundle is signed ad hoc with sandbox-oriented entitlements in `packaging/DJMemory.entitlements`. Xcode is still needed later for Developer ID/App Store signing, icons, notarization, and archived release export.
 
+Beta handoff checks live in `docs/beta-release-checklist.md`.
+
 The app can save recording/history folder selections using macOS security-scoped bookmarks, which keeps the setup path compatible with sandboxed distribution.
 
 Configured recording folders can be scanned from the app with **Scan Now**. While the app is open, it also checks configured folders once per minute.
