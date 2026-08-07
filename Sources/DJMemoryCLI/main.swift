@@ -12,6 +12,8 @@ case "scan":
     try runScan(arguments: arguments)
 case "watch":
     try runWatch(arguments: arguments)
+case "diagnostics":
+    try runDiagnostics(arguments: arguments)
 case "virtualdj-network":
     runVirtualDJNetworkProbe(arguments: arguments)
 default:
@@ -25,6 +27,7 @@ private func printUsage() {
       djmemory archive <file> [appID]
       djmemory scan <folder> [appID]
       djmemory watch <folder> [appID]
+      djmemory diagnostics [output.json|-]
       djmemory virtualdj-network [endpointURL]
     """)
 }
@@ -161,6 +164,124 @@ private func archiveService() -> ArchiveService {
     }
 
     return ArchiveService()
+}
+
+private func runDiagnostics(arguments: [String]) throws {
+    let outputArgument = arguments.count >= 2 ? arguments[1] : nil
+    let outputURL = outputArgument.flatMap { argument -> URL? in
+        guard argument != "-" else { return nil }
+        return URL(fileURLWithPath: (argument as NSString).expandingTildeInPath)
+    } ?? defaultDiagnosticsURL()
+
+    let report = diagnosticsReport()
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(report)
+
+    if outputArgument == "-" {
+        FileHandle.standardOutput.write(data)
+        FileHandle.standardOutput.write(Data("\n".utf8))
+        return
+    }
+
+    try FileManager.default.createDirectory(
+        at: outputURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try data.write(to: outputURL, options: [.atomic])
+    print("Diagnostics written: \(outputURL.path)")
+}
+
+private func diagnosticsReport() -> DiagnosticsReport {
+    let settingsStore = AppSettingsStore()
+    let settings = (try? settingsStore.load()) ?? .default
+    let folderAccessStore = FolderAccessStore()
+    let folderAccesses = (try? folderAccessStore.all()) ?? []
+    let importedTracklists = (try? ImportedTracklistStore().all()) ?? []
+    let activityEvents = (try? ActivityLogStore().all()) ?? []
+    let archiveRoot = resolvedArchiveRoot(settings: settings)
+    let archives = (try? SessionLibrary(
+        archiveRoot: archiveRoot,
+        archiveRootBookmarkData: settings.archiveRootBookmarkData
+    ).archivedMetadata()) ?? []
+    let probeResults = SoftwareProbe().probeAll()
+
+    return DiagnosticsReportBuilder().build(
+        archiveRoot: archiveRoot,
+        probeResults: probeResults,
+        recordingFolders: { appID in
+            configuredFolders(
+                appID: appID,
+                kind: .recordings,
+                folderAccessStore: folderAccessStore,
+                folderAccesses: folderAccesses
+            ) + discoveredRecordingFolders(appID: appID, probeResults: probeResults)
+        },
+        historyFolders: { appID in
+            configuredFolders(
+                appID: appID,
+                kind: .history,
+                folderAccessStore: folderAccessStore,
+                folderAccesses: folderAccesses
+            ) + discoveredHistoryFolders(appID: appID, probeResults: probeResults)
+        },
+        folderAccesses: folderAccesses,
+        archives: archives,
+        importedTracklists: importedTracklists,
+        activityEvents: activityEvents
+    )
+}
+
+private func configuredFolders(
+    appID: String,
+    kind: FolderKind,
+    folderAccessStore: FolderAccessStore,
+    folderAccesses: [FolderAccess]
+) -> [URL] {
+    folderAccesses
+        .filter { $0.appID == appID && $0.kind == kind }
+        .map { folderAccessStore.resolve($0) }
+}
+
+private func discoveredRecordingFolders(appID: String, probeResults: [SoftwareProbeResult]) -> [URL] {
+    probeResults.first { $0.software.id == appID }?.existingRecordingURLs ?? []
+}
+
+private func discoveredHistoryFolders(appID: String, probeResults: [SoftwareProbeResult]) -> [URL] {
+    probeResults.first { $0.software.id == appID }?.existingHistoryURLs ?? []
+}
+
+private func resolvedArchiveRoot(settings: AppSettings) -> URL {
+    if let path = ProcessInfo.processInfo.environment["DJMEMORY_ARCHIVE_ROOT"], !path.isEmpty {
+        return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
+    }
+
+    if let bookmarkData = settings.archiveRootBookmarkData {
+        var isStale = false
+        if let url = try? URL(
+            resolvingBookmarkData: bookmarkData,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        ), !isStale {
+            return url
+        }
+    }
+
+    if let archiveRootPath = settings.archiveRootPath, !archiveRootPath.isEmpty {
+        return URL(fileURLWithPath: (archiveRootPath as NSString).expandingTildeInPath, isDirectory: true)
+    }
+
+    return ArchiveService.defaultArchiveRoot()
+}
+
+private func defaultDiagnosticsURL() -> URL {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+    let filename = "DJMemory-Diagnostics-\(formatter.string(from: Date())).json"
+    return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        .appendingPathComponent(filename)
 }
 
 private func runVirtualDJNetworkProbe(arguments: [String]) {

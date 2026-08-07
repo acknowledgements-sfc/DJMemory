@@ -9,7 +9,7 @@ This audit maps the v0.1 PRD acceptance criteria to current implementation evide
 Current passing baseline:
 
 - `swift test`: 61 tests, 0 failures.
-- `bash scripts/smoke-cli.sh`: CLI archive/scan smoke path passes.
+- `bash scripts/smoke-cli.sh`: CLI archive/scan/diagnostics smoke path passes.
 - `bash scripts/build-app.sh`: `.build/DJMemory.app` builds and signs with sandbox-oriented entitlements.
 - `bash scripts/smoke-app.sh`: packaged app launches, verifies code signature, performs best-effort window detection, and quits cleanly.
 - `bash scripts/package-beta.sh`: creates a versioned zip and JSON manifest under `.build/distribution/`.
@@ -28,7 +28,7 @@ Current passing baseline:
 | Serato defaults are detected when folders exist. | Automated | `SupportedDJSoftwareTests`, `SoftwareProbe`, Serato defaults in `DJSoftware` | Confirm `~/Music/_Serato_/Recording` appears on a Mac with Serato data. |
 | rekordbox installation is detected when available. | Automated model, needs real app check | `SupportedDJSoftwareTests`, `SoftwareProbe`, rekordbox bundle id in `DJSoftware` | Install/open rekordbox and confirm the app row shows installed or running. |
 | Default archive location is `~/Music/DJMemory`, with Settings support for a custom archive folder. | Automated | `ArchiveServiceTests.testDefaultArchiveRootIsMusicDJMemory`, `AppSettingsStoreTests`, archive chooser in `AppModel.chooseArchiveFolder` | Choose a custom archive folder, relaunch, and confirm new archives land there. |
-| Permission errors are visible and understandable. | Automated with manual follow-up | `ScanCoordinatorTests.testScanRecentCapturesErrorsPerFolder`, `testScanRecentReportsPlainLanguageErrorWhenPathIsAFile`, `testScanRecentReportsArchiveFolderUnavailable`, Protection attention state | Move or revoke a saved folder and confirm the row says recovery is needed and protected-source count excludes it. |
+| Permission errors are visible and understandable. | Automated with manual follow-up | `ScanCoordinatorTests.testScanRecentCapturesErrorsPerFolder`, `testScanRecentReportsPlainLanguageErrorWhenPathIsAFile`, `testScanRecentReportsArchiveFolderUnavailable`, Protection attention state, CLI diagnostics export | Move or revoke a saved folder and confirm the row says recovery is needed and protected-source count excludes it. |
 
 ## Should-Have Coverage
 
@@ -39,7 +39,7 @@ Current passing baseline:
 | Default archive folder creation | Implemented | `ArchiveService.ensureArchiveRootExists`, app launch refresh path, `ArchiveServiceTests` |
 | User-editable archive naming template | Implemented | `AppSettings`, settings UI, `ArchiveServiceTests.testArchiveUsesCustomNamingTemplate` |
 | Failure state with plain-language next step | Implemented | `ScanCoordinator.scanErrorDescription`, UI attention states, scanner tests |
-| Basic diagnostics export | Implemented | `DiagnosticsReportBuilder`, app export action, `DiagnosticsReportTests` |
+| Basic diagnostics export | Implemented | `DiagnosticsReportBuilder`, app export action, CLI `diagnostics` command, `DiagnosticsReportTests`, `scripts/smoke-cli.sh` |
 
 ## Known Manual Validation Still Required
 

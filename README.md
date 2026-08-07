@@ -15,6 +15,7 @@ swift run djmemory probe
 swift run djmemory archive /path/to/set.wav serato
 swift run djmemory scan ~/Music/_Serato_/Recording serato
 swift run djmemory watch ~/Music/_Serato_/Recording serato
+swift run djmemory diagnostics ./DJMemory-Diagnostics.json
 swift run djmemory virtualdj-network
 swift run DJMemoryApp
 swift test
@@ -23,6 +24,7 @@ bash scripts/smoke-app.sh
 ```
 
 Set `DJMEMORY_ARCHIVE_ROOT=/path/to/archive` when testing CLI archive, scan, or watch commands against a temporary archive folder.
+Use `swift run djmemory diagnostics [output.json|-]` to write a privacy-redacted support report from local DJMemory state.
 
 Archived recordings are copied to `~/Music/DJMemory` by default with a JSON metadata sidecar. The default archive folder is created on launch. A custom archive folder can be set in Settings. Source files are never moved, renamed, or deleted.
 

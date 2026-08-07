@@ -8,7 +8,7 @@ Verified on August 6, 2026:
 
 - `swift test` passes the current Swift test suite.
 - `bash scripts/build-app.sh debug` builds `.build/DJMemory.app`.
-- `bash scripts/smoke-cli.sh` builds the CLI once, scans generated temporary recording folders, verifies stable archives, pending-recording output, and missing-folder recovery messages.
+- `bash scripts/smoke-cli.sh` builds the CLI once, scans generated temporary recording folders, verifies stable archives, pending-recording output, missing-folder recovery messages, and diagnostics JSON export.
 - `bash scripts/smoke-app.sh` builds, verifies the app signature, launches DJMemory, confirms the app process exists, performs a best-effort main-window check, and quits cleanly.
 - `bash scripts/package-beta.sh` builds a release app bundle and writes a zip plus JSON manifest to `.build/distribution/`.
 - `codesign --verify --deep --strict .build/DJMemory.app` verifies the ad hoc signed app bundle.
@@ -40,6 +40,7 @@ swift test
 ```
 
 Current coverage includes archive copy behavior, duplicate prevention through archive metadata/fingerprints, file stability, audio filtering, metadata sidecars, folder stores, settings stores, imported tracklist stores, parser behavior, diagnostics privacy redaction, set context, manual tracklist matching, and a temporary recording-folder integration path.
+The CLI smoke path also writes a diagnostics report to a temporary file and verifies the home folder path is not leaked into that JSON.
 
 ### 2. Fixture-Based Integration Tests
 

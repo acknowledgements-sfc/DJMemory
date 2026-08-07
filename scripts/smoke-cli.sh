@@ -45,4 +45,27 @@ if [[ "$MISSING_OUTPUT" != *"Recording folder was moved or deleted. Choose the f
     exit 1
 fi
 
+DIAGNOSTICS_PATH="$TMP_DIR/diagnostics.json"
+DIAGNOSTICS_OUTPUT="$(DJMEMORY_ARCHIVE_ROOT="$ARCHIVE_DIR" "$CLI" diagnostics "$DIAGNOSTICS_PATH")"
+if [[ "$DIAGNOSTICS_OUTPUT" != *"Diagnostics written: $DIAGNOSTICS_PATH"* ]]; then
+    echo "Expected diagnostics command to report the output path." >&2
+    echo "$DIAGNOSTICS_OUTPUT" >&2
+    exit 1
+fi
+
+if [[ ! -s "$DIAGNOSTICS_PATH" ]]; then
+    echo "Expected diagnostics JSON to be written." >&2
+    exit 1
+fi
+
+if ! grep -q '"archiveRootPath"' "$DIAGNOSTICS_PATH"; then
+    echo "Expected diagnostics JSON to include archiveRootPath." >&2
+    exit 1
+fi
+
+if grep -q "$HOME" "$DIAGNOSTICS_PATH"; then
+    echo "Expected diagnostics JSON to redact the home folder path." >&2
+    exit 1
+fi
+
 echo "DJMemory CLI smoke check passed."
