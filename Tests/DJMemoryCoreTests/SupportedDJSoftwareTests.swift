@@ -42,12 +42,26 @@ final class SupportedDJSoftwareTests: XCTestCase {
         XCTAssertTrue(djay.defaultHistoryPaths.isEmpty)
     }
 
+    func testAdaptersIncludeLiveBundleIdentifiers() throws {
+        let byID = Dictionary(uniqueKeysWithValues: SupportedDJSoftware.all.map { ($0.id, $0.bundleIdentifiers) })
+
+        XCTAssertTrue(try XCTUnwrap(byID["serato"]).contains("com.serato.seratodj"))
+        XCTAssertTrue(try XCTUnwrap(byID["rekordbox"]).contains("com.pioneerdj.rekordboxdj"))
+        XCTAssertTrue(try XCTUnwrap(byID["djay"]).contains("com.algoriddim.djay-iphone-free"))
+        XCTAssertTrue(try XCTUnwrap(byID["djay"]).contains("com.algoriddim.direct.djay-pro-2-mac"))
+        XCTAssertTrue(try XCTUnwrap(byID["virtualdj"]).contains("com.atomixproductions.virtualdj"))
+        XCTAssertTrue(try XCTUnwrap(byID["traktor"]).contains("com.native-instruments.Traktor"))
+        XCTAssertTrue(try XCTUnwrap(byID["traktor"]).contains("com.native-instruments.tmnt"))
+        XCTAssertTrue(try XCTUnwrap(byID["djmemory-capture"]).isEmpty)
+        XCTAssertTrue(try XCTUnwrap(byID["pioneer-hardware"]).isEmpty)
+    }
+
     func testProbeResultReportsRunningStatusFirst() throws {
         let software = try XCTUnwrap(SupportedDJSoftware.all.first { $0.id == "serato" })
         let result = SoftwareProbeResult(
             software: software,
             installedApplicationURLs: [],
-            runningApplicationBundleIdentifiers: ["com.serato.dj"],
+            runningApplicationBundleIdentifiers: ["com.serato.seratodj"],
             existingRecordingURLs: [],
             existingHistoryURLs: []
         )

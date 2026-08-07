@@ -717,7 +717,11 @@ final class AppModel: ObservableObject {
 
         let recordingFolders = recordingFolders(for: result.software.id)
         if recordingFolders.isEmpty {
-            return result.installedApplicationURLs.isEmpty && !result.isRunning ? .appNotFound : .needsFolderAccess
+            let hasNoInstallableApp = result.software.bundleIdentifiers.isEmpty
+                || (result.installedApplicationURLs.isEmpty && !result.isRunning)
+            return hasNoInstallableApp && !result.software.bundleIdentifiers.isEmpty
+                ? .appNotFound
+                : .needsFolderAccess
         }
 
         if !recordingFolders.contains(where: isReachableDirectory(_:)) {

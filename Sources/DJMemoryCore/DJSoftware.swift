@@ -63,7 +63,7 @@ public enum SupportedDJSoftware {
         DJSoftware(
             id: "serato",
             displayName: "Serato DJ Pro",
-            bundleIdentifiers: ["com.serato.dj"],
+            bundleIdentifiers: ["com.serato.seratodj", "com.serato.dj"],
             defaultRecordingPaths: ["~/Music/_Serato_/Recording"],
             defaultHistoryPaths: ["~/Music/_Serato_/History Export"],
             integrationDepth: .exportImport,
@@ -73,17 +73,22 @@ public enum SupportedDJSoftware {
         DJSoftware(
             id: "rekordbox",
             displayName: "rekordbox",
-            bundleIdentifiers: ["com.pioneerdj.rekordbox"],
+            bundleIdentifiers: ["com.pioneerdj.rekordboxdj", "com.pioneerdj.rekordbox"],
             defaultRecordingPaths: [],
             defaultHistoryPaths: [],
             integrationDepth: .exportImport,
             supportStatus: .supported,
-            notes: "Needs user-selected recording/history folders; XML bridge is documented."
+            notes: "Needs user-selected recording/history folders; XML bridge is documented. Bundle ID is shared by rekordbox 6 and 7."
         ),
         DJSoftware(
             id: "djay",
             displayName: "djay Pro",
-            bundleIdentifiers: ["com.algoriddim.djay-iphone-free-mac", "com.algoriddim.djay-pro-mac"],
+            bundleIdentifiers: [
+                "com.algoriddim.djay-iphone-free",
+                "com.algoriddim.direct.djay-pro-2-mac",
+                "com.algoriddim.djay-iphone-free-mac",
+                "com.algoriddim.djay-pro-mac"
+            ],
             defaultRecordingPaths: ["~/Music/djay/Recordings", "~/Music/djay Pro 2/Recordings"],
             defaultHistoryPaths: [],
             integrationDepth: .fileWatcher,
@@ -103,12 +108,12 @@ public enum SupportedDJSoftware {
         DJSoftware(
             id: "traktor",
             displayName: "Traktor",
-            bundleIdentifiers: ["com.native-instruments.Traktor"],
+            bundleIdentifiers: ["com.native-instruments.Traktor", "com.native-instruments.tmnt"],
             defaultRecordingPaths: ["~/Music/Traktor/Recordings"],
             defaultHistoryPaths: ["~/Documents/Native Instruments/Traktor*/History"],
             integrationDepth: .exportImport,
             supportStatus: .supported,
-            notes: "History playlists and recordings have known default locations."
+            notes: "History playlists and recordings have known default locations for Traktor Pro; Traktor DJ 2 is detected via bundle ID but recording paths still need confirmation."
         ),
         DJSoftware(
             id: "djmemory-capture",

@@ -19,6 +19,10 @@ struct StatusGrid: View {
     }
 
     private var appStatus: String {
+        if result.software.bundleIdentifiers.isEmpty {
+            return "Built-in"
+        }
+
         if result.isRunning {
             return "Running"
         }
