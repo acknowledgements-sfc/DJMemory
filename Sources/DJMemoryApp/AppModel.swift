@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastScanResults: [FolderScanResult] = []
     @Published private(set) var importedTracklists: [String: [ImportedTracklist]] = [:]
     @Published private(set) var librarySummaries: [LibrarySessionSummary] = []
+    @Published private(set) var activityEvents: [ActivityEvent] = []
     @Published private(set) var isScanning = false
     @Published var selectedAppID: String?
     @Published var statusMessage = "Checking protection status"
@@ -19,6 +20,7 @@ final class AppModel: ObservableObject {
     private let library = SessionLibrary()
     private let folderAccessStore = FolderAccessStore()
     private let importedTracklistStore = ImportedTracklistStore()
+    private let activityLogStore = ActivityLogStore()
     private var scanTask: Task<Void, Never>?
 
     init() {
@@ -56,6 +58,7 @@ final class AppModel: ObservableObject {
             archives: sessions,
             importedTracklists: importedTracklists.values.flatMap { $0 }
         )
+        activityEvents = (try? activityLogStore.all()) ?? []
 
         if protectedAdapterCount > 0 {
             statusMessage = "\(protectedAdapterCount) source\(protectedAdapterCount == 1 ? "" : "s") ready"
@@ -143,9 +146,15 @@ final class AppModel: ObservableObject {
             let tracks = try parser.parse(data: data, sourceName: url.lastPathComponent)
             let importedTracklist = ImportedTracklist(appID: appID, sourceURL: url, tracks: tracks)
             try importedTracklistStore.save(importedTracklist)
+            try activityLogStore.append(ActivityEvent(
+                kind: .importTracklist,
+                message: "Imported \(tracks.count) tracks",
+                detail: url.lastPathComponent
+            ))
             refresh()
             statusMessage = "Imported \(tracks.count) track\(tracks.count == 1 ? "" : "s") from \(url.lastPathComponent)"
         } catch {
+            appendActivity(kind: .error, message: "History import failed", detail: error.localizedDescription)
             statusMessage = "Could not import history: \(error.localizedDescription)"
         }
     }
@@ -153,8 +162,10 @@ final class AppModel: ObservableObject {
     func deleteImportedTracklist(id: UUID) {
         do {
             try importedTracklistStore.remove(id: id)
+            try activityLogStore.append(ActivityEvent(kind: .importTracklist, message: "Deleted imported tracklist"))
             refresh()
         } catch {
+            appendActivity(kind: .error, message: "Delete import failed", detail: error.localizedDescription)
             statusMessage = "Could not delete import: \(error.localizedDescription)"
         }
     }
@@ -173,9 +184,19 @@ final class AppModel: ObservableObject {
             await MainActor.run {
                 lastScanResults = results
                 isScanning = false
+                appendScanActivity(results)
                 refresh()
                 statusMessage = scanStatusMessage(for: results)
             }
+        }
+    }
+
+    func clearActivity() {
+        do {
+            try activityLogStore.clear()
+            refresh()
+        } catch {
+            statusMessage = "Could not clear activity: \(error.localizedDescription)"
         }
     }
 
@@ -226,6 +247,36 @@ final class AppModel: ObservableObject {
         }
 
         return "Scan complete. No new recordings found."
+    }
+
+    private func appendScanActivity(_ results: [FolderScanResult]) {
+        guard !results.isEmpty else {
+            appendActivity(kind: .scan, message: "Scan skipped", detail: "No recording folders configured")
+            return
+        }
+
+        for result in results {
+            if let errorDescription = result.errorDescription {
+                appendActivity(kind: .error, message: "Scan failed", detail: "\(result.folderURL.path): \(errorDescription)")
+            } else if result.archivedSessions.isEmpty {
+                appendActivity(kind: .scan, message: "No new recordings", detail: result.folderURL.path)
+            } else {
+                appendActivity(
+                    kind: .archive,
+                    message: "Archived \(result.archivedSessions.count) recording\(result.archivedSessions.count == 1 ? "" : "s")",
+                    detail: result.folderURL.path
+                )
+            }
+        }
+    }
+
+    private func appendActivity(kind: ActivityEventKind, message: String, detail: String? = nil) {
+        do {
+            try activityLogStore.append(ActivityEvent(kind: kind, message: message, detail: detail))
+            activityEvents = (try? activityLogStore.all()) ?? activityEvents
+        } catch {
+            statusMessage = "Could not write activity: \(error.localizedDescription)"
+        }
     }
 
     private func parserForHistory(appID: String) -> TracklistParser {

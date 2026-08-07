@@ -46,6 +46,8 @@ private struct Sidebar: View {
             Section("Library") {
                 Label("Archived Sets", systemImage: "music.note.list")
                     .tag("library")
+                Label("Activity", systemImage: "clock.arrow.circlepath")
+                    .tag("activity")
             }
         }
         .navigationTitle("DJMemory")
@@ -71,6 +73,8 @@ private struct DashboardView: View {
 
                 if model.selectedAppID == "library" {
                     SessionLibraryView()
+                } else if model.selectedAppID == "activity" {
+                    ActivityLogView()
                 } else {
                     AdapterDetailView()
                 }
@@ -78,6 +82,94 @@ private struct DashboardView: View {
             .padding(28)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+private struct ActivityLogView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Activity")
+                    .font(.title2.weight(.semibold))
+
+                Spacer()
+
+                Button {
+                    model.clearActivity()
+                } label: {
+                    Label("Clear", systemImage: "trash")
+                }
+                .disabled(model.activityEvents.isEmpty)
+            }
+
+            if model.activityEvents.isEmpty {
+                ContentUnavailableView(
+                    "No activity yet",
+                    systemImage: "clock",
+                    description: Text("Scans, imports, archive events, and errors will appear here.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 280)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(model.activityEvents) { event in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: symbolName(for: event.kind))
+                                .foregroundStyle(color(for: event.kind))
+                                .frame(width: 18)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(event.message)
+                                    .font(.callout.weight(.medium))
+
+                                if let detail = event.detail {
+                                    Text(detail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                        .truncationMode(.middle)
+                                }
+                            }
+
+                            Spacer()
+
+                            Text(event.createdAt, style: .time)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+        }
+    }
+
+    private func symbolName(for kind: ActivityEventKind) -> String {
+        switch kind {
+        case .archive:
+            return "tray.and.arrow.down"
+        case .importTracklist:
+            return "list.bullet.rectangle"
+        case .scan:
+            return "waveform.badge.magnifyingglass"
+        case .error:
+            return "exclamationmark.triangle"
+        }
+    }
+
+    private func color(for kind: ActivityEventKind) -> Color {
+        switch kind {
+        case .archive:
+            return .green
+        case .importTracklist:
+            return .blue
+        case .scan:
+            return .secondary
+        case .error:
+            return .orange
+        }
     }
 }
 
