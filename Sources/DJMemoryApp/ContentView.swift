@@ -18,6 +18,7 @@ struct ContentView: View {
                     Label(model.isScanning ? "Scanning" : "Scan Now", systemImage: "waveform.badge.magnifyingglass")
                 }
                 .disabled(model.isScanning)
+                .help("Scan configured recording folders for new completed audio files.")
             }
 
             ToolbarItem(placement: .primaryAction) {
@@ -26,6 +27,7 @@ struct ContentView: View {
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
+                .help("Refresh app detection, folder access, imports, archive metadata, and activity.")
             }
         }
     }
@@ -102,6 +104,7 @@ private struct ActivityLogView: View {
                     Label("Clear", systemImage: "trash")
                 }
                 .disabled(model.activityEvents.isEmpty)
+                .help("Clear the local activity log.")
             }
 
             if model.activityEvents.isEmpty {
@@ -140,6 +143,7 @@ private struct ActivityLogView: View {
                         }
                         .padding(12)
                         .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                        .help(activityHelp(for: event))
                     }
                 }
             }
@@ -171,6 +175,10 @@ private struct ActivityLogView: View {
             return .orange
         }
     }
+
+    private func activityHelp(for event: ActivityEvent) -> String {
+        [event.message, event.detail].compactMap { $0 }.joined(separator: "\n")
+    }
 }
 
 private struct HeaderView: View {
@@ -187,6 +195,7 @@ private struct HeaderView: View {
                     .font(.system(size: 28, weight: .semibold))
                 Text(model.statusMessage)
                     .foregroundStyle(.secondary)
+                    .help(model.statusMessage)
             }
 
             Spacer()
@@ -290,6 +299,7 @@ private struct HistoryImportView: View {
                 } label: {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
+                .help("Import a history or tracklist export for \(result.software.displayName).")
             }
 
             let imports = model.importedTracklists(for: result.software.id)
@@ -309,6 +319,7 @@ private struct HistoryImportView: View {
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
+                                .help("Delete this imported tracklist from DJMemory. The original file is not changed.")
                             }
 
                             ForEach(imported.tracks.prefix(5)) { track in
@@ -328,6 +339,7 @@ private struct HistoryImportView: View {
                         }
                         .padding(14)
                         .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                        .help(imported.sourceURL.path)
                     }
                 }
             } else {
@@ -368,10 +380,12 @@ private struct ScanResultsView: View {
                                 .font(.caption.monospaced())
                                 .lineLimit(1)
                                 .truncationMode(.middle)
+                                .help(result.folderURL.path)
 
                             if let errorDescription = result.errorDescription {
                                 Text(errorDescription)
                                     .foregroundStyle(.secondary)
+                                    .help(errorDescription)
                             } else {
                                 Text("\(result.archivedSessions.count) new recording\(result.archivedSessions.count == 1 ? "" : "s") archived")
                                     .foregroundStyle(.secondary)
@@ -380,9 +394,18 @@ private struct ScanResultsView: View {
                     }
                     .padding(12)
                     .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                    .help(scanResultHelp(for: result))
                 }
             }
         }
+    }
+
+    private func scanResultHelp(for result: FolderScanResult) -> String {
+        if let errorDescription = result.errorDescription {
+            return "\(result.folderURL.path)\n\(errorDescription)"
+        }
+
+        return "\(result.folderURL.path)\n\(result.archivedSessions.count) new recording\(result.archivedSessions.count == 1 ? "" : "s") archived"
     }
 }
 
@@ -446,6 +469,7 @@ private struct FolderRow: View {
             } label: {
                 Label("Choose", systemImage: "folder.badge.plus")
             }
+            .help("Choose the \(title.lowercased()) folder DJMemory can access.")
 
             Button {
                 clearAction()
@@ -453,9 +477,19 @@ private struct FolderRow: View {
                 Label("Clear", systemImage: "xmark.circle")
             }
             .disabled(folders.isEmpty)
+            .help("Forget the selected \(title.lowercased()) folder. Files are not deleted.")
         }
         .padding(14)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+        .help(folderRowHelp)
+    }
+
+    private var folderRowHelp: String {
+        if folders.isEmpty {
+            return "No \(title.lowercased()) folder is selected yet."
+        }
+
+        return folders.map(\.path).joined(separator: "\n")
     }
 }
 
@@ -503,6 +537,7 @@ private struct StatusTile: View {
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
         .padding(14)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        .help("\(title): \(value)")
     }
 }
 
@@ -525,6 +560,7 @@ private struct SessionLibraryView: View {
                 Table(model.librarySummaries, selection: .constant(nil)) {
                     TableColumn("Recording") { summary in
                         Text(summary.archive.originalFilename)
+                            .help(summary.archive.originalFilename)
                     }
                     TableColumn("App") { summary in
                         Text(summary.archive.sourceAppID)
@@ -540,11 +576,13 @@ private struct SessionLibraryView: View {
                     }
                     TableColumn("Tracklist") { summary in
                         Text(summary.matchedTracklist?.sourceURL.lastPathComponent ?? "None")
+                            .help(summary.matchedTracklist?.sourceURL.path ?? "No tracklist matched")
                     }
                     TableColumn("Archived") { summary in
                         Text(summary.archive.archivePath)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                            .help(summary.archive.archivePath)
                     }
                 }
                 .frame(minHeight: 340)
@@ -567,6 +605,7 @@ private struct SessionLibraryView: View {
                 Table(model.allImportedTracklists, selection: .constant(nil)) {
                     TableColumn("File") { tracklist in
                         Text(tracklist.sourceURL.lastPathComponent)
+                            .help(tracklist.sourceURL.path)
                     }
                     TableColumn("App") { tracklist in
                         Text(tracklist.appID)
@@ -578,6 +617,7 @@ private struct SessionLibraryView: View {
                         Text(previewText(for: tracklist))
                             .lineLimit(1)
                             .truncationMode(.tail)
+                            .help(previewText(for: tracklist))
                     }
                 }
                 .frame(minHeight: 260)
