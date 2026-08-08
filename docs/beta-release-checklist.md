@@ -1,6 +1,6 @@
 # DJMemory Beta Release Checklist
 
-Last updated: August 6, 2026.
+Last updated: August 7, 2026.
 
 ## Build
 
@@ -16,16 +16,16 @@ Last updated: August 6, 2026.
 
 ## Signing and Distribution
 
-- Debug/local beta builds may use ad hoc signing.
-- `scripts/package-beta.sh` creates a local beta zip only; it is not notarized.
-- External beta builds should use Developer ID signing.
-- Notarization is required before broad direct-download distribution.
+- Debug/local beta builds may use ad hoc signing (default `scripts/build-app.sh` / `scripts/package-beta.sh`).
+- External beta builds: set `DJMEMORY_DISTRIBUTION=developer-id` (see [`docs/signing-and-notarization.md`](signing-and-notarization.md)).
+- `scripts/notarize-app.sh` submits with `notarytool` and staples; fails loudly without Developer ID + credentials.
+- Developer ID signing + notarization are required before broad direct-download distribution.
 - App Store distribution remains later, but sandbox posture should stay enabled.
 
 ## Manual Smoke Test
 
 - Launch the packaged `.app`.
-- Confirm the app opens to Protection.
+- Confirm the app opens to Home.
 - Confirm the menu-bar item appears.
 - Set a recording folder for at least one DJ app.
 - Quit and relaunch.

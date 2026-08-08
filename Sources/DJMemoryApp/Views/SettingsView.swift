@@ -3,6 +3,7 @@ import DJMemoryCore
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.openURL) private var openURL
 
     private let intervalOptions = [30, 60, 120, 300]
 
@@ -194,9 +195,24 @@ private var scanningPanel: some View {
                 .buttonStyle(DJSecondaryButtonStyle())
                 .padding(.top, 6)
                 .accessibilityIdentifier("settings.showOnboarding")
+
+                Button {
+                    if let url = URL(string: Self.accountURLString) {
+                        openURL(url)
+                    }
+                } label: {
+                    Label("Open Account in Browser", systemImage: "person.crop.circle")
+                }
+                .buttonStyle(DJGhostButtonStyle())
+                .accessibilityIdentifier("settings.openAccount")
             }
         }
     }
+
+    /// Optional web accounts host. Local protection never depends on this URL being reachable.
+    private static let accountURLString =
+        ProcessInfo.processInfo.environment["DJMEMORY_ACCOUNT_URL"]
+        ?? "https://accounts.djmemory.app"
 
     private func settingsToggle(title: String, explanation: String, isOn: Binding<Bool>, id: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {

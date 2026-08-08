@@ -11,6 +11,33 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 EXECUTABLE_PATH="$ROOT_DIR/.build/$CONFIGURATION/DJMemoryApp"
 ENTITLEMENTS_PATH="$ROOT_DIR/packaging/DJMemory.entitlements"
+DISTRIBUTION="${DJMEMORY_DISTRIBUTION:-adhoc}"
+
+detect_developer_id_identity() {
+  security find-identity -v -p codesigning 2>/dev/null \
+    | sed -n 's/.*"\(Developer ID Application: .*\)".*/\1/p' \
+    | head -n 1
+}
+
+resolve_sign_identity() {
+  if [[ -n "${DJMEMORY_SIGN_IDENTITY:-}" ]]; then
+    printf '%s\n' "$DJMEMORY_SIGN_IDENTITY"
+    return
+  fi
+  if [[ "$DISTRIBUTION" == "developer-id" ]]; then
+    local detected
+    detected="$(detect_developer_id_identity)"
+    if [[ -z "$detected" ]]; then
+      echo "error: DJMEMORY_DISTRIBUTION=developer-id but no Developer ID Application identity was found." >&2
+      echo "Install a Developer ID Application certificate, or set DJMEMORY_SIGN_IDENTITY." >&2
+      echo "See docs/signing-and-notarization.md" >&2
+      exit 1
+    fi
+    printf '%s\n' "$detected"
+    return
+  fi
+  printf '%s\n' "-"
+}
 
 cd "$ROOT_DIR"
 swift build --configuration "$CONFIGURATION" --product DJMemoryApp
@@ -58,7 +85,18 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --sign - --entitlements "$ENTITLEMENTS_PATH" "$BUNDLE_DIR" >/dev/null
+SIGN_IDENTITY="$(resolve_sign_identity)"
+
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+  codesign --force --sign - --entitlements "$ENTITLEMENTS_PATH" "$BUNDLE_DIR" >/dev/null
+else
+  # Hardened runtime required for notarization.
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGN_IDENTITY" \
+    --entitlements "$ENTITLEMENTS_PATH" \
+    "$BUNDLE_DIR" >/dev/null
+fi
+
 codesign --verify --deep --strict "$BUNDLE_DIR"
 
 echo "$BUNDLE_DIR"

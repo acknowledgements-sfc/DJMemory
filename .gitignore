@@ -3,3 +3,8 @@
 DerivedData/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcuserstate
+admin/node_modules/
+admin/.next/
+admin/.env.local
+admin/.env*.local
+*.p8

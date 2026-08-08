@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="DJMemory"
 VERSION="${DJMEMORY_VERSION:-0.1.0}"
 DIST_DIR="$ROOT_DIR/.build/distribution"
+DISTRIBUTION="${DJMEMORY_DISTRIBUTION:-adhoc}"
 
 cd "$ROOT_DIR"
 
@@ -16,7 +17,17 @@ MANIFEST_PATH="$DIST_DIR/$ARTIFACT_BASENAME.json"
 
 mkdir -p "$DIST_DIR"
 
-bash scripts/build-app.sh release >/dev/null
+if [[ "$DISTRIBUTION" == "developer-id" ]]; then
+  export DJMEMORY_DISTRIBUTION=developer-id
+  bash scripts/build-app.sh release >/dev/null
+  bash scripts/notarize-app.sh
+  SIGNING_LABEL="Developer ID Application (hardened runtime)"
+  NOTARIZATION_LABEL="notarized and stapled"
+else
+  bash scripts/build-app.sh release >/dev/null
+  SIGNING_LABEL="ad-hoc sandboxed local beta"
+  NOTARIZATION_LABEL="not notarized"
+fi
 
 rm -f "$ZIP_PATH" "$MANIFEST_PATH"
 ditto -c -k --keepParent "$ROOT_DIR/.build/$APP_NAME.app" "$ZIP_PATH"
@@ -33,8 +44,9 @@ printf '  "minimum_macos": "14.0",\n' >> "$MANIFEST_PATH"
 printf '  "artifact": "%s",\n' "$(basename "$ZIP_PATH")" >> "$MANIFEST_PATH"
 printf '  "sha256": "%s",\n' "$CHECKSUM" >> "$MANIFEST_PATH"
 printf '  "size_bytes": %s,\n' "$SIZE_BYTES" >> "$MANIFEST_PATH"
-printf '  "signing": "ad-hoc sandboxed local beta",\n' >> "$MANIFEST_PATH"
-printf '  "notarization": "not notarized"\n' >> "$MANIFEST_PATH"
+printf '  "distribution": "%s",\n' "$DISTRIBUTION" >> "$MANIFEST_PATH"
+printf '  "signing": "%s",\n' "$SIGNING_LABEL" >> "$MANIFEST_PATH"
+printf '  "notarization": "%s"\n' "$NOTARIZATION_LABEL" >> "$MANIFEST_PATH"
 printf '}\n' >> "$MANIFEST_PATH"
 
 echo "$ZIP_PATH"
