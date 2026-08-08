@@ -162,6 +162,49 @@ final class ArchiveServiceTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: service.metadataURL(for: archiveURL).path))
     }
+
+    func testVerifyCopiesRejectsSizeMismatchAndRemovesIncompleteCopy() throws {
+        let sourceURL = tempRoot.appendingPathComponent("source.wav")
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try Data("audio-content".utf8).write(to: sourceURL)
+
+        let service = ArchiveService(
+            archiveRoot: archiveRoot,
+            fileManager: MismatchingCopyFileManager(),
+            verifyCopies: true
+        )
+
+        XCTAssertThrowsError(try service.archive(sourceURL: sourceURL, sourceAppID: "serato")) { error in
+            guard case ArchiveServiceError.copyVerificationFailed = error else {
+                return XCTFail("Expected copyVerificationFailed, got \(error)")
+            }
+        }
+
+        let leftovers = (try? FileManager.default.contentsOfDirectory(at: archiveRoot, includingPropertiesForKeys: nil)) ?? []
+        XCTAssertTrue(leftovers.isEmpty, "Incomplete archive copy must be removed")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path), "Source must remain")
+    }
+
+    func testIsSourceAlreadyArchivedFalseWhenSamePathContentChanges() throws {
+        let sourceURL = tempRoot.appendingPathComponent("source.wav")
+        let archiveRoot = tempRoot.appendingPathComponent("Archive", isDirectory: true)
+        try Data("original-recording".utf8).write(to: sourceURL)
+
+        let service = ArchiveService(archiveRoot: archiveRoot)
+        try service.archive(sourceURL: sourceURL, sourceAppID: "serato")
+        XCTAssertTrue(service.isSourceAlreadyArchived(sourceURL))
+
+        try Data("replaced-recording-bytes".utf8).write(to: sourceURL)
+        XCTAssertFalse(service.isSourceAlreadyArchived(sourceURL))
+    }
+}
+
+/// Copies a truncated destination so size verification fails.
+private final class MismatchingCopyFileManager: FileManager, @unchecked Sendable {
+    override func copyItem(at srcURL: URL, to dstURL: URL) throws {
+        let data = try Data(contentsOf: srcURL)
+        try data.prefix(max(0, data.count - 1)).write(to: dstURL)
+    }
 }
 
 private struct StubAudioDurationReader: AudioDurationReading {

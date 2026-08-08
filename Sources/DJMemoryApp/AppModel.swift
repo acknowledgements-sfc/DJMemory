@@ -21,7 +21,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var isFolderChangeScanPending = false
     @Published private(set) var lastScanDate: Date?
     @Published private(set) var nextScanDate: Date?
-    @Published var selectedRoute: Route = .home
+    @Published var selectedRoute: Route = .home {
+        didSet {
+            recordRouteHistoryIfNeeded(from: oldValue)
+        }
+    }
     @Published var statusMessage = "Checking protection status"
     @Published private(set) var profile = DJProfile()
     /// True when macOS registered the login item but still needs Login Items approval.
@@ -36,6 +40,13 @@ final class AppModel: ObservableObject {
     /// Preview-only clock override for greeting matrix (morning / afternoon / evening).
     @Published private(set) var previewNow: Date?
 
+    private var routeHistory: [Route] = [.home]
+    private var routeHistoryIndex: Int = 0
+    private var isApplyingHistoryNavigation = false
+
+    var canGoBack: Bool { routeHistoryIndex > 0 }
+    var canGoForward: Bool { routeHistoryIndex < routeHistory.count - 1 }
+
     func openLibrary(sessionID: UUID? = nil, search: String = "") {
         libraryFocusSessionID = sessionID
         libraryFocusSearch = search
@@ -47,6 +58,35 @@ final class AppModel: ObservableObject {
         libraryFocusSessionID = nil
         libraryFocusSearch = ""
         return focus
+    }
+
+    func goBack() {
+        guard canGoBack else { return }
+        isApplyingHistoryNavigation = true
+        routeHistoryIndex -= 1
+        selectedRoute = routeHistory[routeHistoryIndex]
+        isApplyingHistoryNavigation = false
+    }
+
+    func goForward() {
+        guard canGoForward else { return }
+        isApplyingHistoryNavigation = true
+        routeHistoryIndex += 1
+        selectedRoute = routeHistory[routeHistoryIndex]
+        isApplyingHistoryNavigation = false
+    }
+
+    private func recordRouteHistoryIfNeeded(from oldValue: Route) {
+        guard !isApplyingHistoryNavigation else { return }
+        guard selectedRoute != oldValue else { return }
+        if routeHistoryIndex < routeHistory.count - 1 {
+            routeHistory = Array(routeHistory[...routeHistoryIndex])
+        }
+        if routeHistory.last == selectedRoute {
+            return
+        }
+        routeHistory.append(selectedRoute)
+        routeHistoryIndex = routeHistory.count - 1
     }
 
     /// App id when `selectedRoute` is `.app` or `.recovery`.
@@ -891,7 +931,7 @@ final class AppModel: ObservableObject {
             bookmarkDataIsStale: &isStale
         )
         guard !isStale else {
-            return try operation(request.folderURL)
+            throw FolderScanAccessError.staleBookmark(request.folderURL)
         }
 
         let didStartAccessing = url.startAccessingSecurityScopedResource()
@@ -922,7 +962,8 @@ final class AppModel: ObservableObject {
         ArchiveService(
             archiveRoot: archiveRoot,
             namingTemplate: settings.archiveNamingTemplate,
-            archiveRootBookmarkData: settings.archiveRootBookmarkData
+            archiveRootBookmarkData: settings.archiveRootBookmarkData,
+            verifyCopies: settings.verifyCopies
         )
     }
 
@@ -1036,7 +1077,9 @@ final class AppModel: ObservableObject {
                     message: "Archived \(result.archivedSessions.count) recording\(result.archivedSessions.count == 1 ? "" : "s")",
                     detail: result.folderURL.path
                 )
-                notificationService.notifyArchiveSaved(count: result.archivedSessions.count)
+                if settings.notifyAfterArchiving {
+                    notificationService.notifyArchiveSaved(count: result.archivedSessions.count)
+                }
             }
         }
     }
@@ -1287,7 +1330,9 @@ extension AppModel {
             done.lastArchivedSessionID = session.id
             done.statusMessage = "Capture saved. Import a tracklist from Set Detail when you have an export."
             captureState = done
-            notificationService.notifyArchiveSaved(count: 1)
+            if settings.notifyAfterArchiving {
+                notificationService.notifyArchiveSaved(count: 1)
+            }
             statusMessage = "Capture saved"
         } catch let error as CaptureServiceError {
             applyCaptureFailure(error)

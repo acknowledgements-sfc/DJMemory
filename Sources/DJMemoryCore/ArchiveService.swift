@@ -5,6 +5,7 @@ public enum ArchiveServiceError: Error, Equatable {
     case sourceFileMissing(URL)
     case sourceIsDirectory(URL)
     case archiveDirectoryUnavailable(URL)
+    case copyVerificationFailed(source: URL, destination: URL)
 }
 
 public struct ArchiveService {
@@ -16,6 +17,7 @@ public struct ArchiveService {
     private let durationReader: any AudioDurationReading
     private let namingTemplate: String
     private let archiveRootBookmarkData: Data?
+    private let verifyCopies: Bool
 
     public init(
         archiveRoot: URL = Self.defaultArchiveRoot(),
@@ -23,7 +25,8 @@ public struct ArchiveService {
         calendar: Calendar = .current,
         durationReader: any AudioDurationReading = AudioDurationReader(),
         namingTemplate: String = Self.defaultNamingTemplate,
-        archiveRootBookmarkData: Data? = nil
+        archiveRootBookmarkData: Data? = nil,
+        verifyCopies: Bool = true
     ) {
         self.archiveRoot = archiveRoot
         self.fileManager = fileManager
@@ -31,6 +34,7 @@ public struct ArchiveService {
         self.durationReader = durationReader
         self.namingTemplate = namingTemplate
         self.archiveRootBookmarkData = archiveRootBookmarkData
+        self.verifyCopies = verifyCopies
     }
 
     public static func defaultArchiveRoot() -> URL {
@@ -93,22 +97,29 @@ public struct ArchiveService {
 
         try fileManager.copyItem(at: sourceURL, to: destinationURL)
 
-        let session = RecordingSession(
-            sourceAppID: sourceAppID,
-            detectedAt: detectedAt,
-            completedAt: Date(),
-            sourceURL: sourceURL,
-            archiveURL: destinationURL,
-            fileSize: Int64(fileSize),
-            status: .archived
-        )
+        do {
+            try verifyCopyIfNeeded(sourceURL: sourceURL, destinationURL: destinationURL, expectedSize: fileSize)
+            let session = RecordingSession(
+                sourceAppID: sourceAppID,
+                detectedAt: detectedAt,
+                completedAt: Date(),
+                sourceURL: sourceURL,
+                archiveURL: destinationURL,
+                fileSize: Int64(fileSize),
+                status: .archived
+            )
 
-        try writeMetadata(
-            for: session,
-            originalFilename: sourceURL.lastPathComponent,
-            sourceFingerprint: sourceFingerprint
-        )
-        return session
+            try writeMetadata(
+                for: session,
+                originalFilename: sourceURL.lastPathComponent,
+                sourceFingerprint: sourceFingerprint
+            )
+            return session
+        } catch {
+            try? fileManager.removeItem(at: destinationURL)
+            try? fileManager.removeItem(at: metadataURL(for: destinationURL))
+            throw error
+        }
     }
 
     private func ingestCaptureWithAccess(
@@ -135,20 +146,27 @@ public struct ArchiveService {
         let sourceFingerprint = try contentFingerprint(for: stagingURL)
         let destinationURL = uniqueDestinationURL(for: syntheticSourceURL, sourceAppID: sourceAppID, detectedAt: startedAt)
         try fileManager.copyItem(at: stagingURL, to: destinationURL)
-        if removeStagingAfterCopy {
-            try? fileManager.removeItem(at: stagingURL)
+        do {
+            try verifyCopyIfNeeded(sourceURL: stagingURL, destinationURL: destinationURL, expectedSize: fileSize)
+            if removeStagingAfterCopy {
+                try? fileManager.removeItem(at: stagingURL)
+            }
+            let session = RecordingSession(
+                sourceAppID: sourceAppID,
+                detectedAt: startedAt,
+                completedAt: endedAt,
+                sourceURL: syntheticSourceURL,
+                archiveURL: destinationURL,
+                fileSize: Int64(fileSize),
+                status: .archived
+            )
+            try writeMetadata(for: session, originalFilename: syntheticSourceName, sourceFingerprint: sourceFingerprint)
+            return session
+        } catch {
+            try? fileManager.removeItem(at: destinationURL)
+            try? fileManager.removeItem(at: metadataURL(for: destinationURL))
+            throw error
         }
-        let session = RecordingSession(
-            sourceAppID: sourceAppID,
-            detectedAt: startedAt,
-            completedAt: endedAt,
-            sourceURL: syntheticSourceURL,
-            archiveURL: destinationURL,
-            fileSize: Int64(fileSize),
-            status: .archived
-        )
-        try writeMetadata(for: session, originalFilename: syntheticSourceName, sourceFingerprint: sourceFingerprint)
-        return session
     }
 
     private func ensureArchiveRootExistsWithAccess() throws {
@@ -200,6 +218,19 @@ public struct ArchiveService {
                 }
 
                 if metadata.sourcePath == sourcePath {
+                    if let sourceFileSize, metadata.fileSize > 0, metadata.fileSize != sourceFileSize {
+                        return false
+                    }
+
+                    if let metadataFingerprint = metadata.sourceFingerprint {
+                        if sourceFingerprint == nil {
+                            sourceFingerprint = try? contentFingerprint(for: sourceURL)
+                        }
+                        if let sourceFingerprint, sourceFingerprint != metadataFingerprint {
+                            return false
+                        }
+                    }
+
                     return true
                 }
 
@@ -222,6 +253,21 @@ public struct ArchiveService {
                     && metadata.fileSize == sourceFileSize
                     && metadataFingerprint == sourceFingerprint
             }
+    }
+
+    private func verifyCopyIfNeeded(sourceURL: URL, destinationURL: URL, expectedSize: Int) throws {
+        guard verifyCopies else { return }
+
+        let destSize = try destinationURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? -1
+        guard destSize == expectedSize else {
+            throw ArchiveServiceError.copyVerificationFailed(source: sourceURL, destination: destinationURL)
+        }
+
+        let sourceFingerprint = try contentFingerprint(for: sourceURL)
+        let destFingerprint = try contentFingerprint(for: destinationURL)
+        guard sourceFingerprint == destFingerprint else {
+            throw ArchiveServiceError.copyVerificationFailed(source: sourceURL, destination: destinationURL)
+        }
     }
 
     private func withSecurityScopedArchiveRoot<T>(_ operation: () throws -> T) rethrows -> T {

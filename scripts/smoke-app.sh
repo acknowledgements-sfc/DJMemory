@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="DJMemory"
 BUNDLE_DIR="$ROOT_DIR/.build/$APP_NAME.app"
+STRICT="${DJMEMORY_SMOKE_STRICT:-0}"
 
 cd "$ROOT_DIR"
 
@@ -40,10 +41,20 @@ APPLESCRIPT
                 echo "DJMemory window check passed."
             else
                 echo "DJMemory smoke check warning: main window was not detected ($WINDOW_CHECK_OUTPUT)." >&2
+                if [[ "$STRICT" == "1" ]]; then
+                    osascript -e "tell application id \"app.djmemory.DJMemory\" to quit" >/dev/null 2>&1 || true
+                    echo "DJMemory smoke check failed (strict): window missing." >&2
+                    exit 1
+                fi
             fi
         else
             echo "DJMemory smoke check warning: window check was blocked or unavailable." >&2
             echo "$WINDOW_CHECK_OUTPUT" >&2
+            if [[ "$STRICT" == "1" ]]; then
+                osascript -e "tell application id \"app.djmemory.DJMemory\" to quit" >/dev/null 2>&1 || true
+                echo "DJMemory smoke check failed (strict): accessibility blocked." >&2
+                exit 1
+            fi
         fi
 
         echo "DJMemory smoke check passed."

@@ -1,5 +1,26 @@
 import Foundation
 
+/// Outcome of resolving a saved folder bookmark for scanning / reachability.
+public enum FolderAccessResolution: Equatable, Sendable {
+    case reachable(URL)
+    /// Bookmark exists but macOS reports it stale — user must choose the folder again.
+    case staleBookmark(fallbackURL: URL)
+    /// Path does not exist as a directory (or cannot be accessed under the sandbox).
+    case unreachable(URL)
+
+    public var url: URL {
+        switch self {
+        case .reachable(let url), .staleBookmark(let url), .unreachable(let url):
+            return url
+        }
+    }
+
+    public var isUsable: Bool {
+        if case .reachable = self { return true }
+        return false
+    }
+}
+
 public struct FolderAccessStore {
     public let storageURL: URL
     private let fileManager: FileManager
@@ -52,30 +73,58 @@ public struct FolderAccessStore {
         try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 
+    /// Best-effort URL for display. Prefer `resolution(for:)` before scanning or watching.
     public func resolve(_ access: FolderAccess) -> URL {
+        resolution(for: access).url
+    }
+
+    public func resolution(for access: FolderAccess) -> FolderAccessResolution {
         guard let bookmarkData = access.bookmarkData else {
-            return access.url
+            return directoryResolution(at: access.url)
         }
 
         var isStale = false
-
-        if let url = try? URL(
+        guard let url = try? URL(
             resolvingBookmarkData: bookmarkData,
             options: [.withSecurityScope],
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
-        ), !isStale {
-            return url
+        ) else {
+            return .unreachable(access.url)
         }
 
-        return access.url
+        if isStale {
+            return .staleBookmark(fallbackURL: access.url)
+        }
+
+        let started = url.startAccessingSecurityScopedResource()
+        defer {
+            if started {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return directoryResolution(at: url)
     }
 
-    /// Resolve the bookmark, then check the path still exists as a directory (HANDOFF G3).
+    /// Resolve the bookmark with security scope, then check the path still exists as a directory (HANDOFF G3).
     public func isReachable(_ access: FolderAccess) -> Bool {
-        let url = resolve(access)
+        resolution(for: access).isUsable
+    }
+
+    public func isBookmarkStale(_ access: FolderAccess) -> Bool {
+        if case .staleBookmark = resolution(for: access) {
+            return true
+        }
+        return false
+    }
+
+    private func directoryResolution(at url: URL) -> FolderAccessResolution {
         var isDirectory: ObjCBool = false
-        return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        if fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return .reachable(url)
+        }
+        return .unreachable(url)
     }
 
     private func write(_ records: [FolderAccess]) throws {

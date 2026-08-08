@@ -54,4 +54,28 @@ final class FolderAccessStoreTests: XCTestCase {
 
         XCTAssertFalse(store.isReachable(access))
     }
+
+    func testResolutionMarksMissingDirectoryUnreachable() throws {
+        let store = FolderAccessStore(storageURL: tempRoot.appendingPathComponent("folder-access.json"))
+        let missing = tempRoot.appendingPathComponent("gone", isDirectory: true)
+        let access = FolderAccess(appID: "serato", kind: .recordings, url: missing, bookmarkData: nil)
+
+        XCTAssertEqual(store.resolution(for: access), .unreachable(missing))
+        XCTAssertFalse(store.resolution(for: access).isUsable)
+    }
+
+    func testSecurityScopedBookmarkResolvesExistingDirectory() throws {
+        let store = FolderAccessStore(storageURL: tempRoot.appendingPathComponent("folder-access.json"))
+        let folder = tempRoot.appendingPathComponent("recordings", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let bookmark = try store.makeBookmarkData(for: folder)
+        let access = FolderAccess(appID: "serato", kind: .recordings, url: folder, bookmarkData: bookmark)
+
+        XCTAssertTrue(store.isReachable(access))
+        if case .reachable(let url) = store.resolution(for: access) {
+            XCTAssertEqual(url.resolvingSymlinksInPath().path, folder.resolvingSymlinksInPath().path)
+        } else {
+            XCTFail("Expected reachable resolution, got \(store.resolution(for: access))")
+        }
+    }
 }

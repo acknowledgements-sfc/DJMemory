@@ -5,6 +5,7 @@ import DJMemoryCore
 
 final class FolderChangeMonitor {
     private var watchedFolders: [WatchedFolder] = []
+    /// Paths that successfully opened an FS event source (not merely requested).
     private var watchedPaths: Set<String> = []
 
     deinit {
@@ -13,18 +14,19 @@ final class FolderChangeMonitor {
 
     func start(requests: [FolderScanRequest], onChange: @escaping @Sendable () -> Void) {
         let uniqueRequests = uniqueReachableRequests(from: requests)
-        let nextPaths = Set(uniqueRequests.map(\.folderURL.path))
+
+        let startedFolders = uniqueRequests.compactMap { request -> WatchedFolder? in
+            WatchedFolder(request: request, onChange: onChange)
+        }
+        let nextPaths = Set(startedFolders.map(\.watchedPath))
 
         guard nextPaths != watchedPaths else {
             return
         }
 
         stop()
+        watchedFolders = startedFolders
         watchedPaths = nextPaths
-
-        watchedFolders = uniqueRequests.compactMap { request in
-            WatchedFolder(request: request, onChange: onChange)
-        }
     }
 
     func stop() {
@@ -33,21 +35,59 @@ final class FolderChangeMonitor {
         watchedPaths = []
     }
 
+    /// Count of folders currently watched (for diagnostics / tests).
+    var activeWatchCount: Int { watchedFolders.count }
+
     private func uniqueReachableRequests(from requests: [FolderScanRequest]) -> [FolderScanRequest] {
         var seenPaths = Set<String>()
+        var usable: [FolderScanRequest] = []
 
-        return requests.filter { request in
+        for request in requests {
+            guard let resolved = Self.resolveWatchURL(for: request) else { continue }
+            let path = resolved.path
+            guard !seenPaths.contains(path) else { continue }
+
             var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: request.folderURL.path, isDirectory: &isDirectory),
-                  isDirectory.boolValue,
-                  !seenPaths.contains(request.folderURL.path)
+            let started = resolved.startAccessingSecurityScopedResource()
+            defer {
+                if started {
+                    resolved.stopAccessingSecurityScopedResource()
+                }
+            }
+            guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+                  isDirectory.boolValue
             else {
-                return false
+                continue
             }
 
-            seenPaths.insert(request.folderURL.path)
-            return true
+            seenPaths.insert(path)
+            usable.append(
+                FolderScanRequest(
+                    appID: request.appID,
+                    folderURL: resolved,
+                    bookmarkData: request.bookmarkData
+                )
+            )
         }
+
+        return usable
+    }
+
+    static func resolveWatchURL(for request: FolderScanRequest) -> URL? {
+        guard let bookmarkData = request.bookmarkData else {
+            return request.folderURL
+        }
+
+        var isStale = false
+        guard let url = try? URL(
+            resolvingBookmarkData: bookmarkData,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        ), !isStale else {
+            return nil
+        }
+        return url
     }
 }
 
@@ -58,6 +98,7 @@ private final class WatchedFolder {
     private let source: DispatchSourceFileSystemObject
     private let securityScopedURL: URL?
     private let didStartAccessing: Bool
+    let watchedPath: String
 
     init?(request: FolderScanRequest, onChange: @escaping @Sendable () -> Void) {
         self.request = request
@@ -65,20 +106,26 @@ private final class WatchedFolder {
 
         var scopedURL: URL?
         var startedAccess = false
+        let openURL: URL
+
         if let bookmarkData = request.bookmarkData {
             var isStale = false
-            if let url = try? URL(
+            guard let url = try? URL(
                 resolvingBookmarkData: bookmarkData,
                 options: [.withSecurityScope],
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
-            ), !isStale {
-                scopedURL = url
-                startedAccess = url.startAccessingSecurityScopedResource()
+            ), !isStale else {
+                return nil
             }
+            scopedURL = url
+            startedAccess = url.startAccessingSecurityScopedResource()
+            openURL = url
+        } else {
+            openURL = request.folderURL
         }
 
-        let descriptor = open(request.folderURL.path, O_EVTONLY)
+        let descriptor = open(openURL.path, O_EVTONLY)
         guard descriptor >= 0 else {
             if startedAccess {
                 scopedURL?.stopAccessingSecurityScopedResource()
@@ -89,6 +136,7 @@ private final class WatchedFolder {
         fileDescriptor = descriptor
         securityScopedURL = scopedURL
         didStartAccessing = startedAccess
+        watchedPath = openURL.path
 
         source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: descriptor,

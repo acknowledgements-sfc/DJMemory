@@ -39,7 +39,7 @@ struct DJMemoryApplication: App {
                 .frame(minWidth: 980, minHeight: 640)
         }
         .commands {
-            CommandGroup(replacing: .newItem) {}
+            AppCommands(model: model)
         }
 
         MenuBarExtra {

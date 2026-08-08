@@ -49,8 +49,14 @@ struct AdapterDetailView: View {
                 FolderSetupView(result: result)
 
                 HStack(alignment: .top, spacing: 12) {
-                    ScanResultsView(results: model.scanResults(for: result.software.id))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    ScanResultsView(
+                        results: model.scanResults(for: result.software.id),
+                        appID: result.software.id,
+                        onRecover: { appID in
+                            model.selectedRoute = .recovery(appID)
+                        }
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Panel(title: "Privacy", padding: 12) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -99,6 +105,23 @@ struct AdapterDetailView: View {
                     }
                 }
             }
+        } else {
+            EmptyStateView(
+                title: "No DJ app selected",
+                systemImage: "music.note.list",
+                description: "Choose a DJ app in the sidebar to set up recording folders and check protection status.",
+                primaryTitle: "Open Protection",
+                primaryAction: {
+                    model.selectedRoute = .protection
+                },
+                secondaryTitle: "Browse first app",
+                secondaryAction: {
+                    if let first = model.probeResults.first {
+                        model.selectedRoute = .app(first.software.id)
+                    }
+                }
+            )
+            .accessibilityIdentifier("adapter.empty")
         }
     }
 

@@ -89,6 +89,10 @@ public struct ScanCoordinator {
     }
 
     private func scanErrorDescription(_ error: Error, folderURL: URL) -> String {
+        if case FolderScanAccessError.staleBookmark = error {
+            return "Folder access expired. Choose the recording folder again in setup. Everything already in your archive is safe."
+        }
+
         var isDirectory: ObjCBool = false
         let folderExists = FileManager.default.fileExists(atPath: folderURL.path, isDirectory: &isDirectory)
 
@@ -121,6 +125,17 @@ public struct ScanCoordinator {
             return "DJMemory cannot write to the archive folder. Choose a different archive folder in Settings."
         }
 
+        if let archiveError = error as? ArchiveServiceError {
+            switch archiveError {
+            case .copyVerificationFailed:
+                return "The protected copy did not match the source recording. The incomplete copy was removed. Try scanning again. Source file was not changed."
+            case .archiveDirectoryUnavailable:
+                return "DJMemory cannot write to the archive folder. Choose a different archive folder in Settings."
+            case .sourceFileMissing, .sourceIsDirectory:
+                break
+            }
+        }
+
         return "Could not scan this folder. Choose it again in setup. \(error.localizedDescription)"
     }
 
@@ -133,14 +148,17 @@ public struct ScanCoordinator {
         }
 
         var isStale = false
-        let url = try URL(
+        guard let url = try? URL(
             resolvingBookmarkData: bookmarkData,
             options: [.withSecurityScope],
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
-        )
+        ) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+
         guard !isStale else {
-            return try operation(request.folderURL)
+            throw FolderScanAccessError.staleBookmark(request.folderURL)
         }
 
         let didStartAccessing = url.startAccessingSecurityScopedResource()
@@ -152,4 +170,8 @@ public struct ScanCoordinator {
 
         return try operation(url)
     }
+}
+
+public enum FolderScanAccessError: Error, Equatable {
+    case staleBookmark(URL)
 }

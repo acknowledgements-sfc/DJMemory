@@ -3,36 +3,53 @@ import DJMemoryCore
 
 struct ScanResultsView: View {
     let results: [FolderScanResult]
+    var appID: String?
+    var onRecover: ((String) -> Void)?
 
     var body: some View {
         if !results.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Latest Scan")
-                    .font(.headline)
+                    .font(.system(size: DJToken.TypeSize.body, weight: .semibold))
+                    .foregroundStyle(DJToken.foreground)
 
                 ForEach(results, id: \.folderURL) { result in
-                    HStack(spacing: 10) {
-                        Image(systemName: scanResultSymbol(for: result))
-                            .foregroundStyle(scanResultTint(for: result))
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 10) {
+                            Image(systemName: scanResultSymbol(for: result))
+                                .foregroundStyle(scanResultTint(for: result))
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(result.folderURL.path)
-                                .font(.caption.monospaced())
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .help(result.folderURL.path)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(result.folderURL.path)
+                                    .font(.system(size: DJToken.TypeSize.secondary).monospaced())
+                                    .foregroundStyle(DJToken.foreground)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .help(result.folderURL.path)
 
-                            if let errorDescription = result.errorDescription {
-                                Text(errorDescription)
-                                    .foregroundStyle(.secondary)
-                                    .help(errorDescription)
-                            } else if !result.pendingRecordingURLs.isEmpty {
-                                Text("\(result.pendingRecordingURLs.count) active recording\(result.pendingRecordingURLs.count == 1 ? "" : "s") waiting to finish")
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("\(result.archivedSessions.count) new recording\(result.archivedSessions.count == 1 ? "" : "s") archived")
-                                    .foregroundStyle(.secondary)
+                                if let errorDescription = result.errorDescription {
+                                    Text(errorDescription)
+                                        .font(.system(size: DJToken.TypeSize.secondary))
+                                        .foregroundStyle(DJToken.mutedForeground)
+                                        .help(errorDescription)
+                                } else if !result.pendingRecordingURLs.isEmpty {
+                                    Text("\(result.pendingRecordingURLs.count) active recording\(result.pendingRecordingURLs.count == 1 ? "" : "s") waiting to finish")
+                                        .font(.system(size: DJToken.TypeSize.secondary))
+                                        .foregroundStyle(DJToken.mutedForeground)
+                                } else {
+                                    Text("\(result.archivedSessions.count) new recording\(result.archivedSessions.count == 1 ? "" : "s") archived")
+                                        .font(.system(size: DJToken.TypeSize.secondary))
+                                        .foregroundStyle(DJToken.mutedForeground)
+                                }
                             }
+                        }
+
+                        if result.errorDescription != nil, let appID, let onRecover {
+                            Button("Choose Folder Again") {
+                                onRecover(appID)
+                            }
+                            .buttonStyle(DJPrimaryButtonStyle())
+                            .accessibilityIdentifier("scan.\(appID).recover")
                         }
                     }
                     .padding(12)
