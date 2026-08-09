@@ -9,7 +9,7 @@ The macOS (and future iPad) app stays fully usable without sign-in. This API bac
 ## Base URL
 
 - Local: `http://localhost:3000`
-- Production: set via Vercel deployment (also `NEXT_PUBLIC_ACCOUNT_URL` / macOS `DJMEMORY_ACCOUNT_URL`)
+- Production: Vercel `djmemory-admin` (also `NEXT_PUBLIC_ACCOUNT_URL` / client `DJMEMORY_ACCOUNT_URL`; Mac and iPad share [`DJMemoryAccountConfiguration`](../Sources/DJMemoryCore/DJMemoryAccountConfiguration.swift), default `https://djmemory-admin.vercel.app`)
 
 ## Privacy boundaries
 

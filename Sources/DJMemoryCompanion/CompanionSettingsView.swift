@@ -5,6 +5,7 @@ import SwiftUI
 struct CompanionSettingsView: View {
     @Bindable var model: CompanionModel
     @Environment(Clerk.self) private var clerk
+    @Environment(\.openURL) private var openURL
     @State private var authPresented = false
 
     var body: some View {
@@ -17,6 +18,10 @@ struct CompanionSettingsView: View {
                 }
 
                 Section("Account") {
+                    Text("Same Clerk account as the Mac app. Local import still works offline.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
                     UserButton(signedOutContent: {
                         Button("Sign in") { authPresented = true }
                             .accessibilityIdentifier("ipad.settings.signIn")
@@ -37,6 +42,13 @@ struct CompanionSettingsView: View {
                         }
                         .accessibilityIdentifier("ipad.settings.refreshAccount")
                     }
+
+                    Button("Open Account in Browser") {
+                        if let url = URL(string: CompanionAccountClient.baseURLString) {
+                            openURL(url)
+                        }
+                    }
+                    .accessibilityIdentifier("ipad.settings.openAccount")
                 }
 
                 Section("Archive") {

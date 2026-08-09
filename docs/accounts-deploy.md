@@ -77,7 +77,7 @@ Or connect GitHub repo `acknowledgements-sfc/DJMemory` with **Root Directory** `
 
 ### 5. macOS / iPad account URL
 
-Optional: set `DJMEMORY_ACCOUNT_URL` to the production account URL when launching clients. Default is `https://accounts.djmemory.app` until that domain is wired.
+Optional: set `DJMEMORY_ACCOUNT_URL` when launching Mac or iPad clients. Default in [`DJMemoryAccountConfiguration`](../Sources/DJMemoryCore/DJMemoryAccountConfiguration.swift) is `https://djmemory-admin.vercel.app` (same backend for both). When `accounts.djmemory.app` DNS is wired, override via that env var.
 
 ### 6. Smoke
 

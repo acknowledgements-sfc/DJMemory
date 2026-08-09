@@ -1,6 +1,8 @@
 import Foundation
+import DJMemoryCore
 
 /// Optional accounts HTTP client. Local archive/scan/protection never call this.
+/// Uses the same Vercel/Clerk/Supabase stack as the iPad companion.
 enum AccountAPIClient {
     enum ClientError: LocalizedError {
         case notConfigured
@@ -71,8 +73,7 @@ enum AccountAPIClient {
     }
 
     static var baseURLString: String {
-        ProcessInfo.processInfo.environment["DJMEMORY_ACCOUNT_URL"]
-            ?? "https://accounts.djmemory.app"
+        DJMemoryAccountConfiguration.baseURLString
     }
 
     static func fetchLicense(bearerToken: String) async throws -> LicenseResponse {

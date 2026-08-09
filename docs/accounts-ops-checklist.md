@@ -16,8 +16,9 @@ This tracks what the repo can verify. Secrets never belong in git.
 | `admin/.env.local` `SUPABASE_SERVICE_ROLE_KEY` | Set (2026-08-09) |
 | Vercel `SUPABASE_SERVICE_ROLE_KEY` | Set + production redeployed |
 | Clerk Native API for Mac + iPad | **Dashboard step** (see below) |
-| `admin_roles` owner row | After first admin Clerk sign-in |
-| `npx vercel --prod` | After service_role is on Vercel |
+| `admin_roles` owner row | Done for `yo@rcawhatsgood.com` (verify Clerk User ID matches session) |
+| Shared client account URL | Done — `DJMemoryAccountConfiguration` default `https://djmemory-admin.vercel.app` (Mac + iPad) |
+| `npx vercel --prod` | Deployed with service_role |
 
 ## You do next (≈3 minutes)
 
