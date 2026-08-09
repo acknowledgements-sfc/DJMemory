@@ -33,6 +33,7 @@ values ('user_XXXX', 'you@example.com', 'owner');
 6. **macOS native (Settings Account panel):** Enable **Native API** under [Native applications](https://dashboard.clerk.com/~/native-applications). Register the DJMemory app:
    - **App ID Prefix (Team ID):** `3JYK7Q92SF`
    - **Bundle ID:** `app.djmemory.DJMemory`
+   Add allowed redirect URL: `app.djmemory.DJMemory://callback` (Paths → Allowlist / Native / OAuth redirect allow list as shown in your Dashboard).
    Associated Domains `webcredentials:glorious-longhorn-36.clerk.accounts.dev` is already in [`packaging/DJMemory.entitlements`](../packaging/DJMemory.entitlements). Local protection never depends on Native API being enabled.
 
 ### 3. Local env

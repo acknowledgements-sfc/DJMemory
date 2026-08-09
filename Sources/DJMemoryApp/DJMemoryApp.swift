@@ -34,17 +34,31 @@ struct DJMemoryApplication: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
 
+    /// Stable identity for OAuth redirects / keychain. `swift run` has no Info.plist bundle id.
+    private static let appBundleID = "app.djmemory.DJMemory"
+    private static let oauthCallbackURL = "\(appBundleID)://callback"
+
     init() {
         // Optional Account auth only — local archive/scan/protection never depend on Clerk.
-        Clerk.configure(publishableKey: "pk_test_Z2xvcmlvdXMtbG9uZ2hvcm4tMzYuY2xlcmsuYWNjb3VudHMuZGV2JA")
+        Clerk.configure(
+            publishableKey: "pk_test_Z2xvcmlvdXMtbG9uZ2hvcm4tMzYuY2xlcmsuYWNjb3VudHMuZGV2JA",
+            options: .init(
+                keychainConfig: .init(service: Self.appBundleID),
+                redirectConfig: .init(
+                    redirectUrl: Self.oauthCallbackURL,
+                    callbackUrlScheme: Self.appBundleID
+                )
+            )
+        )
     }
 
     var body: some Scene {
         WindowGroup("DJMemory") {
             ContentView()
                 .environmentObject(model)
-                .environment(Clerk.shared)
+                // Prefetch reads @Environment(Clerk.self) — must be inside .environment(Clerk.shared).
                 .prefetchClerkImages()
+                .environment(Clerk.shared)
                 .frame(minWidth: 980, minHeight: 640)
         }
         .commands {

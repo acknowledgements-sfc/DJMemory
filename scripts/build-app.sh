@@ -81,6 +81,19 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 	<true/>
 	<key>NSSupportsSuddenTermination</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>$BUNDLE_ID.callback</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$BUNDLE_ID</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
 PLIST
