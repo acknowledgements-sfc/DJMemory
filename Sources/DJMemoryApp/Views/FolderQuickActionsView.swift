@@ -30,7 +30,9 @@ struct FolderQuickActionsView: View {
     }
 
     private var recordingButtonTitle: String {
-        model.recordingFolders(for: result.software.id).isEmpty ? "Set Recording Folder" : "Change Recording Folder"
+        model.configuredRecordingFolders(for: result.software.id).isEmpty
+            ? "Set Recording Folder"
+            : "Change Recording Folder"
     }
 
     private var historyButtonTitle: String {

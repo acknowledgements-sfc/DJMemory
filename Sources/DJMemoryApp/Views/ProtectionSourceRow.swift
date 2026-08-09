@@ -44,10 +44,14 @@ struct ProtectionSourceRow: View {
 
             Spacer(minLength: 8)
 
-            if state == .attentionNeeded, let fixFolder {
+            if state == .attentionNeeded || state == .error, let fixFolder {
                 Button("Fix Folder", action: fixFolder)
                     .buttonStyle(DJPrimaryButtonStyle())
                     .accessibilityIdentifier("protectionSource.\(result.software.id).fixFolder")
+            } else if state == .needsFolderAccess {
+                Button("Choose Folder", action: chooseRecording)
+                    .buttonStyle(DJPrimaryButtonStyle())
+                    .accessibilityIdentifier("protectionSource.\(result.software.id).chooseFolderPrimary")
             } else {
                 Button(action: openSetup) {
                     Label("Setup", systemImage: "slider.horizontal.3")

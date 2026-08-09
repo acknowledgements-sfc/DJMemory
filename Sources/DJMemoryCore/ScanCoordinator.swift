@@ -10,6 +10,23 @@ public struct FolderScanRequest: Equatable, Sendable {
         self.folderURL = folderURL
         self.bookmarkData = bookmarkData
     }
+
+    /// Build scan requests from user-granted recordings folders only.
+    /// Probe-discovered paths without a security-scoped bookmark are never scanned.
+    public static func recordingRequests(
+        from folderAccesses: [FolderAccess],
+        resolve: (FolderAccess) -> URL
+    ) -> [FolderScanRequest] {
+        folderAccesses
+            .filter { $0.kind == .recordings }
+            .map { access in
+                FolderScanRequest(
+                    appID: access.appID,
+                    folderURL: resolve(access),
+                    bookmarkData: access.bookmarkData
+                )
+            }
+    }
 }
 
 public struct FolderScanResult: Equatable, Sendable {

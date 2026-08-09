@@ -22,8 +22,13 @@ struct HomeDJAppsSection: View {
                             .font(.system(size: DJToken.TypeSize.secondary))
                             .foregroundStyle(DJToken.mutedForeground)
                         Button(actionLabel(for: result)) {
-                            if model.isConfiguredRecordingsFolderUnreachable(appID: result.software.id) {
+                            let state = model.setupState(for: result)
+                            if model.isConfiguredRecordingsFolderUnreachable(appID: result.software.id)
+                                || state == .error {
                                 model.selectedRoute = .recovery(result.software.id)
+                            } else if state == .needsFolderAccess {
+                                model.selectedRoute = .app(result.software.id)
+                                model.chooseFolder(appID: result.software.id, kind: .recordings)
                             } else {
                                 model.selectedRoute = .app(result.software.id)
                             }
@@ -37,8 +42,13 @@ struct HomeDJAppsSection: View {
     }
 
     private func actionLabel(for result: SoftwareProbeResult) -> String {
-        if model.isConfiguredRecordingsFolderUnreachable(appID: result.software.id) { return "Fix" }
-        if model.hasConfiguredRecordingsFolder(appID: result.software.id) { return "Manage" }
-        return "Set up"
+        let state = model.setupState(for: result)
+        if model.isConfiguredRecordingsFolderUnreachable(appID: result.software.id) || state == .error {
+            return "Fix"
+        }
+        if state == .needsFolderAccess || !model.hasConfiguredRecordingsFolder(appID: result.software.id) {
+            return "Set up"
+        }
+        return "Manage"
     }
 }

@@ -42,7 +42,7 @@ struct AdapterDetailView: View {
                 StatusGrid(
                     result: result,
                     setupState: model.setupState(for: result),
-                    recordingFolders: model.recordingFolders(for: result.software.id),
+                    recordingFolders: model.configuredRecordingFolders(for: result.software.id),
                     historyFolders: model.historyFolders(for: result.software.id)
                 )
 

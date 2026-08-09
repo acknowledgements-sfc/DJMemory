@@ -243,16 +243,21 @@ final class AppModel: ObservableObject {
         restartFolderChangeMonitoring()
     }
 
+    /// Configured (user-granted) recordings folders plus probe-discovered defaults for setup hints.
     func recordingFolders(for appID: String) -> [URL] {
-        let configured = folderAccesses
-            .filter { $0.appID == appID && $0.kind == .recordings }
-            .map { folderAccessStore.resolve($0) }
-
-        let discovered = probeResults
-            .first { $0.software.id == appID }?
-            .existingRecordingURLs ?? []
+        let configured = configuredRecordingFolders(for: appID)
+        let configuredPaths = Set(configured.map(\.path))
+        let discovered = (probeResults.first { $0.software.id == appID }?.existingRecordingURLs ?? [])
+            .filter { !configuredPaths.contains($0.path) }
 
         return configured + discovered
+    }
+
+    /// User-granted recordings folders only — source of truth for Ready / Watching / scanning.
+    func configuredRecordingFolders(for appID: String) -> [URL] {
+        folderAccesses
+            .filter { $0.appID == appID && $0.kind == .recordings }
+            .map { folderAccessStore.resolve($0) }
     }
 
     /// User-chosen recordings folder via security-scoped `FolderAccess` (HANDOFF-2 §4.10).
@@ -293,7 +298,7 @@ final class AppModel: ObservableObject {
     }
 
     func reachableRecordingFolders(for appID: String) -> [URL] {
-        recordingFolders(for: appID).filter(isReachableDirectory(_:))
+        configuredRecordingFolders(for: appID).filter(isReachableDirectory(_:))
     }
 
     /// Preview / test helper — does not persist. Seeds `FolderAccess` rows for sidebar matrix previews.
@@ -741,42 +746,19 @@ final class AppModel: ObservableObject {
     }
 
     func setupState(for result: SoftwareProbeResult) -> AppSetupState {
-        let appScanResults = scanResults(for: result.software.id)
+        let configured = configuredRecordingFolders(for: result.software.id)
+        let appNotInstalledOrRunning = !result.software.bundleIdentifiers.isEmpty
+            && result.installedApplicationURLs.isEmpty
+            && !result.isRunning
 
-        if appScanResults.contains(where: { $0.errorDescription != nil }) {
-            return .error
-        }
-
-        if appScanResults.contains(where: { !$0.pendingRecordingURLs.isEmpty }) {
-            return .recordingDetected
-        }
-
-        if appScanResults.contains(where: { !$0.archivedSessions.isEmpty }) {
-            return .archived
-        }
-
-        let recordingFolders = recordingFolders(for: result.software.id)
-        if recordingFolders.isEmpty {
-            let hasNoInstallableApp = result.software.bundleIdentifiers.isEmpty
-                || (result.installedApplicationURLs.isEmpty && !result.isRunning)
-            return hasNoInstallableApp && !result.software.bundleIdentifiers.isEmpty
-                ? .appNotFound
-                : .needsFolderAccess
-        }
-
-        if !recordingFolders.contains(where: isReachableDirectory(_:)) {
-            return .attentionNeeded
-        }
-
-        if isScanning {
-            return .saving
-        }
-
-        if hasRecentUnstableRecording(for: result.software.id) {
-            return .recordingDetected
-        }
-
-        return .watching
+        return AppSetupState.derive(
+            scanResults: scanResults(for: result.software.id),
+            hasConfiguredRecordingsFolder: hasConfiguredRecordingsFolder(appID: result.software.id),
+            configuredFoldersReachable: configured.contains(where: isReachableDirectory(_:)),
+            appNotInstalledOrRunning: appNotInstalledOrRunning,
+            isScanning: isScanning,
+            hasRecentUnstableRecording: hasRecentUnstableRecording(for: result.software.id)
+        )
     }
 
     func importedTracklists(for appID: String) -> [ImportedTracklist] {
@@ -872,23 +854,8 @@ final class AppModel: ObservableObject {
     }
 
     private func scanRequests() -> [FolderScanRequest] {
-        probeResults.flatMap { result -> [FolderScanRequest] in
-            let configured = folderAccesses
-                .filter { $0.appID == result.software.id && $0.kind == .recordings }
-                .map { access in
-                    FolderScanRequest(
-                        appID: result.software.id,
-                        folderURL: folderAccessStore.resolve(access),
-                        bookmarkData: access.bookmarkData
-                    )
-                }
-
-            let configuredPaths = Set(configured.map(\.folderURL.path))
-            let discovered = result.existingRecordingURLs
-                .filter { !configuredPaths.contains($0.path) }
-                .map { FolderScanRequest(appID: result.software.id, folderURL: $0) }
-
-            return configured + discovered
+        FolderScanRequest.recordingRequests(from: folderAccesses) { [folderAccessStore] access in
+            folderAccessStore.resolve(access)
         }
     }
 

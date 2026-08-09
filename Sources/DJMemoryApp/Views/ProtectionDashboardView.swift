@@ -53,7 +53,7 @@ struct ProtectionDashboardView: View {
                     ProtectionSourceRow(
                         result: result,
                         state: model.setupState(for: result),
-                        recordingFolders: model.recordingFolders(for: result.software.id),
+                        recordingFolders: model.configuredRecordingFolders(for: result.software.id),
                         historyFolders: model.historyFolders(for: result.software.id),
                         chooseRecording: {
                             model.selectedRoute = .app(result.software.id)

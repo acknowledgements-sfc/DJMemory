@@ -44,4 +44,44 @@ public enum AppSetupState: String, Equatable, Sendable, CaseIterable {
             return "danger"
         }
     }
+
+    /// Derive tile state from configured (bookmarked) folders only — never from probe-discovered paths.
+    public static func derive(
+        scanResults: [FolderScanResult],
+        hasConfiguredRecordingsFolder: Bool,
+        configuredFoldersReachable: Bool,
+        appNotInstalledOrRunning: Bool,
+        isScanning: Bool,
+        hasRecentUnstableRecording: Bool
+    ) -> AppSetupState {
+        if scanResults.contains(where: { $0.errorDescription != nil }) {
+            return .error
+        }
+
+        if scanResults.contains(where: { !$0.pendingRecordingURLs.isEmpty }) {
+            return .recordingDetected
+        }
+
+        if scanResults.contains(where: { !$0.archivedSessions.isEmpty }) {
+            return .archived
+        }
+
+        if !hasConfiguredRecordingsFolder {
+            return appNotInstalledOrRunning ? .appNotFound : .needsFolderAccess
+        }
+
+        if !configuredFoldersReachable {
+            return .attentionNeeded
+        }
+
+        if isScanning {
+            return .saving
+        }
+
+        if hasRecentUnstableRecording {
+            return .recordingDetected
+        }
+
+        return .watching
+    }
 }
