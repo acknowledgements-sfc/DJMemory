@@ -3,7 +3,6 @@ import DJMemoryCore
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
-    @Environment(\.openURL) private var openURL
 
     private let intervalOptions = [30, 60, 120, 300]
 
@@ -18,7 +17,7 @@ struct SettingsView: View {
             archivePanel
             cloudSyncPanel
             currentStatePanel
-            accountPanel
+            SettingsAccountPanel()
         }
     }
 
@@ -171,48 +170,6 @@ private var scanningPanel: some View {
             KeyValueRow(key: "Version", value: appVersion, showsDivider: false)
         }
     }
-
-    private var accountPanel: some View {
-        Panel(title: "Account", padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Local protection never depends on an account.")
-                    .font(.system(size: DJToken.TypeSize.body, weight: .medium))
-                Text("Audio files are never uploaded by default.")
-                    .font(.system(size: DJToken.TypeSize.body))
-                    .foregroundStyle(DJToken.mutedForeground)
-                Text("Full tracklists stay on this Mac unless you explicitly export them.")
-                    .font(.system(size: DJToken.TypeSize.body))
-                    .foregroundStyle(DJToken.mutedForeground)
-                Text("Diagnostics exports contain metadata only — paths, timings, counts, and error strings.")
-                    .font(.system(size: DJToken.TypeSize.body))
-                    .foregroundStyle(DJToken.mutedForeground)
-
-                Button {
-                    model.showOnboardingAgain()
-                } label: {
-                    Label("Show First-Run Setup", systemImage: "sparkles.rectangle.stack")
-                }
-                .buttonStyle(DJSecondaryButtonStyle())
-                .padding(.top, 6)
-                .accessibilityIdentifier("settings.showOnboarding")
-
-                Button {
-                    if let url = URL(string: Self.accountURLString) {
-                        openURL(url)
-                    }
-                } label: {
-                    Label("Open Account in Browser", systemImage: "person.crop.circle")
-                }
-                .buttonStyle(DJGhostButtonStyle())
-                .accessibilityIdentifier("settings.openAccount")
-            }
-        }
-    }
-
-    /// Optional web accounts host. Local protection never depends on this URL being reachable.
-    private static let accountURLString =
-        ProcessInfo.processInfo.environment["DJMEMORY_ACCOUNT_URL"]
-        ?? "https://accounts.djmemory.app"
 
     private func settingsToggle(title: String, explanation: String, isOn: Binding<Bool>, id: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {

@@ -18,8 +18,9 @@ bash scripts/smoke-app.sh          # UI smoke test — run before finishing UI w
 bash scripts/open-xcode.sh
 ```
 
-There are **no external package dependencies**. Do not add one without saying why in the PR
-description; prefer the platform SDK.
+`DJMemoryCore` and `djmemory` stay dependency-free (platform SDK only). Optional Account auth in
+`DJMemoryApp` may use `clerk-ios` (`ClerkKit` / `ClerkKitUI`); local archive, scan, and protection
+never depend on it. Do not add further packages without saying why in the PR description.
 
 ## Layout
 

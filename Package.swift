@@ -12,6 +12,10 @@ let package = Package(
         .executable(name: "djmemory", targets: ["DJMemoryCLI"]),
         .library(name: "DJMemoryCore", targets: ["DJMemoryCore"])
     ],
+    dependencies: [
+        // Optional Account (Settings) auth — local archive/scan/protection never depend on this.
+        .package(url: "https://github.com/clerk/clerk-ios", from: "1.2.0")
+    ],
     targets: [
         .target(name: "DJMemoryCore"),
         .executableTarget(
@@ -20,7 +24,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "DJMemoryApp",
-            dependencies: ["DJMemoryCore"]
+            dependencies: [
+                "DJMemoryCore",
+                .product(name: "ClerkKit", package: "clerk-ios"),
+                .product(name: "ClerkKitUI", package: "clerk-ios")
+            ]
         ),
         .testTarget(
             name: "DJMemoryCoreTests",

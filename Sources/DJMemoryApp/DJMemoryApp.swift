@@ -1,4 +1,6 @@
 import AppKit
+import ClerkKit
+import ClerkKitUI
 import SwiftUI
 import DJMemoryCore
 import UserNotifications
@@ -32,10 +34,17 @@ struct DJMemoryApplication: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
 
+    init() {
+        // Optional Account auth only — local archive/scan/protection never depend on Clerk.
+        Clerk.configure(publishableKey: "pk_test_Z2xvcmlvdXMtbG9uZ2hvcm4tMzYuY2xlcmsuYWNjb3VudHMuZGV2JA")
+    }
+
     var body: some Scene {
         WindowGroup("DJMemory") {
             ContentView()
                 .environmentObject(model)
+                .environment(Clerk.shared)
+                .prefetchClerkImages()
                 .frame(minWidth: 980, minHeight: 640)
         }
         .commands {
@@ -45,6 +54,7 @@ struct DJMemoryApplication: App {
         MenuBarExtra {
             MenuBarStatusView()
                 .environmentObject(model)
+                .environment(Clerk.shared)
         } label: {
             Image(systemName: model.protectionSymbolName)
         }

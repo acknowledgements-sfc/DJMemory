@@ -1,8 +1,10 @@
+import ClerkKit
 import SwiftUI
 import DJMemoryCore
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(Clerk.self) private var clerk
 
     var body: some View {
         NavigationSplitView {
@@ -30,6 +32,15 @@ struct ContentView: View {
                 }
                 .help("Refresh app detection, folder access, imports, archive metadata, and activity.")
                 .accessibilityIdentifier("toolbar.refresh")
+            }
+        }
+        .onOpenURL { url in
+            Task {
+                do {
+                    try await clerk.handle(url)
+                } catch {
+                    // Deep-link auth failures must not block local protection.
+                }
             }
         }
         .sheet(
