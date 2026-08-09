@@ -46,8 +46,8 @@ public final class CaptureService: @unchecked Sendable {
     }
 
     public static func defaultStagingDirectory() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/DJMemory/CaptureStaging", isDirectory: true)
+        DefaultPathProvider().applicationSupportDirectory()
+            .appendingPathComponent("CaptureStaging", isDirectory: true)
     }
 
     public static func microphonePermissionGranted() -> Bool {

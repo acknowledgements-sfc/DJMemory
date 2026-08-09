@@ -38,9 +38,7 @@ public struct ArchiveService {
     }
 
     public static func defaultArchiveRoot() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Music", isDirectory: true)
-            .appendingPathComponent("DJMemory", isDirectory: true)
+        DefaultPathProvider().defaultArchiveRoot()
     }
 
     @discardableResult
@@ -279,7 +277,7 @@ public struct ArchiveService {
         guard
             let url = try? URL(
                 resolvingBookmarkData: archiveRootBookmarkData,
-                options: [.withSecurityScope],
+                options: SecurityScopedBookmarkOptions.resolve,
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             ),

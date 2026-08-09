@@ -33,6 +33,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var captureState = CaptureUIState()
     @Published private(set) var virtualDJNetworkCommandResult: VirtualDJNetworkCommandResult?
 
+    /// Optional account license snapshot. Nil when signed out or unreachable — local features stay full.
+    @Published private(set) var accountLicenseSummary: String?
+    @Published private(set) var accountSyncMessage: String?
+    @Published private(set) var isAccountSyncing = false
+
     /// Consumed by `SessionLibraryView` when navigating from Home (session + optional search seed).
     @Published var libraryFocusSessionID: UUID?
     @Published var libraryFocusSearch: String = ""
@@ -711,16 +716,7 @@ final class AppModel: ObservableObject {
         }
 
         do {
-            let report = DiagnosticsReportBuilder().build(
-                archiveRoot: archiveRoot,
-                probeResults: probeResults,
-                recordingFolders: { [weak self] appID in self?.recordingFolders(for: appID) ?? [] },
-                historyFolders: { [weak self] appID in self?.historyFolders(for: appID) ?? [] },
-                folderAccesses: folderAccesses,
-                archives: sessions,
-                importedTracklists: allImportedTracklists,
-                activityEvents: activityEvents
-            )
+            let report = makeDiagnosticsReport()
 
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -739,6 +735,90 @@ final class AppModel: ObservableObject {
             appendActivity(kind: .error, message: "Diagnostics export failed", detail: error.localizedDescription)
             statusMessage = "Could not export diagnostics: \(error.localizedDescription)"
         }
+    }
+
+    /// Optional account sync after Clerk sign-in. Never gates archive/scan/protection.
+    func syncAccountSession(bearerToken: String?) async {
+        guard let bearerToken, !bearerToken.isEmpty else {
+            accountLicenseSummary = nil
+            accountSyncMessage = nil
+            return
+        }
+
+        isAccountSyncing = true
+        defer { isAccountSyncing = false }
+
+        do {
+            let host = ProcessInfo.processInfo.hostName
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            let platformID = host.replacingOccurrences(of: " ", with: "-")
+            _ = try await AccountAPIClient.registerDevice(
+                bearerToken: bearerToken,
+                deviceName: host.isEmpty ? "Mac" : host,
+                appVersion: version,
+                installChannel: "local",
+                platformDeviceId: platformID.isEmpty ? UUID().uuidString : platformID
+            )
+            let license = try await AccountAPIClient.fetchLicense(bearerToken: bearerToken)
+            accountLicenseSummary = "\(license.license.plan) · \(license.license.status)"
+            accountSyncMessage = license.localFeatures.note
+            statusMessage = "Account connected — local protection still works offline"
+        } catch {
+            // Offline / unreachable account server must not block local features.
+            accountLicenseSummary = accountLicenseSummary ?? "Unavailable (local features full)"
+            accountSyncMessage = "Could not reach the account server. Local protection is unchanged."
+            statusMessage = "Account sync skipped: \(error.localizedDescription)"
+        }
+    }
+
+    func clearAccountSessionState() {
+        accountLicenseSummary = nil
+        accountSyncMessage = nil
+    }
+
+    /// User-initiated metadata-only diagnostics upload. Never called from archive/scan paths.
+    func uploadDiagnosticsToAccount(bearerToken: String) async {
+        isAccountSyncing = true
+        defer { isAccountSyncing = false }
+
+        do {
+            let report = makeDiagnosticsReport()
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(report)
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw AccountAPIClient.ClientError.decoding
+            }
+            let response = try await AccountAPIClient.uploadDiagnostics(
+                bearerToken: bearerToken,
+                metadata: object
+            )
+            try activityLogStore.append(ActivityEvent(
+                kind: .diagnostics,
+                message: "Uploaded diagnostics metadata",
+                detail: response.upload.id
+            ))
+            refresh()
+            accountSyncMessage = "Diagnostics metadata uploaded. Audio and tracklists were not sent."
+            statusMessage = "Diagnostics metadata uploaded"
+        } catch {
+            appendActivity(kind: .error, message: "Diagnostics upload failed", detail: error.localizedDescription)
+            accountSyncMessage = "Could not upload diagnostics: \(error.localizedDescription)"
+            statusMessage = accountSyncMessage ?? "Diagnostics upload failed"
+        }
+    }
+
+    func makeDiagnosticsReport() -> DiagnosticsReport {
+        DiagnosticsReportBuilder().build(
+            archiveRoot: archiveRoot,
+            probeResults: probeResults,
+            recordingFolders: { [weak self] appID in self?.recordingFolders(for: appID) ?? [] },
+            historyFolders: { [weak self] appID in self?.historyFolders(for: appID) ?? [] },
+            folderAccesses: folderAccesses,
+            archives: sessions,
+            importedTracklists: allImportedTracklists,
+            activityEvents: activityEvents
+        )
     }
 
     func scanResults(for appID: String) -> [FolderScanResult] {

@@ -34,10 +34,7 @@ public struct FolderAccessStore {
     }
 
     public static func defaultStorageURL() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("DJMemory", isDirectory: true)
+        DefaultPathProvider().applicationSupportDirectory()
             .appendingPathComponent("folder-access.json")
     }
 
@@ -70,7 +67,7 @@ public struct FolderAccessStore {
     }
 
     public func makeBookmarkData(for url: URL) throws -> Data {
-        try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+        try url.bookmarkData(options: SecurityScopedBookmarkOptions.create, includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 
     /// Best-effort URL for display. Prefer `resolution(for:)` before scanning or watching.
@@ -86,7 +83,7 @@ public struct FolderAccessStore {
         var isStale = false
         guard let url = try? URL(
             resolvingBookmarkData: bookmarkData,
-            options: [.withSecurityScope],
+            options: SecurityScopedBookmarkOptions.resolve,
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         ) else {

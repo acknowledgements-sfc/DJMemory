@@ -5,12 +5,14 @@ import PackageDescription
 let package = Package(
     name: "DJMemory",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v14),
+        .iOS(.v17)
     ],
     products: [
         .executable(name: "DJMemoryApp", targets: ["DJMemoryApp"]),
         .executable(name: "djmemory", targets: ["DJMemoryCLI"]),
-        .library(name: "DJMemoryCore", targets: ["DJMemoryCore"])
+        .library(name: "DJMemoryCore", targets: ["DJMemoryCore"]),
+        .library(name: "DJMemoryCompanion", targets: ["DJMemoryCompanion"])
     ],
     dependencies: [
         // Optional Account (Settings) auth — local archive/scan/protection never depend on this.
@@ -18,6 +20,14 @@ let package = Package(
     ],
     targets: [
         .target(name: "DJMemoryCore"),
+        .target(
+            name: "DJMemoryCompanion",
+            dependencies: [
+                "DJMemoryCore",
+                .product(name: "ClerkKit", package: "clerk-ios"),
+                .product(name: "ClerkKitUI", package: "clerk-ios")
+            ]
+        ),
         .executableTarget(
             name: "DJMemoryCLI",
             dependencies: ["DJMemoryCore"]

@@ -53,7 +53,7 @@ public struct SessionLibrary {
         guard
             let url = try? URL(
                 resolvingBookmarkData: archiveRootBookmarkData,
-                options: [.withSecurityScope],
+                options: SecurityScopedBookmarkOptions.resolve,
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             ),

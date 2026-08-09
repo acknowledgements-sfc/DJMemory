@@ -35,6 +35,40 @@ struct SettingsAccountPanel: View {
                 })
                 .padding(.top, 6)
 
+                if clerk.user != nil {
+                    if let summary = model.accountLicenseSummary {
+                        KeyValueRow(key: "License", value: summary)
+                            .accessibilityIdentifier("settings.accountLicense")
+                    }
+                    if let message = model.accountSyncMessage {
+                        Text(message)
+                            .font(.system(size: DJToken.TypeSize.body))
+                            .foregroundStyle(DJToken.mutedForeground)
+                            .accessibilityIdentifier("settings.accountSyncMessage")
+                    }
+
+                    Button {
+                        Task { await syncAccount() }
+                    } label: {
+                        Label(
+                            model.isAccountSyncing ? "Syncing…" : "Refresh Account",
+                            systemImage: "arrow.triangle.2.circlepath"
+                        )
+                    }
+                    .buttonStyle(DJSecondaryButtonStyle())
+                    .disabled(model.isAccountSyncing)
+                    .accessibilityIdentifier("settings.refreshAccount")
+
+                    Button {
+                        Task { await uploadDiagnostics() }
+                    } label: {
+                        Label("Upload Diagnostics Metadata", systemImage: "arrow.up.doc")
+                    }
+                    .buttonStyle(DJGhostButtonStyle())
+                    .disabled(model.isAccountSyncing)
+                    .accessibilityIdentifier("settings.uploadDiagnostics")
+                }
+
                 Button {
                     model.showOnboardingAgain()
                 } label: {
@@ -44,7 +78,7 @@ struct SettingsAccountPanel: View {
                 .accessibilityIdentifier("settings.showOnboarding")
 
                 Button {
-                    if let url = URL(string: Self.accountURLString) {
+                    if let url = URL(string: AccountAPIClient.baseURLString) {
                         openURL(url)
                     }
                 } label: {
@@ -60,14 +94,39 @@ struct SettingsAccountPanel: View {
         .onChange(of: clerk.user?.id) { _, userID in
             if userID != nil {
                 authIsPresented = false
+                Task { await syncAccount() }
+            } else {
+                model.clearAccountSessionState()
+            }
+        }
+        .task(id: clerk.user?.id) {
+            if clerk.user != nil {
+                await syncAccount()
             }
         }
     }
 
-    /// Optional web accounts host. Local protection never depends on this URL being reachable.
-    private static let accountURLString =
-        ProcessInfo.processInfo.environment["DJMEMORY_ACCOUNT_URL"]
-        ?? "https://accounts.djmemory.app"
+    private func syncAccount() async {
+        do {
+            let token = try await clerk.session?.getToken()
+            await model.syncAccountSession(bearerToken: token)
+        } catch {
+            await model.syncAccountSession(bearerToken: nil)
+            model.statusMessage = "Could not read account session: \(error.localizedDescription)"
+        }
+    }
+
+    private func uploadDiagnostics() async {
+        do {
+            guard let token = try await clerk.session?.getToken() else {
+                model.statusMessage = "Sign in again to upload diagnostics metadata."
+                return
+            }
+            await model.uploadDiagnosticsToAccount(bearerToken: token)
+        } catch {
+            model.statusMessage = "Could not upload diagnostics: \(error.localizedDescription)"
+        }
+    }
 }
 
 #Preview("Signed out") {

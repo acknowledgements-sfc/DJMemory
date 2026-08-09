@@ -1,6 +1,6 @@
 # DJMemory MVP Readiness Audit
 
-Last updated: August 7, 2026.
+Last updated: August 9, 2026.
 
 This audit maps the v0.1 PRD acceptance criteria to current implementation evidence and the manual checks still needed before handing a beta to DJs.
 
@@ -36,6 +36,20 @@ Current passing baseline (commit `5301588`, 2026-08-07):
 | Real rekordbox install + XML/history | Blocked | Needs Mac with rekordbox installed. |
 | Menu-bar during live recording session | Blocked | Needs live DJ session. |
 | Clean-user Gatekeeper / notarized open | Blocked | Ad-hoc only until Developer ID + notarization credentials exist. |
+
+## Round 2 readiness (2026-08-09)
+
+Automation and packaging scripts are ready. Round 2 remains **owner: product tester on a DJ Mac**.
+
+| Item | Status |
+| --- | --- |
+| `scripts/build-app.sh` / `package-beta.sh` / `notarize-app.sh` | Ready (Developer ID gated) |
+| Account client APIs (`/api/devices`, `/api/license`, `/api/diagnostics`) | Implemented; needs deployed admin + service role |
+| iPad companion scheme `DJMemoryiPad` | Builds via `xcodegen` + Xcode (iOS 17+) |
+| Serato / rekordbox live folder + history | Still blocked — needs DJ Mac |
+| Notarized direct-download | Still blocked — needs Developer ID + notary credentials (see `docs/signing-and-notarization.md`) |
+
+Run Round 2 from `docs/user-testing-plan.md` after a Developer ID or notarized build when available.
 
 ## Acceptance Criteria
 

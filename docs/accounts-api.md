@@ -1,15 +1,15 @@
 # DJMemory Accounts API
 
-Last updated: August 7, 2026.
+Last updated: August 9, 2026.
 
 Authority: [`docs/onboarding-accounts-security.md`](onboarding-accounts-security.md).
 
-The macOS app stays fully usable without sign-in. This API backs optional licensing, beta invites, device registration, and opt-in diagnostics metadata. It must never become a dependency of local archive/scan/protection paths.
+The macOS (and future iPad) app stays fully usable without sign-in. This API backs optional licensing, beta invites, device registration, and opt-in diagnostics metadata. It must never become a dependency of local archive/scan/protection paths.
 
 ## Base URL
 
 - Local: `http://localhost:3000`
-- Production: set via Vercel deployment (also `NEXT_PUBLIC_ACCOUNT_URL`)
+- Production: set via Vercel deployment (also `NEXT_PUBLIC_ACCOUNT_URL` / macOS `DJMEMORY_ACCOUNT_URL`)
 
 ## Privacy boundaries
 
@@ -25,6 +25,30 @@ The macOS app stays fully usable without sign-in. This API backs optional licens
 ### `GET /api/health`
 
 Returns service health and privacy posture. No auth.
+
+## Signed-in client contract (Clerk session JWT)
+
+Optional after sign-in. Do not call from archive/scan/protection paths. Offline or unreachable = full local features.
+
+macOS Settings → Account uses ClerkKit `AuthView` / `UserButton`, then calls these endpoints with `Authorization: Bearer <session token>`.
+
+### `POST /api/devices`
+
+Register or refresh a device.
+
+Body: `{ "deviceName", "appVersion?", "installChannel?", "platformDeviceId?" }`
+
+Creates a `users` row (and free license) on first sight. Upserts by user + stable device name (includes `platformDeviceId` when provided).
+
+### `GET /api/license`
+
+Returns user + active license snapshot and an explicit `localFeatures.archiveScanProtect: true` note. Cache locally; when unreachable, clients keep full local features.
+
+### `POST /api/diagnostics`
+
+User-initiated metadata-only upload. Body: `{ "metadata": { … } }`.
+
+Rejects top-level `title`, `artist`, `tracks`, and `tracklist` keys. Nested forbidden keys are stripped server-side.
 
 ## Admin (Clerk session + `admin_roles` row)
 
@@ -59,18 +83,6 @@ Body: `{ "action": "revoke_device"|"revoke_license", "deviceId"|"licenseId" }`
 ### `GET /api/admin/audit`
 
 Recent audit events (max 200).
-
-## Future macOS contract (documented, not required for local protection)
-
-These endpoints are reserved for a later app build. Do not call them from archive/scan paths.
-
-| Intent | Proposed | Notes |
-| --- | --- | --- |
-| Register device | `POST /api/devices` | Optional after sign-in |
-| License status | `GET /api/license` | Cache locally; offline = full local features |
-| Upload diagnostics | `POST /api/diagnostics` | User-initiated; metadata validated server-side |
-
-Until implemented, the macOS Settings **Account** panel deep-links to the public account page only.
 
 ## Roles
 

@@ -1,13 +1,17 @@
 # Deploy DJMemory Accounts (Clerk + Supabase + Vercel)
 
-Last updated: August 7, 2026.
+Last updated: August 9, 2026.
 
-## Status (2026-08-08)
+## Status (2026-08-09)
 
 - Supabase project **DJMemory** created in Cadence org (`alywaxyxnaxwbbsiaafs`, `us-west-1`).
 - URL: `https://alywaxyxnaxwbbsiaafs.supabase.co`
 - Migration `initial_accounts_schema` applied (users, devices, licenses, beta_invites, diagnostic_uploads, admin_roles, admin_audit_events + RLS).
-- Still needed for deploy: Clerk keys + Supabase **service_role** key (Settings → API; never expose to the browser).
+- Client contract implemented: `POST /api/devices`, `GET /api/license`, `POST /api/diagnostics` (see [`accounts-api.md`](accounts-api.md)).
+- macOS Settings Account wires Clerk session → device register, license refresh, optional diagnostics upload.
+- Vercel project **djmemory-admin** linked on team `acknowledgements-sfcs-projects`; production env has Clerk keys + `SUPABASE_URL` + `NEXT_PUBLIC_ACCOUNT_URL`.
+- Still needed (human): `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` + Vercel, then `npx vercel --prod`; Clerk Native API for Mac + iPad; `admin_roles` owner row after first admin sign-in.
+- Helpers: [`scripts/fill-supabase-service-role-from-clipboard.sh`](../scripts/fill-supabase-service-role-from-clipboard.sh), [`scripts/push-accounts-vercel-env.sh`](../scripts/push-accounts-vercel-env.sh). See [`accounts-ops-checklist.md`](accounts-ops-checklist.md).
 
 ## Checklist
 
@@ -30,11 +34,14 @@ values ('user_XXXX', 'you@example.com', 'owner');
 3. Enforce MFA for users who will hold admin roles.
 4. Copy **Publishable key** and **Secret key**.
 5. Set allowed redirect URLs to the Vercel URL + `http://localhost:3000`.
-6. **macOS native (Settings Account panel):** Enable **Native API** under [Native applications](https://dashboard.clerk.com/~/native-applications). Register the DJMemory app:
-   - **App ID Prefix (Team ID):** `3JYK7Q92SF`
-   - **Bundle ID:** `app.djmemory.DJMemory`
-   Add allowed redirect URL: `app.djmemory.DJMemory://callback` (Paths → Allowlist / Native / OAuth redirect allow list as shown in your Dashboard).
-   Associated Domains `webcredentials:glorious-longhorn-36.clerk.accounts.dev` is already in [`packaging/DJMemory.entitlements`](../packaging/DJMemory.entitlements). Local protection never depends on Native API being enabled.
+6. **Native apps:** Enable **Native API** under [Native applications](https://dashboard.clerk.com/~/native-applications).
+
+| Client | App ID Prefix (Team ID) | Bundle ID | Redirect |
+| --- | --- | --- | --- |
+| macOS | `3JYK7Q92SF` | `app.djmemory.DJMemory` | `app.djmemory.DJMemory://callback` |
+| iPad companion | `3JYK7Q92SF` | `app.djmemory.DJMemory.iPad` | `app.djmemory.DJMemory.iPad://callback` |
+
+Associated Domains `webcredentials:glorious-longhorn-36.clerk.accounts.dev` is in [`packaging/DJMemory.entitlements`](../packaging/DJMemory.entitlements) (Mac) and [`Apps/DJMemoryCompanion/DJMemoryCompanion.entitlements`](../Apps/DJMemoryCompanion/DJMemoryCompanion.entitlements) (iPad). Local protection never depends on Native API being enabled.
 
 ### 3. Local env
 
@@ -68,12 +75,14 @@ npx vercel --prod
 
 Or connect GitHub repo `acknowledgements-sfc/DJMemory` with **Root Directory** `admin`.
 
-### 5. macOS Settings deep-link
+### 5. macOS / iPad account URL
 
-Optional: set `DJMEMORY_ACCOUNT_URL` to the production account URL when launching the app. Default in Settings is `https://accounts.djmemory.app` until that domain is wired.
+Optional: set `DJMEMORY_ACCOUNT_URL` to the production account URL when launching clients. Default is `https://accounts.djmemory.app` until that domain is wired.
 
 ### 6. Smoke
 
 - `GET /api/health` → `{ ok: true, … }`
 - Sign in → `/admin` (needs `admin_roles` row)
 - Create a beta invite → row in `beta_invites` + `admin_audit_events`
+- Signed-in Mac: Settings → Refresh Account → device row + license summary
+- Signed-in Mac: Upload Diagnostics Metadata → `diagnostic_uploads` row (no titles/artists)

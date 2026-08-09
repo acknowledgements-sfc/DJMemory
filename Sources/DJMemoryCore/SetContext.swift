@@ -46,10 +46,7 @@ public struct SetContextStore {
     }
 
     public static func defaultStorageURL() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("DJMemory", isDirectory: true)
+        DefaultPathProvider().applicationSupportDirectory()
             .appendingPathComponent("set-contexts.json")
     }
 

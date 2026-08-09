@@ -1,0 +1,67 @@
+name: DJMemory
+options:
+  bundleIdPrefix: app.djmemory
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+packages:
+  DJMemoryPackage:
+    path: .
+targets:
+  DJMemoryiPad:
+    type: application
+    platform: iOS
+    sources:
+      - path: Apps/DJMemoryCompanion
+        excludes:
+          - "**/*.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.djmemory.DJMemory.iPad
+        PRODUCT_NAME: DJMemory
+        INFOPLIST_FILE: Apps/DJMemoryCompanion/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Apps/DJMemoryCompanion/DJMemoryCompanion.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: false
+    entitlements:
+      path: Apps/DJMemoryCompanion/DJMemoryCompanion.entitlements
+    dependencies:
+      - package: DJMemoryPackage
+        product: DJMemoryCompanion
+      - package: DJMemoryPackage
+        product: DJMemoryCore
+      - target: DJMemoryShareExtension
+  DJMemoryShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Apps/DJMemoryShareExtension
+        excludes:
+          - "**/*.entitlements"
+          - "**/*.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.djmemory.DJMemory.iPad.ShareExtension
+        PRODUCT_NAME: DJMemoryShareExtension
+        INFOPLIST_FILE: Apps/DJMemoryShareExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Apps/DJMemoryShareExtension/DJMemoryShareExtension.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+    entitlements:
+      path: Apps/DJMemoryShareExtension/DJMemoryShareExtension.entitlements
+    dependencies:
+      - package: DJMemoryPackage
+        product: DJMemoryCompanion
+      - package: DJMemoryPackage
+        product: DJMemoryCore
+schemes:
+  DJMemoryiPad:
+    build:
+      targets:
+        DJMemoryiPad: all
+        DJMemoryShareExtension: all
+    run:
+      config: Debug

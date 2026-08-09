@@ -110,8 +110,8 @@ public struct AppSettingsStore {
     }
 
     public static func defaultStorageURL() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/DJMemory/settings.json")
+        DefaultPathProvider().applicationSupportDirectory()
+            .appendingPathComponent("settings.json")
     }
 
     public func load() throws -> AppSettings {

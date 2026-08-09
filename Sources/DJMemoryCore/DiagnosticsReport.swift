@@ -142,7 +142,7 @@ public struct DiagnosticsReportBuilder {
     private let isReachableDirectory: @Sendable (URL) -> Bool
 
     public init(
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        homeDirectory: URL = DefaultPathProvider().homeDirectory(),
         isReachableDirectory: (@Sendable (URL) -> Bool)? = nil
     ) {
         self.homeDirectory = homeDirectory

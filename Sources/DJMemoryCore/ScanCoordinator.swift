@@ -167,7 +167,7 @@ public struct ScanCoordinator {
         var isStale = false
         guard let url = try? URL(
             resolvingBookmarkData: bookmarkData,
-            options: [.withSecurityScope],
+            options: SecurityScopedBookmarkOptions.resolve,
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         ) else {
