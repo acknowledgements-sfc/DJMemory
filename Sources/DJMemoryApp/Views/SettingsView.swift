@@ -21,7 +21,25 @@ struct SettingsView: View {
         }
     }
 
-    
+    private var capturePanel: some View {
+        Panel(title: "Capture", padding: 14) {
+            VStack(alignment: .leading, spacing: 14) {
+                settingsToggle(
+                    title: "Auto-arm when a DJ app is running",
+                    explanation: "When on, App audio Capture arms itself for shareable DJ apps. Turning this off does not stop a session that is already watching. Disarm still suppresses re-arm until you Arm again or change mode.",
+                    isOn: Binding(
+                        get: { model.settings.autoArmOnDJAppFound },
+                        set: { model.updateAutoArmOnDJAppFound(enabled: $0) }
+                    ),
+                    id: "settings.autoArmOnDJAppFound"
+                )
+                Text("Capture writes 24-bit / 48 kHz stereo WAV. Audio stays on this Mac.")
+                    .font(.system(size: DJToken.TypeSize.secondary))
+                    .foregroundStyle(DJToken.mutedForeground)
+            }
+        }
+    }
+
     private var cloudSyncPanel: some View {
         Panel(title: "Cloud Sync (opt-in)", padding: 14) {
             VStack(alignment: .leading, spacing: 14) {
