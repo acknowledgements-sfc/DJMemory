@@ -90,3 +90,17 @@ never depend on it. Do not add further packages without saying why in the PR des
 - Prefer `ContentUnavailableView` for empty states, `Table` for tabular data,
   `NavigationSplitView` for the shell.
 - Keep view files under ~250 lines. If one grows past that, extract a subview.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `acknowledgements-sfc/DJMemory` via `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical roles: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
