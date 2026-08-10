@@ -345,35 +345,15 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             }
         }
 
-        let ratio = writeFormat.sampleRate / activeProcessing.sampleRate
-        let capacity = AVAudioFrameCount(Double(frameLength) * ratio) + 32
-        guard let converted = AVAudioPCMBuffer(pcmFormat: writeFormat, frameCapacity: max(capacity, 1)) else {
-            lastFormatMismatchDetail = "App audio Capture could not allocate a 24-bit / 48 kHz buffer."
-            return
-        }
-
-        var error: NSError?
-        var provided = false
-        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
-            if provided {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            provided = true
-            outStatus.pointee = .haveData
-            return pcm
-        }
-        let convertStatus = activeConverter.convert(to: converted, error: &error, withInputFrom: inputBlock)
-        if convertStatus == .error || converted.frameLength == 0 {
-            lastFormatMismatchDetail = "App audio Capture could not convert to 24-bit / 48 kHz: \(error?.localizedDescription ?? "unknown error")."
-            return
-        }
-
-        do {
-            try audioFile.write(from: converted)
+        if let detail = CapturePCMWriter.convertAndWrite(
+            buffer: pcm,
+            converter: activeConverter,
+            writeFormat: writeFormat,
+            audioFile: audioFile
+        ) {
+            lastFormatMismatchDetail = "App audio Capture \(detail)"
+        } else {
             lastFormatMismatchDetail = nil
-        } catch {
-            lastFormatMismatchDetail = "App audio Capture could not write audio: \(error.localizedDescription)"
         }
     }
 }

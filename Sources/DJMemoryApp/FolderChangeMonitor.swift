@@ -77,17 +77,7 @@ final class FolderChangeMonitor {
         guard let bookmarkData = request.bookmarkData else {
             return request.folderURL
         }
-
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: [.withSecurityScope],
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ), !isStale else {
-            return nil
-        }
-        return url
+        return try? SecurityScopedAccess.resolve(bookmarkData: bookmarkData)
     }
 }
 
@@ -109,13 +99,7 @@ private final class WatchedFolder {
         let openURL: URL
 
         if let bookmarkData = request.bookmarkData {
-            var isStale = false
-            guard let url = try? URL(
-                resolvingBookmarkData: bookmarkData,
-                options: [.withSecurityScope],
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            ), !isStale else {
+            guard let url = try? SecurityScopedAccess.resolve(bookmarkData: bookmarkData) else {
                 return nil
             }
             scopedURL = url

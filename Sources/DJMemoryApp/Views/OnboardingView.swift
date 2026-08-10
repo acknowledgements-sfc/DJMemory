@@ -207,11 +207,11 @@ struct OnboardingView: View {
     }
 
     private var installedCount: Int {
-        model.probeResults.filter { !$0.installedApplicationURLs.isEmpty || $0.isRunning }.count
+        model.installedOrRunningProbeCount
     }
 
     private var grantedFolderCount: Int {
-        model.folderAccesses.filter { $0.kind == .recordings }.count
+        model.configuredRecordingsCount
     }
 
     private var canContinue: Bool {

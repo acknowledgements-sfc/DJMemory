@@ -25,7 +25,7 @@ struct RecoveryView: View {
     }
 
     private var access: FolderAccess? {
-        model.folderAccesses.first { $0.appID == appID && $0.kind == .recordings }
+        model.recordingsAccess(appID: appID)
     }
 
     var body: some View {

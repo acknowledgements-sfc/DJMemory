@@ -163,34 +163,15 @@ public final class CaptureService: @unchecked Sendable {
 
     private func writeConverted(_ buffer: AVAudioPCMBuffer) {
         guard let audioFile, let converter, let writeFormat else { return }
-        let ratio = writeFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 32
-        guard let converted = AVAudioPCMBuffer(pcmFormat: writeFormat, frameCapacity: max(capacity, 1)) else {
-            lastWriteErrorDetail = "Capture could not allocate a 24-bit / 48 kHz buffer."
-            return
-        }
-
-        var error: NSError?
-        var provided = false
-        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
-            if provided {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            provided = true
-            outStatus.pointee = .haveData
-            return buffer
-        }
-        let status = converter.convert(to: converted, error: &error, withInputFrom: inputBlock)
-        if status == .error || converted.frameLength == 0 {
-            lastWriteErrorDetail = "Capture could not convert to 24-bit / 48 kHz: \(error?.localizedDescription ?? "unknown error")."
-            return
-        }
-        do {
-            try audioFile.write(from: converted)
+        if let detail = CapturePCMWriter.convertAndWrite(
+            buffer: buffer,
+            converter: converter,
+            writeFormat: writeFormat,
+            audioFile: audioFile
+        ) {
+            lastWriteErrorDetail = "Capture \(detail)"
+        } else {
             lastWriteErrorDetail = nil
-        } catch {
-            lastWriteErrorDetail = "Capture could not write audio: \(error.localizedDescription)"
         }
     }
 }

@@ -164,28 +164,17 @@ public struct ScanCoordinator {
             return try operation(request.folderURL)
         }
 
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: SecurityScopedBookmarkOptions.resolve,
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ) else {
+        do {
+            return try SecurityScopedAccess.withScopedAccess(
+                bookmarkData: bookmarkData,
+                fallbackURL: request.folderURL,
+                operation: operation
+            )
+        } catch SecurityScopedAccessError.staleBookmark {
+            throw FolderScanAccessError.staleBookmark(request.folderURL)
+        } catch SecurityScopedAccessError.resolveFailed {
             throw CocoaError(.fileNoSuchFile)
         }
-
-        guard !isStale else {
-            throw FolderScanAccessError.staleBookmark(request.folderURL)
-        }
-
-        let didStartAccessing = url.startAccessingSecurityScopedResource()
-        defer {
-            if didStartAccessing {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-
-        return try operation(url)
     }
 }
 

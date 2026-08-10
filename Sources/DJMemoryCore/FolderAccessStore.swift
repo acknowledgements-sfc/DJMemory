@@ -80,28 +80,18 @@ public struct FolderAccessStore {
             return directoryResolution(at: access.url)
         }
 
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: SecurityScopedBookmarkOptions.resolve,
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ) else {
+        do {
+            return try SecurityScopedAccess.withScopedAccess(
+                bookmarkData: bookmarkData,
+                fallbackURL: access.url
+            ) { url in
+                directoryResolution(at: url)
+            }
+        } catch SecurityScopedAccessError.staleBookmark {
+            return .staleBookmark(fallbackURL: access.url)
+        } catch {
             return .unreachable(access.url)
         }
-
-        if isStale {
-            return .staleBookmark(fallbackURL: access.url)
-        }
-
-        let started = url.startAccessingSecurityScopedResource()
-        defer {
-            if started {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-
-        return directoryResolution(at: url)
     }
 
     /// Resolve the bookmark with security scope, then check the path still exists as a directory (HANDOFF G3).

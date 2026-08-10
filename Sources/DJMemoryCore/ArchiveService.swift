@@ -185,9 +185,9 @@ public struct ArchiveService {
     }
 
     public func isSourceAlreadyArchived(_ sourceURL: URL) -> Bool {
-        withSecurityScopedArchiveRoot {
+        (try? withSecurityScopedArchiveRoot {
             isSourceAlreadyArchivedWithAccess(sourceURL)
-        }
+        }) ?? false
     }
 
     private func isSourceAlreadyArchivedWithAccess(_ sourceURL: URL) -> Bool {
@@ -268,32 +268,11 @@ public struct ArchiveService {
         }
     }
 
-    private func withSecurityScopedArchiveRoot<T>(_ operation: () throws -> T) rethrows -> T {
-        guard let archiveRootBookmarkData else {
-            return try operation()
-        }
-
-        var isStale = false
-        guard
-            let url = try? URL(
-                resolvingBookmarkData: archiveRootBookmarkData,
-                options: SecurityScopedBookmarkOptions.resolve,
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            ),
-            !isStale
-        else {
-            return try operation()
-        }
-
-        let didStartAccessing = url.startAccessingSecurityScopedResource()
-        defer {
-            if didStartAccessing {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-
-        return try operation()
+    private func withSecurityScopedArchiveRoot<T>(_ operation: () throws -> T) throws -> T {
+        try SecurityScopedAccess.withScopedArchiveRootAccess(
+            bookmarkData: archiveRootBookmarkData,
+            operation: operation
+        )
     }
 
     private func writeMetadata(for session: RecordingSession, originalFilename: String, sourceFingerprint: String) throws {

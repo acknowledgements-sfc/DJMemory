@@ -24,7 +24,7 @@ struct ProtectionDashboardView: View {
                 )
             }
 
-            if !model.folderAccesses.contains(where: { $0.kind == .recordings }) {
+            if !model.hasAnyRecordingsFolderAccess {
                 EmptyStateView(
                     title: "Choose a recording folder",
                     systemImage: "folder.badge.plus",

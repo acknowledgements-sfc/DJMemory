@@ -119,32 +119,30 @@ private func runWatch(arguments: [String]) throws {
 
     let folderURL = URL(fileURLWithPath: (arguments[1] as NSString).expandingTildeInPath, isDirectory: true)
     let appID = arguments.count >= 3 ? arguments[2] : "manual"
-    let stabilityChecker = FileStabilityChecker()
-    let archiveService = archiveService()
-    var snapshots: [URL: FileSnapshot] = [:]
-    var archived = Set<URL>()
+    let service = archiveService()
+    let scanner = RecordingFolderScanner(archiveService: service)
+    let coordinator = ScanCoordinator(scanner: scanner)
 
     print("Watching \(folderURL.path)")
-    print("Archiving stable audio files to \(archiveService.archiveRoot.path)")
+    print("Archiving stable audio files to \(service.archiveRoot.path)")
 
     while true {
-        let cutoff = Calendar.current.date(byAdding: .hour, value: -24, to: Date()) ?? .distantPast
-        let candidates = try stabilityChecker.recentAudioFiles(in: folderURL, modifiedAfter: cutoff)
+        let result = coordinator.scanRecent(
+            requests: [FolderScanRequest(appID: appID, folderURL: folderURL)]
+        ).first
 
-        for url in candidates where !archived.contains(url) {
-            let snapshot = try stabilityChecker.snapshot(for: url)
-
-            if let previousSnapshot = snapshots[url], previousSnapshot == snapshot {
-                guard !archiveService.isSourceAlreadyArchived(url) else {
-                    archived.insert(url)
-                    continue
+        if let result {
+            if let errorDescription = result.errorDescription {
+                print("Scan failed: \(errorDescription)")
+            } else {
+                if !result.archivedSessions.isEmpty {
+                    result.archivedSessions.forEach(printArchived(_:))
                 }
 
-                let session = try archiveService.archive(sourceURL: url, sourceAppID: appID)
-                archived.insert(url)
-                printArchived(session)
-            } else {
-                snapshots[url] = snapshot
+                if !result.pendingRecordingURLs.isEmpty {
+                    print("Recording detected. Waiting for file to finish:")
+                    result.pendingRecordingURLs.forEach { print("  \($0.path)") }
+                }
             }
         }
 
