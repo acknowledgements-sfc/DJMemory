@@ -9,7 +9,7 @@ The macOS (and future iPad) app stays fully usable without sign-in. This API bac
 ## Base URL
 
 - Local: `http://localhost:3000`
-- Production: Vercel `djmemory-admin` (also `NEXT_PUBLIC_ACCOUNT_URL` / client `DJMEMORY_ACCOUNT_URL`; Mac and iPad share [`DJMemoryAccountConfiguration`](../Sources/DJMemoryCore/DJMemoryAccountConfiguration.swift), default `https://djmemory-admin.vercel.app`)
+- Production: `https://beatrevival.com` (Vercel project `djmemory-admin`; also `NEXT_PUBLIC_ACCOUNT_URL` / client `DJMEMORY_ACCOUNT_URL`; Mac and iPad share [`DJMemoryAccountConfiguration`](../Sources/DJMemoryCore/DJMemoryAccountConfiguration.swift)). Fallback: `https://djmemory-admin.vercel.app` until DNS is live.
 
 ## Privacy boundaries
 
@@ -26,6 +26,14 @@ The macOS (and future iPad) app stays fully usable without sign-in. This API bac
 
 Returns service health and privacy posture. No auth.
 
+### `POST /api/waitlist`
+
+Public beta waitlist signup. No auth.
+
+Body: `{ "email" }`
+
+Inserts a `beta_invites` row with `status: pending` and `created_by_clerk_id: null` (shown as **Waitlist** in `/admin/invites`). Duplicate pending emails return `{ ok: true, alreadyListed: true }`.
+
 ## Signed-in client contract (Clerk session JWT)
 
 Optional after sign-in. Do not call from archive/scan/protection paths. Offline or unreachable = full local features.
@@ -39,6 +47,8 @@ Register or refresh a device.
 Body: `{ "deviceName", "appVersion?", "installChannel?", "platformDeviceId?" }`
 
 Creates a `users` row (and free license) on first sight. Upserts by user + stable device name (includes `platformDeviceId` when provided).
+
+On first `users` insert, any matching `beta_invites` rows for that email with `status: pending` are marked `accepted` (`accepted_at` set) and an `invites.accept` audit event is written. Waitlist and admin-created invites both count.
 
 ### `GET /api/license`
 
@@ -74,7 +84,9 @@ List beta invites.
 
 ### `POST /api/admin/invites`
 
-Body: `{ "email" }` to create, or `{ "resendId" }` to resend.
+Body: `{ "email" }` to create, or `{ "resendId" }` to bump `sent_at` / keep `pending`.
+
+Does **not** send email yet. Responses include `emailDelivery: "not_sent"` so the admin UI stays honest.
 
 ### `POST /api/admin/revoke`
 

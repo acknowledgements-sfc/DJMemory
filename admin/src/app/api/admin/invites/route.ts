@@ -61,7 +61,12 @@ export async function POST(request: NextRequest) {
         target: body.resendId,
       });
 
-      return NextResponse.json({ invite: data });
+      // No email provider wired yet — bump sent_at / audit only.
+      return NextResponse.json({
+        invite: data,
+        emailDelivery: "not_sent",
+        message: "Invite recorded — email not sent yet.",
+      });
     }
 
     const email = body.email?.trim().toLowerCase();
@@ -90,7 +95,15 @@ export async function POST(request: NextRequest) {
       target: email,
     });
 
-    return NextResponse.json({ invite: data }, { status: 201 });
+    // No email provider wired yet — DB + audit only.
+    return NextResponse.json(
+      {
+        invite: data,
+        emailDelivery: "not_sent",
+        message: "Invite recorded — email not sent yet.",
+      },
+      { status: 201 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "error";
     const status = message === "Unauthorized" ? 401 : message === "Forbidden" ? 403 : 500;

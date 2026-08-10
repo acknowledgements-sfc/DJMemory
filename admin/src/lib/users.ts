@@ -1,4 +1,5 @@
 import { currentUser } from "@clerk/nextjs/server";
+import { writeAuditEvent } from "./audit";
 import { getServiceSupabase, type DbUser } from "./supabase";
 
 /** Ensure a `users` row exists for the signed-in Clerk user. Creates a free license on first sight. */
@@ -64,7 +65,50 @@ export async function ensureAppUser(clerkUserId: string): Promise<DbUser> {
     console.error("license seed failed", licenseError.message);
   }
 
+  await acceptPendingInvitesForEmail({
+    email: user.email,
+    clerkUserId,
+  });
+
   return user;
+}
+
+/** Mark pending waitlist/admin invites for this email as accepted (first sign-in only). */
+async function acceptPendingInvitesForEmail(input: {
+  email: string;
+  clerkUserId: string;
+}) {
+  const normalized = input.email.trim().toLowerCase();
+  if (!normalized || normalized.endsWith("@users.clerk.local")) {
+    return;
+  }
+
+  const supabase = getServiceSupabase();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("beta_invites")
+    .update({ status: "accepted", accepted_at: now })
+    .eq("email", normalized)
+    .eq("status", "pending")
+    .select("id");
+
+  if (error) {
+    console.error("invite accept failed", error.message);
+    return;
+  }
+
+  const accepted = data ?? [];
+  if (accepted.length === 0) {
+    return;
+  }
+
+  await writeAuditEvent({
+    actorClerkId: input.clerkUserId,
+    actorEmail: normalized,
+    action: "invites.accept",
+    target: normalized,
+    result: `accepted:${accepted.length}`,
+  });
 }
 
 const FORBIDDEN_DIAGNOSTIC_KEYS = new Set([
