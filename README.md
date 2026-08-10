@@ -63,6 +63,12 @@ bash scripts/open-xcode.sh
 
 Xcode is not required for day-to-day preview, but it will be needed for production signing, sandbox entitlement inspection, icons, notarization, and packaged app export.
 
+### Cursor / SweetPad (iPad scheme)
+
+This repo recommends the SweetPad, Swift, and CodeLLDB extensions (see `.vscode/extensions.json`). Use the SweetPad sidebar to build and run the **DJMemoryiPad** scheme on an iPad simulator or device; regenerate the Xcode project with SweetPad’s XcodeGen command or `xcodegen generate --spec project.yml`. Press **F5** to build, launch, and attach via `.vscode/launch.json`.
+
+Mac day-to-day work stays on SPM (`swift run DJMemoryApp`). Do not commit `buildServer.json` — a root build-server config overrides SourceKit-LSP’s native `Package.swift` support.
+
 ## Product Direction
 
 The practical integration strategy is file-first:

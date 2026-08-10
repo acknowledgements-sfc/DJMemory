@@ -123,7 +123,7 @@ public enum SupportedDJSoftware {
             defaultHistoryPaths: [],
             integrationDepth: .fileWatcher,
             supportStatus: .manualSetup,
-            notes: "App audio Capture (ScreenCaptureKit) records a running DJ app even when it is not in Record/Save. Verified with Serato DJ Pro; other DJ apps pending device verification. Input device Capture remains available for DJM USB / mixer paths."
+            notes: "App audio Capture (ScreenCaptureKit) records a running DJ app even when it is not in Record/Save. Verified with Serato DJ Pro; rekordbox/djay/VirtualDJ/Traktor DJ 2 arm+shareable OK — raise only after live meter+archive PASS. Input device Capture remains available for DJM USB / mixer paths. Twitch Live Playlist, SSL-API, and Traktor QML CSI patches are research-only while sandboxed."
         ),
         DJSoftware(
             id: "pioneer-hardware",
