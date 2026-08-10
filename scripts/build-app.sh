@@ -102,14 +102,28 @@ PLIST
 
 SIGN_IDENTITY="$(resolve_sign_identity)"
 
+# Ad-hoc sandbox launches fail with POSIX 163 when associated-domains is present without a profile.
+ENTITLEMENTS_TO_SIGN="$ENTITLEMENTS_PATH"
+ADHOC_ENTITLEMENTS=""
 if [[ "$SIGN_IDENTITY" == "-" ]]; then
-  codesign --force --sign - --entitlements "$ENTITLEMENTS_PATH" "$BUNDLE_DIR" >/dev/null
+  ADHOC_ENTITLEMENTS="$(mktemp)"
+  cp "$ENTITLEMENTS_PATH" "$ADHOC_ENTITLEMENTS"
+  /usr/libexec/PlistBuddy -c "Delete :com.apple.developer.associated-domains" "$ADHOC_ENTITLEMENTS" >/dev/null 2>&1 || true
+  ENTITLEMENTS_TO_SIGN="$ADHOC_ENTITLEMENTS"
+fi
+
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+  codesign --force --sign - --entitlements "$ENTITLEMENTS_TO_SIGN" "$BUNDLE_DIR" >/dev/null
 else
   # Hardened runtime required for notarization.
   codesign --force --options runtime --timestamp \
     --sign "$SIGN_IDENTITY" \
     --entitlements "$ENTITLEMENTS_PATH" \
     "$BUNDLE_DIR" >/dev/null
+fi
+
+if [[ -n "$ADHOC_ENTITLEMENTS" ]]; then
+  rm -f "$ADHOC_ENTITLEMENTS"
 fi
 
 codesign --verify --deep --strict "$BUNDLE_DIR"

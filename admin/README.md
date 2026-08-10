@@ -1,14 +1,26 @@
-# DJMemory Admin (accounts + support)
+# DJMemory Admin (accounts + marketing + support)
 
-Optional web accounts and support-first admin for DJMemory.
+Optional web accounts, Beat Revival marketing/waitlist, and support-first admin for DJMemory.
 
 Stack: **Clerk** (auth) + **Supabase** (Postgres/RLS) + **Vercel** (host).
 
+Production host: **https://beatrevival.com** (Vercel project `djmemory-admin`).
+
 Local protection in the macOS app **never** depends on this service. Audio and full tracklists are never uploaded by default. Admins cannot play or download audio or view tracklist contents.
+
+## URLs
+
+| Path | Role |
+| --- | --- |
+| `/` | Marketing + public waitlist |
+| `/admin` | Support admin |
+| `/sign-in` | Clerk |
+| `/api/waitlist` | Public waitlist POST |
+| `/api/devices`, `/api/license`, `/api/diagnostics` | Signed-in client API |
 
 ## Setup
 
-1. Create a Clerk application. Enforce MFA for admin users in Clerk.
+1. Create a Clerk application. For production on `beatrevival.com`, use the **Production** instance and allowlist that host (see [`docs/accounts-deploy.md`](../docs/accounts-deploy.md)). Enforce MFA for admin users once on Clerk Pro.
 2. Create a Supabase project. Run [`supabase/migrations/001_initial.sql`](supabase/migrations/001_initial.sql).
 3. Insert your admin row:
 
@@ -17,9 +29,9 @@ insert into public.admin_roles (clerk_user_id, email, role)
 values ('user_xxx', 'you@example.com', 'owner');
 ```
 
-4. Copy `.env.example` to `.env.local` and fill keys.
+4. Copy `.env.example` to `.env.local` and fill keys (`NEXT_PUBLIC_ACCOUNT_URL=https://beatrevival.com` in production).
 5. `npm install && npm run dev`
-6. Deploy `admin/` to Vercel; set the same env vars.
+6. Deploy `admin/` to Vercel; set the same env vars. Attach `beatrevival.com` and configure Hover DNS (A `@` → `76.76.21.21`).
 
 ## Scripts
 
@@ -32,3 +44,4 @@ values ('user_xxx', 'you@example.com', 'owner');
 - Diagnostics uploads accept **metadata only** (counts, paths, timings, errors).
 - Server routes use the Supabase **service role**; anon/authenticated have no table grants.
 - Every admin search, detail view, and mutation writes `admin_audit_events`.
+- Waitlist stores email only in `beta_invites` (no audio, no tracklists).

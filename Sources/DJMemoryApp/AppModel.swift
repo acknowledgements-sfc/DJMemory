@@ -146,6 +146,11 @@ final class AppModel: ObservableObject {
         next.mode = settings.captureMode
         captureState = next
         silenceSession = SilenceSessionController(config: settings.silenceSessionConfig)
+        appAudioCaptureService.onStreamStopped = { [weak self] error in
+            Task { @MainActor in
+                self?.applyAppAudioCaptureFailure(error)
+            }
+        }
     }
 
     deinit {
@@ -1334,11 +1339,13 @@ extension AppModel {
                     : "Arm App audio Capture to record when the DJ app plays — even if Record/Save is off. After \(settings.appAudioIdleSeconds)s of silence, DJMemory saves and waits for the next set."
             }
             captureState = next
+        } catch let error as AppAudioCaptureError {
+            applyAppAudioCaptureFailure(error)
         } catch {
             var next = captureState
             next.targetApps = []
-            next.phase = .needsScreenRecordingPermission
-            next.statusMessage = "Screen & System Audio Recording permission is required for App audio Capture. Open System Settings to allow DJMemory. Audio stays on this Mac."
+            next.phase = .failed(error.localizedDescription)
+            next.statusMessage = "Could not list shareable DJ apps: \(error.localizedDescription). Refresh targets, or use Input device Capture / folder Protection."
             captureState = next
         }
     }
@@ -1368,11 +1375,14 @@ extension AppModel {
             captureState = requesting
 
             if !AppAudioCaptureService.screenCapturePermissionGranted() {
-                let granted = AppAudioCaptureService.requestScreenCapturePermission()
-                if !granted {
+                // CGRequestScreenCaptureAccess often returns before the user finishes Settings.
+                _ = AppAudioCaptureService.requestScreenCapturePermission()
+                // Brief settle for in-process grants; Settings toggles still require Arm again.
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                if !AppAudioCaptureService.screenCapturePermissionGranted() {
                     var denied = captureState
                     denied.phase = .needsScreenRecordingPermission
-                    denied.statusMessage = "Screen & System Audio Recording permission is denied. Open System Settings to allow DJMemory. Folder Protection and Input device Capture still work."
+                    denied.statusMessage = "Screen & System Audio Recording permission is required. Open System Settings to allow DJMemory, then return here and Arm again. Folder Protection and Input device Capture still work."
                     captureState = denied
                     statusMessage = "Screen recording access is denied"
                     return
@@ -1600,7 +1610,10 @@ extension AppModel {
     func stopCapture() {
         if captureState.mode == .appAudio {
             switch captureState.phase {
-            case .recording, .saving:
+            case .saving:
+                // Ignore double Stop while archive ingest is in progress.
+                return
+            case .recording:
                 silenceSession.resetToArmed()
                 finalizeAppAudioSession(discard: false)
                 if appAudioCaptureService.isMonitoring {
@@ -1736,7 +1749,7 @@ extension AppModel {
         let phase: CapturePhase
         switch error {
         case .permissionDenied:
-            message = "Screen & System Audio Recording permission is denied. Open System Settings to allow DJMemory. Folder Protection and Input device Capture still work."
+            message = "Screen & System Audio Recording permission is required. Open System Settings to allow DJMemory, then return here and Arm again. Folder Protection and Input device Capture still work."
             phase = .needsScreenRecordingPermission
         case .appNotShareable(let name):
             message = "\(name) is not available to ScreenCaptureKit right now. Open the DJ app, refresh targets, or use Input device Capture / folder Protection if audio is routed only to hardware."
@@ -1749,6 +1762,9 @@ extension AppModel {
             phase = .failed(message)
         case .engineFailed(let detail):
             message = "App audio Capture failed: \(detail)"
+            phase = .failed(message)
+        case .streamStopped(let detail):
+            message = "App audio Capture stopped: \(detail). Arm again to resume watching. Folder Protection still works."
             phase = .failed(message)
         case .alreadyMonitoring:
             message = "App audio Capture is already armed."
@@ -1764,11 +1780,19 @@ extension AppModel {
             phase = .watching
         }
         var failed = captureState
+        if case .permissionDenied = error {
+            failed.targetApps = []
+        }
         failed.phase = phase
         failed.inputLevel = 0
         failed.statusMessage = message
         captureState = failed
         statusMessage = message
-        Task { await appAudioCaptureService.stopMonitoring() }
+        switch error {
+        case .alreadyMonitoring, .alreadyWriting, .notWriting:
+            break
+        default:
+            Task { await appAudioCaptureService.stopMonitoring() }
+        }
     }
 }

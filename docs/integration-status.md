@@ -21,6 +21,8 @@ Last updated: August 9, 2026.
 
 Primary Mac feature: arm Capture → ScreenCaptureKit filters a running DJ app → silence policy starts/stops/archives takes → re-arms. Requires Screen & System Audio Recording. Does **not** work when the mix never hits Mac system audio (exclusive interface).
 
+Local verify (2026-08-09): ad-hoc `.build/DJMemory.app` launches after stripping `associated-domains` from ad-hoc entitlements; Serato installed/running; `djmemory app-audio-probe` returns `permissionDenied` until Screen & System Audio Recording is granted for DJMemory. Per-app meter/archive still Manual Setup until that grant + a live take succeed.
+
 iPad is a **separate** app: no Mac connection; accounts only are shared. On iPad, Capture is device-input only (iPadOS cannot tap another app’s audio).
 
 | Milestone | Scope | Status |

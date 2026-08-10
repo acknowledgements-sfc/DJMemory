@@ -51,7 +51,10 @@ Tester: Rob (internal). macOS 26.6 (25G72). DJMemory `0.1.0` / commit `2d0d4f5`.
 | Task | Result | Evidence |
 | --- | --- | --- |
 | Real Serato recording folder | Pass | Prefs `record_location` = `~/Music/_Serato_/Recording`. Serato DJ Pro running. Folder granted in `folder-access.json` for `serato` / `recordings`. |
-| Live audio into Serato Recording | Pass (with note) | Serato Qt Rec UI not scriptable. Captured 25s from **Serato Virtual Audio** into Serato’s configured Recording path while Serato was open (`…Round2.wav`, SHA-256 `5b261cbb…`). |
+| Live audio into Serato Recording | Pass | Round 2 used Virtual Audio into Recording path. **Follow-up 2026-08-09 17:09:** real Serato Rec button wrote `Serato Recording 1.aif` (~19s, AIFF, SHA-256 `a1a26366…`). |
+| In-app Rec → wait → archive | Pass | Activity: `Recording detected … waiting for Serato Recording 1.aif` then `Archived 1 recording`. Archive `~/Music/DJMemory/archive/2026-08-09 1710 - Serato DJ Pro - Set.aif` + sidecar; source hash unchanged. |
+| Next Scan = Soon (UI eye-check) | Pending | Waiting confirmed in activity; confirm Home/Protection shows **Soon** verbally if not already. |
+| NSOpenPanel history import | Pending | Core import Pass earlier; confirm one in-app Import click if not already. |
 | Scan / archive copy + sidecar + unchanged source | Pass | CLI + app archive root: source hash unchanged before/after; sidecar JSON has paths/fingerprint/size only (no track titles). Example: `~/Music/DJMemory/archive/2026-08-09 1606 - Serato DJ Pro - Set.json`. |
 | Auto-watch while app open | Pass | Activity log: `Archived 3 recordings` / `Archived 1 recording` for `/Users/…/_Serato_/Recording` without CLI for those batches; later Round2-soon file landed in Library. Periodic scan interval 60s + folder monitor enabled. |
 | Library with real volume | Pass | Multiple Serato + rekordbox archives under `~/Music/DJMemory/` and `…/archive/`; set context attached. |
@@ -107,10 +110,10 @@ Tester: Rob (internal). macOS 26.6 (25G72). DJMemory `0.1.0` / commit `2d0d4f5`.
 ## Known Manual Validation Still Required (Blocked)
 
 - macOS folder picker behavior under a clean user account.
-- Menu-bar behavior during a real Serato/rekordbox **in-app Rec** session (button-driven, not Virtual Audio capture).
 - Unreachable-folder recovery flow end-to-end (move/revoke → Attention → re-choose → clear) in the GUI.
-- Next Scan **Soon** label eye-check in the live UI.
+- Next Scan **Soon** label eye-check in the live UI (activity wait path Pass; label not confirmed).
 - In-app tracklist import via NSOpenPanel + library search click-path.
+- Menu-bar behavior during a live recording session.
 - Traktor NML on a machine that has one.
 - Notarized Developer ID build path before broad direct-download distribution (Round 4).
 - Sandboxed `.app` launch failure (RBS/Launchd 163) on this macOS 26.6 build — investigate separately from archive correctness.

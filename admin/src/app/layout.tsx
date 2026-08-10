@@ -14,8 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DJMemory Accounts",
-  description: "Optional accounts and support admin for DJMemory. Local protection never depends on sign-in.",
+  title: "Beat Revival — DJMemory",
+  description:
+    "DJMemory automatically archives DJ set recordings on your Mac. Local-first. Join the beta waitlist.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_ACCOUNT_URL ?? "https://beatrevival.com"),
 };
 
 export default function RootLayout({

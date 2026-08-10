@@ -15,6 +15,7 @@ public enum AppAudioCaptureError: Error, Equatable, Sendable {
     case notWriting
     case engineFailed(String)
     case diskFull
+    case streamStopped(String)
 }
 
 /// Captures a single macOS app's audio via ScreenCaptureKit into staging WAVs.
@@ -26,6 +27,9 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
     public private(set) var targetBundleIdentifier = ""
     public private(set) var targetDisplayName = ""
 
+    /// Invoked on the sample-handler queue when ScreenCaptureKit stops the stream with an error.
+    public var onStreamStopped: ((AppAudioCaptureError) -> Void)?
+
     private let fileManager: FileManager
     private let stagingDirectory: URL
     private let sampleHandlerQueue = DispatchQueue(label: "app.djmemory.AppAudioCapture.sample")
@@ -34,6 +38,7 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
     private var audioFile: AVAudioFile?
     private var stagingURL: URL?
     private var writeFormat: AVAudioFormat?
+    private var lastFormatMismatchDetail: String?
 
     public init(stagingDirectory: URL = CaptureService.defaultStagingDirectory(), fileManager: FileManager = .default) {
         self.stagingDirectory = stagingDirectory
@@ -51,7 +56,7 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
     }
 
     public func listShareableDJApps() async throws -> [MatchedDJApp] {
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+        let content = try await fetchShareableContent()
         let bundleIDs = content.applications.compactMap(\.bundleIdentifier)
         return DJAppProcessMatcher.matchRunning(bundleIdentifiers: bundleIDs)
     }
@@ -60,15 +65,13 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         guard !isMonitoring else { throw AppAudioCaptureError.alreadyMonitoring }
         if !Self.screenCapturePermissionGranted() {
             let granted = Self.requestScreenCapturePermission()
-            if !granted { throw AppAudioCaptureError.permissionDenied }
+            // CGRequestScreenCaptureAccess often returns false before Settings toggles apply.
+            if !granted && !Self.screenCapturePermissionGranted() {
+                throw AppAudioCaptureError.permissionDenied
+            }
         }
 
-        let content: SCShareableContent
-        do {
-            content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-        } catch {
-            throw AppAudioCaptureError.permissionDenied
-        }
+        let content = try await fetchShareableContent()
 
         guard let runningApp = content.applications.first(where: { $0.bundleIdentifier == bundleIdentifier }) else {
             throw AppAudioCaptureError.appNotShareable(displayName)
@@ -100,6 +103,7 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         targetBundleIdentifier = bundleIdentifier
         targetDisplayName = displayName
         isMonitoring = true
+        lastFormatMismatchDetail = nil
         setInputLevel(0)
     }
 
@@ -140,6 +144,7 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         stagingURL = url
         startedAt = Date()
         isWriting = true
+        lastFormatMismatchDetail = nil
     }
 
     public func endRecordingFile(discard: Bool = false) throws -> CaptureResult? {
@@ -158,6 +163,11 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         if discard {
             try? fileManager.removeItem(at: stagingURL)
             return nil
+        }
+
+        if let detail = lastFormatMismatchDetail {
+            try? fileManager.removeItem(at: stagingURL)
+            throw AppAudioCaptureError.engineFailed(detail)
         }
 
         var isDirectory: ObjCBool = false
@@ -183,6 +193,32 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         levelLock.lock()
         inputLevel = value
         levelLock.unlock()
+    }
+
+    private func fetchShareableContent() async throws -> SCShareableContent {
+        do {
+            return try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+        } catch {
+            if Self.isScreenCapturePermissionError(error) || !Self.screenCapturePermissionGranted() {
+                throw AppAudioCaptureError.permissionDenied
+            }
+            throw AppAudioCaptureError.engineFailed(error.localizedDescription)
+        }
+    }
+
+    static func isScreenCapturePermissionError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        let text = (nsError.localizedDescription + " " + (nsError.localizedFailureReason ?? "")).lowercased()
+        if text.contains("permission") || text.contains("not authorized") || text.contains("tcc")
+            || text.contains("screen capture") || text.contains("denied")
+        {
+            return true
+        }
+        // ScreenCaptureKit commonly uses SCStreamError / CGError domain codes for denied access.
+        if nsError.domain.contains("ScreenCapture") || nsError.domain.contains("SCStream") {
+            return nsError.code == Int(CGError.failure.rawValue) || nsError.code == -3801 || nsError.code == -3802
+        }
+        return false
     }
 
     private func handleAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
@@ -220,17 +256,23 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         guard status == noErr else { return }
 
         let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+        let isFloat = asbd.mFormatFlags & kAudioFormatFlagIsFloat != 0
+        let isInterleaved = asbd.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
+        let sourceChannels = Int(asbd.mChannelsPerFrame)
+
         var sumSquares: Float = 0
         var sampleCount = 0
-        for buffer in ablPointer {
-            guard let data = buffer.mData else { continue }
-            let frameCount = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
-            let samples = data.bindMemory(to: Float.self, capacity: frameCount)
-            for i in 0..<frameCount {
-                let s = samples[i]
-                sumSquares += s * s
+        if isFloat {
+            for buffer in ablPointer {
+                guard let data = buffer.mData else { continue }
+                let frameCount = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
+                let samples = data.bindMemory(to: Float.self, capacity: frameCount)
+                for i in 0..<frameCount {
+                    let s = samples[i]
+                    sumSquares += s * s
+                }
+                sampleCount += frameCount
             }
-            sampleCount += frameCount
         }
         if sampleCount > 0 {
             let rms = sqrt(sumSquares / Float(sampleCount))
@@ -238,32 +280,89 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         }
 
         guard isWriting, let audioFile, let writeFormat else { return }
-        guard asbd.mSampleRate == writeFormat.sampleRate else { return }
 
         let frameLength = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
-        guard frameLength > 0, let pcm = AVAudioPCMBuffer(pcmFormat: writeFormat, frameCapacity: frameLength) else { return }
+        guard frameLength > 0 else { return }
+
+        // Adapt write format once if SCK delivers a different rate/channel layout.
+        if abs(asbd.mSampleRate - writeFormat.sampleRate) > 0.5 || sourceChannels != Int(writeFormat.channelCount) {
+            if !reconfigureWriteFormat(sampleRate: asbd.mSampleRate, channels: AVAudioChannelCount(max(1, sourceChannels))) {
+                lastFormatMismatchDetail = "App audio Capture received an unsupported buffer format (\(Int(asbd.mSampleRate)) Hz, \(sourceChannels) ch). Arm again, or use Input device Capture."
+                return
+            }
+        }
+
+        guard let activeFormat = self.writeFormat,
+              let pcm = AVAudioPCMBuffer(pcmFormat: activeFormat, frameCapacity: frameLength)
+        else { return }
         pcm.frameLength = frameLength
 
-        if writeFormat.isInterleaved {
-            // Unexpected for our float32 non-interleaved format; skip write.
+        let channelCount = Int(activeFormat.channelCount)
+        guard let floatChannels = pcm.floatChannelData else { return }
+
+        if !isFloat {
+            lastFormatMismatchDetail = "App audio Capture received non-float audio buffers. Arm again, or use Input device Capture."
             return
         }
 
-        let channelCount = Int(writeFormat.channelCount)
-        for channel in 0..<min(channelCount, ablPointer.count) {
-            guard let src = ablPointer[channel].mData, let dst = pcm.floatChannelData?[channel] else { continue }
-            let count = min(Int(frameLength), Int(ablPointer[channel].mDataByteSize) / MemoryLayout<Float>.size)
-            memcpy(dst, src, count * MemoryLayout<Float>.size)
+        if isInterleaved, ablPointer.count >= 1, let src = ablPointer[0].mData {
+            let interleaved = src.bindMemory(to: Float.self, capacity: Int(frameLength) * max(sourceChannels, 1))
+            for frame in 0..<Int(frameLength) {
+                for channel in 0..<channelCount {
+                    let srcChannel = min(channel, max(sourceChannels, 1) - 1)
+                    floatChannels[channel][frame] = interleaved[frame * max(sourceChannels, 1) + srcChannel]
+                }
+            }
+        } else {
+            for channel in 0..<channelCount {
+                let srcIndex = min(channel, ablPointer.count - 1)
+                guard srcIndex >= 0, let src = ablPointer[srcIndex].mData else { continue }
+                let count = min(Int(frameLength), Int(ablPointer[srcIndex].mDataByteSize) / MemoryLayout<Float>.size)
+                memcpy(floatChannels[channel], src, count * MemoryLayout<Float>.size)
+            }
         }
-        try? audioFile.write(from: pcm)
+
+        do {
+            try audioFile.write(from: pcm)
+            lastFormatMismatchDetail = nil
+        } catch {
+            lastFormatMismatchDetail = "App audio Capture could not write audio: \(error.localizedDescription)"
+        }
+    }
+
+    private func reconfigureWriteFormat(sampleRate: Double, channels: AVAudioChannelCount) -> Bool {
+        guard isWriting, let stagingURL else { return false }
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: channels, interleaved: false) else {
+            return false
+        }
+        // Restart the staging file with the observed format so subsequent buffers write cleanly.
+        audioFile = nil
+        do {
+            try? fileManager.removeItem(at: stagingURL)
+            audioFile = try AVAudioFile(forWriting: stagingURL, settings: format.settings)
+            writeFormat = format
+            return true
+        } catch {
+            lastFormatMismatchDetail = "App audio Capture could not adapt to \(Int(sampleRate)) Hz / \(channels) ch: \(error.localizedDescription)"
+            return false
+        }
     }
 }
 
 extension AppAudioCaptureService: SCStreamDelegate {
     public func stream(_ stream: SCStream, didStopWithError error: Error) {
+        let wasMonitoring = isMonitoring
+        let wasWriting = isWriting
         isMonitoring = false
         isWriting = false
+        audioFile = nil
+        writeFormat = nil
+        stagingURL = nil
+        startedAt = nil
         setInputLevel(0)
+        guard wasMonitoring || wasWriting else { return }
+        let captureError = AppAudioCaptureError.streamStopped(error.localizedDescription)
+        onStreamStopped?(captureError)
     }
 }
 

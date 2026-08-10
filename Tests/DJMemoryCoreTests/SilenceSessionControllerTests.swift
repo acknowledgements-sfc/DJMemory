@@ -136,3 +136,24 @@ final class DJAppProcessMatcherTests: XCTestCase {
         XCTAssertTrue(ids.contains("djay"))
     }
 }
+
+#if os(macOS)
+final class AppAudioCapturePermissionTests: XCTestCase {
+    func testPermissionErrorClassifierMatchesCommonCopy() {
+        let permission = NSError(
+            domain: "com.apple.ScreenCaptureKit.SCStreamErrorDomain",
+            code: -3801,
+            userInfo: [NSLocalizedDescriptionKey: "User declined to provide screen recording permission"]
+        )
+        XCTAssertTrue(AppAudioCaptureService.isScreenCapturePermissionError(permission))
+
+        let unrelated = NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(ENOENT),
+            userInfo: [NSLocalizedDescriptionKey: "No such file"]
+        )
+        XCTAssertFalse(AppAudioCaptureService.isScreenCapturePermissionError(unrelated))
+    }
+}
+#endif
+
