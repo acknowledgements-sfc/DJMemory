@@ -13,6 +13,7 @@ struct SettingsView: View {
                 .foregroundStyle(DJToken.foreground)
 
             scanningPanel
+            capturePanel
             SettingsProfilePanel()
             archivePanel
             cloudSyncPanel
