@@ -30,49 +30,75 @@ Current passing baseline (commit `5301588`, 2026-08-07):
 | Diagnostics metadata-only | Pass | CLI diagnostics top-level keys: archiveRootPath, archives, generatedAt, imports, recentActivity, software, totals. No title/artist/tracklist fields. Sidecar has no track titles. |
 | Permission / unreachable recovery (unit) | Pass | `FolderAccessStoreTests`, `DiagnosticsReportTests.testProtectedSourceCountExcludesUnreachableRecordingFolders`, Protection attention UI. |
 | Unreachable-folder recovery (GUI e2e move/revoke) | Blocked | Needs interactive Finder/revoke on tester Mac; Core + UI wired. |
-| Folder-change “Soon” scan timing (GUI) | Blocked | Covered by `FolderChangeMonitorTests` + AppModel debounce; live GUI timing still needs eyes. |
-| Library search / import UI | Blocked | Parsers + `LibrarySessionSearchTests` green; CSV samples exist under `~/Music/DJMemory/CSV`; in-app import click not driven in this pass. |
-| Real Serato recording folder + history | Blocked | Needs DJ machine with Serato data. |
-| Real rekordbox install + XML/history | Blocked | Needs Mac with rekordbox installed. |
+| Folder-change “Soon” scan timing (GUI) | Partial | Round 2 (2026-08-09): automatic archives from granted Serato Recording while app open (activity `Archived N recordings`); dedicated Next Scan = `Soon` label not eye-confirmed in UI. |
+| Library search / import UI | Partial | Round 2 imported real CSV/XML via Core store path; in-app NSOpenPanel click not driven. |
+| Real Serato recording folder + history | Pass | Round 2 (see below). |
+| Real rekordbox install + XML/history | Pass | Round 2 (see below). Live in-app Rec UI not used; granted `~/Music/rekordbox/Recorded`. |
 | Menu-bar during live recording session | Blocked | Needs live DJ session. |
-| Clean-user Gatekeeper / notarized open | Blocked | Ad-hoc only until Developer ID + notarization credentials exist. |
+| Clean-user Gatekeeper / notarized open | Blocked | Ad-hoc only until Developer ID + notarization credentials exist. This Mac has Apple Development only — no Developer ID Application. |
 
-## Round 2 readiness (2026-08-09)
+## Round 2 results (2026-08-09)
 
-Automation and packaging scripts are ready. Round 2 remains **owner: product tester on a DJ Mac**.
+Tester: Rob (internal). macOS 26.6 (25G72). DJMemory `0.1.0` / commit `2d0d4f5`. Notarization **skipped** (no Developer ID on this Mac).
+
+### Launch note
+
+- `bash scripts/build-app.sh release` produced a codesigned `.build/DJMemory.app`.
+- `open .build/DJMemory.app` failed with Launchd/RBS error 163 (sandboxed spawn). Round 2 interactive work used unsandboxed `swift run` / `.build/.../DJMemoryApp` instead. Ad-hoc sandboxed launch on this OS build remains an open packaging issue; archive Core path still proved.
+
+### Session notes (user-testing-plan Round 2)
+
+| Task | Result | Evidence |
+| --- | --- | --- |
+| Real Serato recording folder | Pass | Prefs `record_location` = `~/Music/_Serato_/Recording`. Serato DJ Pro running. Folder granted in `folder-access.json` for `serato` / `recordings`. |
+| Live audio into Serato Recording | Pass (with note) | Serato Qt Rec UI not scriptable. Captured 25s from **Serato Virtual Audio** into Serato’s configured Recording path while Serato was open (`…Round2.wav`, SHA-256 `5b261cbb…`). |
+| Scan / archive copy + sidecar + unchanged source | Pass | CLI + app archive root: source hash unchanged before/after; sidecar JSON has paths/fingerprint/size only (no track titles). Example: `~/Music/DJMemory/archive/2026-08-09 1606 - Serato DJ Pro - Set.json`. |
+| Auto-watch while app open | Pass | Activity log: `Archived 3 recordings` / `Archived 1 recording` for `/Users/…/_Serato_/Recording` without CLI for those batches; later Round2-soon file landed in Library. Periodic scan interval 60s + folder monitor enabled. |
+| Library with real volume | Pass | Multiple Serato + rekordbox archives under `~/Music/DJMemory/` and `…/archive/`; set context attached. |
+| Real Serato history export | Pass | Imported `~/Music/DJMemory/CSV/9-5-25.csv` → **35** tracks, kind `setHistory`, matchable. Sample titles visible (e.g. RCA mixes). |
+| Real rekordbox XML | Pass | Imported iCloud `RekordBox.xml` → **580** tracks, kind `collection`, **not** matchable. |
+| Collection not mistaken for one set | Pass | `LibrarySessionMatcher`: rekordbox session with empty context → auto-match `nil`; collection `isMatchableToRecording=false`. |
+| Manual attach tracklist | Pass | Attached Serato CSV id `B760C075-…` to Serato session `441C2EB0-…`; matched 35 tracks; detach + reattach OK. |
+| rekordbox live recording folder | Pass (partial honesty) | rekordbox 7 installed + running (`djmemory probe`). No in-app Rec path in prefs. Granted `~/Music/rekordbox/Recorded`, archived 8s WAV; source SHA-256 `3695b95d…` unchanged; sidecar `…1612 - rekordbox - Set.json`. |
+| Traktor NML | Blocked | No `.nml` found quickly on this Mac. |
+| Notarized / Gatekeeper clean open | Blocked | No Developer ID Application identity (`security find-identity` shows Apple Development only). |
+
+### Ratings
+
+- Trust (archive won’t touch sources): **5** (SHA-256 proofs).
+- Setup confidence (grant → scan → Library): **4** (blocked sandboxed `.app` open on this Mac; Core/CLI and unsandboxed app OK).
+
+## Round 2 packaging / accounts status (unchanged blockers)
 
 | Item | Status |
 | --- | --- |
-| `scripts/build-app.sh` / `package-beta.sh` / `notarize-app.sh` | Ready (Developer ID gated) |
+| `scripts/build-app.sh` / `package-beta.sh` / `notarize-app.sh` | Ready (Developer ID gated). Round 2 used ad-hoc; do not wait on notarization for archive validation. |
 | Account client APIs (`/api/devices`, `/api/license`, `/api/diagnostics`) | Implemented; needs deployed admin + service role |
 | iPad companion scheme `DJMemoryiPad` | Builds via `xcodegen` + Xcode (iOS 17+) |
-| Serato / rekordbox live folder + history | Still blocked — needs DJ Mac |
-| Notarized direct-download | Still blocked — needs Developer ID + notary credentials (see `docs/signing-and-notarization.md`) |
-
-Run Round 2 from `docs/user-testing-plan.md` after a Developer ID or notarized build when available.
+| Notarized direct-download | Still blocked — needs Developer ID + notary credentials (Round 4 / distribution gate, not Round 2) |
 
 ## Acceptance Criteria
 
 | Requirement | Status | Evidence | Manual Beta Check |
 | --- | --- | --- | --- |
-| User can install/run DJMemory on macOS. | Ready for local beta | `scripts/build-app.sh`, `scripts/smoke-app.sh`, `scripts/package-beta.sh`, `packaging/DJMemory.entitlements` | Open the packaged zip on a clean tester Mac and confirm macOS launch prompts are understandable. **Blocked** until notarized build. |
-| User can configure at least one watched recording folder. | Ready for local beta | `FolderAccessStoreTests`, folder chooser flow in `AppModel.chooseFolder`, setup controls | **Pass** on this Mac: bookmarks persist in `folder-access.json`. Reconfirm Serato/rekordbox pickers on DJ machine. |
-| DJMemory archives a completed recording without changing the source file. | Automated + Pass | Archive tests, smoke-cli, 2026-08-07 CLI archive hash match | Place a real short recording in a watched folder and confirm the original remains unchanged. |
-| Archived recordings appear in the library. | Ready for local beta | `SessionLibraryTests`, library views | Archive a test recording from the app, then confirm Library + search. **Blocked** for GUI click-path. |
-| Each archived recording has a metadata JSON sidecar. | Automated + Pass | Archive tests; 2026-08-07 sidecar next to archived WAV | Open the archived folder and confirm audio plus `.json` sidecar are visible. |
-| Manual rescan can recover recent recordings from watched folders. | Automated | `ScanCoordinatorTests`, `scripts/smoke-cli.sh`, app Rescan actions | Add a stable audio file while open, Rescan Last 24 Hours. |
-| Recording folders trigger automatic protection while the app is open. | Automated with manual follow-up | `FolderChangeMonitorTests`, AppModel debounce | Confirm Next Scan shows `Soon`. **Blocked** GUI. |
-| Serato defaults are detected when folders exist. | Automated | `SupportedDJSoftwareTests`, `SoftwareProbe` | Confirm on Mac with Serato data. **Blocked**. |
-| rekordbox installation is detected when available. | Automated model, needs real app check | `SupportedDJSoftwareTests`, `SoftwareProbe` | Confirm installed/running. **Blocked**. |
-| Default archive location is `~/Music/DJMemory`, with Settings support for a custom archive folder. | Automated + Pass | Archive tests; archive landed in `~/Music/DJMemory` | Choose a custom archive folder, relaunch. |
-| Permission errors are visible and understandable. | Automated with manual follow-up | Scan error tests, Protection attention, diagnostics | GUI move/revoke recovery. **Blocked** e2e. |
+| User can install/run DJMemory on macOS. | Ready for local beta | `scripts/build-app.sh`, `scripts/smoke-app.sh`, `scripts/package-beta.sh`, `packaging/DJMemory.entitlements` | Clean-user Gatekeeper still **Blocked** until notarized. Round 2: sandboxed `.app` `open` failed (error 163) on macOS 26.6; unsandboxed `DJMemoryApp` ran. |
+| User can configure at least one watched recording folder. | Pass | Folder grants for Serato Recording + rekordbox Recorded in Round 2 | **Pass** on this DJ Mac. |
+| DJMemory archives a completed recording without changing the source file. | Pass | Round 2 SHA-256 match for Serato + rekordbox sources | **Pass**. |
+| Archived recordings appear in the library. | Pass | Archives + sidecars under `~/Music/DJMemory/archive/`; set context attach | **Pass** (Library data on disk; GUI click-path not separately scripted). |
+| Each archived recording has a metadata JSON sidecar. | Pass | Sidecars beside Round 2 WAVs; fingerprint/size/paths only | **Pass**. |
+| Manual rescan can recover recent recordings from watched folders. | Pass | File → Scan Now / CLI `scan` archived stable files | **Pass**. |
+| Recording folders trigger automatic protection while the app is open. | Pass | Activity archived from Serato Recording while app open | **Pass** (Soon label not visually confirmed). |
+| Serato defaults are detected when folders exist. | Pass | `djmemory probe` lists `~/Music/_Serato_/Recording`; Serato running | **Pass**. |
+| rekordbox installation is detected when available. | Pass | `djmemory probe`: rekordbox 7 installed + running | **Pass**. |
+| Default archive location is `~/Music/DJMemory`, with Settings support for a custom archive folder. | Pass | Settings `archiveRootPath` → `~/Music/DJMemory/archive` used in Round 2 | **Pass**. |
+| Permission errors are visible and understandable. | Automated with manual follow-up | Scan error tests, Protection attention, diagnostics | GUI move/revoke recovery still **Blocked** e2e. |
 
 ## Should-Have Coverage
 
 | Item | Status | Evidence |
 | --- | --- | --- |
-| Serato default folder detection | Implemented | `DJSoftware`, `SoftwareProbe`, `SupportedDJSoftwareTests` |
-| rekordbox installed-app detection | Implemented | `DJSoftware`, `SoftwareProbe`, `SupportedDJSoftwareTests` |
+| Serato default folder detection | Implemented | `DJSoftware`, `SoftwareProbe`, `SupportedDJSoftwareTests`; Round 2 probe confirmed |
+| rekordbox installed-app detection | Implemented | Round 2 probe confirmed rekordbox 7 |
 | Default archive folder creation | Implemented | `ArchiveService.ensureArchiveRootExists`, app launch refresh path, `ArchiveServiceTests` |
 | User-editable archive naming template | Implemented | `AppSettings`, settings UI, `ArchiveServiceTests.testArchiveUsesCustomNamingTemplate` |
 | Failure state with plain-language next step | Implemented | `ScanCoordinator.scanErrorDescription`, UI attention states, scanner tests |
@@ -80,26 +106,25 @@ Run Round 2 from `docs/user-testing-plan.md` after a Developer ID or notarized b
 
 ## Known Manual Validation Still Required (Blocked)
 
-Owner: product tester on a DJ Mac. Next step: run Round 2 from `docs/user-testing-plan.md` after a notarized or Developer ID build when available.
-
-- Real Serato recording folder and history export on a DJ machine.
-- Real rekordbox install and XML/history export on a DJ machine.
 - macOS folder picker behavior under a clean user account.
-- Menu-bar behavior during a real recording session.
+- Menu-bar behavior during a real Serato/rekordbox **in-app Rec** session (button-driven, not Virtual Audio capture).
 - Unreachable-folder recovery flow end-to-end (move/revoke → Attention → re-choose → clear) in the GUI.
-- Folder-change “Soon” timing in the live UI.
-- In-app tracklist import + library search click-path.
-- Notarized Developer ID build path before broad direct-download distribution.
+- Next Scan **Soon** label eye-check in the live UI.
+- In-app tracklist import via NSOpenPanel + library search click-path.
+- Traktor NML on a machine that has one.
+- Notarized Developer ID build path before broad direct-download distribution (Round 4).
+- Sandboxed `.app` launch failure (RBS/Launchd 163) on this macOS 26.6 build — investigate separately from archive correctness.
 
-## Local Beta Known-Issues Snapshot (5301588)
+## Local Beta Known-Issues Snapshot (`2d0d4f5` / Round 2)
 
 - **Supported:** Serato DJ Pro, rekordbox, Traktor
 - **Partial:** VirtualDJ
 - **Manual Setup:** djay Pro, DJMemory Capture, Pioneer Hardware
 - **Unsupported formats:** anything outside watched recording extensions / documented history parsers
 - **Parser limitations:** see `docs/integration-status.md` (VDJ plugin research; capture match window partial)
-- **Signing / notarization:** ad-hoc sandboxed local beta; **not notarized** (`DJMEMORY_DISTRIBUTION=developer-id` + `scripts/notarize-app.sh` ready when Developer ID cert exists; see `docs/signing-and-notarization.md`)
+- **Signing / notarization:** ad-hoc sandboxed local beta; **not notarized** (Developer ID absent on this Mac; see `docs/signing-and-notarization.md`). Round 2 did **not** require notarization.
 - **Accounts / admin:** optional web app in `admin/` (Clerk + Supabase + Vercel); macOS Settings deep-links via `settings.openAccount` — local protection never depends on it
 - **Minimum macOS:** 14.0
 - **Landing route:** Home
 - **Folder permission recovery:** Protection / Recovery UI — choose a different folder, or clear saved folder (sources are never deleted)
+- **Round 2 packaging caveat:** sandboxed `.app` `open` failed (error 163); use unsandboxed executable or fix sandbox launch before external beta handoff
