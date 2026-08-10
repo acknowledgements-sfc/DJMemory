@@ -38,6 +38,8 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
     private var audioFile: AVAudioFile?
     private var stagingURL: URL?
     private var writeFormat: AVAudioFormat?
+    private var processingFormat: AVAudioFormat?
+    private var converter: AVAudioConverter?
     private var lastFormatMismatchDetail: String?
 
     public init(stagingDirectory: URL = CaptureService.defaultStagingDirectory(), fileManager: FileManager = .default) {
@@ -84,8 +86,8 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         let configuration = SCStreamConfiguration()
         configuration.capturesAudio = true
         configuration.excludesCurrentProcessAudio = true
-        configuration.sampleRate = 48_000
-        configuration.channelCount = 2
+        configuration.sampleRate = Int(CaptureAudioFormat.sampleRate)
+        configuration.channelCount = Int(CaptureAudioFormat.channelCount)
         configuration.width = 2
         configuration.height = 2
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: 1)
@@ -128,11 +130,16 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
 
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
         let url = stagingDirectory.appendingPathComponent("app-audio-\(UUID().uuidString).wav")
-        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false) else {
-            throw AppAudioCaptureError.engineFailed("Could not create capture audio format.")
+        guard let writeFormat = CaptureAudioFormat.writeFormat(),
+              let processingFormat = CaptureAudioFormat.processingFormat()
+        else {
+            throw AppAudioCaptureError.engineFailed("Could not create 24-bit / 48 kHz capture format.")
+        }
+        guard let converter = CaptureAudioFormat.makeConverter(from: processingFormat, to: writeFormat) else {
+            throw AppAudioCaptureError.engineFailed("Could not create 24-bit / 48 kHz audio converter.")
         }
         do {
-            audioFile = try AVAudioFile(forWriting: url, settings: format.settings)
+            audioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
         } catch {
             let nsError = error as NSError
             if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) {
@@ -140,7 +147,9 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             }
             throw AppAudioCaptureError.engineFailed(error.localizedDescription)
         }
-        writeFormat = format
+        self.writeFormat = writeFormat
+        self.processingFormat = processingFormat
+        self.converter = converter
         stagingURL = url
         startedAt = Date()
         isWriting = true
@@ -151,6 +160,8 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         guard isWriting else { throw AppAudioCaptureError.notWriting }
         audioFile = nil
         writeFormat = nil
+        processingFormat = nil
+        converter = nil
         isWriting = false
         let endedAt = Date()
         let started = startedAt ?? endedAt
@@ -279,31 +290,43 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             setInputLevel(min(1, rms * 4))
         }
 
-        guard isWriting, let audioFile, let writeFormat else { return }
+        guard isWriting, let audioFile, let writeFormat, let processingFormat, self.converter != nil else { return }
 
         let frameLength = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
         guard frameLength > 0 else { return }
-
-        // Adapt write format once if SCK delivers a different rate/channel layout.
-        if abs(asbd.mSampleRate - writeFormat.sampleRate) > 0.5 || sourceChannels != Int(writeFormat.channelCount) {
-            if !reconfigureWriteFormat(sampleRate: asbd.mSampleRate, channels: AVAudioChannelCount(max(1, sourceChannels))) {
-                lastFormatMismatchDetail = "App audio Capture received an unsupported buffer format (\(Int(asbd.mSampleRate)) Hz, \(sourceChannels) ch). Arm again, or use Input device Capture."
-                return
-            }
-        }
-
-        guard let activeFormat = self.writeFormat,
-              let pcm = AVAudioPCMBuffer(pcmFormat: activeFormat, frameCapacity: frameLength)
-        else { return }
-        pcm.frameLength = frameLength
-
-        let channelCount = Int(activeFormat.channelCount)
-        guard let floatChannels = pcm.floatChannelData else { return }
 
         if !isFloat {
             lastFormatMismatchDetail = "App audio Capture received non-float audio buffers. Arm again, or use Input device Capture."
             return
         }
+
+        // Rebuild converter when ScreenCaptureKit delivers a different rate/channel layout.
+        let sourceRate = asbd.mSampleRate
+        let sourceChannelCount = AVAudioChannelCount(max(1, sourceChannels))
+        if abs(sourceRate - processingFormat.sampleRate) > 0.5 || sourceChannelCount != processingFormat.channelCount {
+            guard let adaptedProcessing = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: sourceRate,
+                channels: sourceChannelCount,
+                interleaved: false
+            ),
+                let adaptedConverter = CaptureAudioFormat.makeConverter(from: adaptedProcessing, to: writeFormat)
+            else {
+                lastFormatMismatchDetail = "App audio Capture received an unsupported buffer format (\(Int(sourceRate)) Hz, \(sourceChannels) ch). Arm again, or use Input device Capture."
+                return
+            }
+            self.processingFormat = adaptedProcessing
+            self.converter = adaptedConverter
+        }
+
+        guard let activeProcessing = self.processingFormat,
+              let activeConverter = self.converter,
+              let pcm = AVAudioPCMBuffer(pcmFormat: activeProcessing, frameCapacity: frameLength)
+        else { return }
+        pcm.frameLength = frameLength
+
+        let channelCount = Int(activeProcessing.channelCount)
+        guard let floatChannels = pcm.floatChannelData else { return }
 
         if isInterleaved, ablPointer.count >= 1, let src = ablPointer[0].mData {
             let interleaved = src.bindMemory(to: Float.self, capacity: Int(frameLength) * max(sourceChannels, 1))
@@ -322,29 +345,35 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             }
         }
 
+        let ratio = writeFormat.sampleRate / activeProcessing.sampleRate
+        let capacity = AVAudioFrameCount(Double(frameLength) * ratio) + 32
+        guard let converted = AVAudioPCMBuffer(pcmFormat: writeFormat, frameCapacity: max(capacity, 1)) else {
+            lastFormatMismatchDetail = "App audio Capture could not allocate a 24-bit / 48 kHz buffer."
+            return
+        }
+
+        var error: NSError?
+        var provided = false
+        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            if provided {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            provided = true
+            outStatus.pointee = .haveData
+            return pcm
+        }
+        let convertStatus = activeConverter.convert(to: converted, error: &error, withInputFrom: inputBlock)
+        if convertStatus == .error || converted.frameLength == 0 {
+            lastFormatMismatchDetail = "App audio Capture could not convert to 24-bit / 48 kHz: \(error?.localizedDescription ?? "unknown error")."
+            return
+        }
+
         do {
-            try audioFile.write(from: pcm)
+            try audioFile.write(from: converted)
             lastFormatMismatchDetail = nil
         } catch {
             lastFormatMismatchDetail = "App audio Capture could not write audio: \(error.localizedDescription)"
-        }
-    }
-
-    private func reconfigureWriteFormat(sampleRate: Double, channels: AVAudioChannelCount) -> Bool {
-        guard isWriting, let stagingURL else { return false }
-        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: channels, interleaved: false) else {
-            return false
-        }
-        // Restart the staging file with the observed format so subsequent buffers write cleanly.
-        audioFile = nil
-        do {
-            try? fileManager.removeItem(at: stagingURL)
-            audioFile = try AVAudioFile(forWriting: stagingURL, settings: format.settings)
-            writeFormat = format
-            return true
-        } catch {
-            lastFormatMismatchDetail = "App audio Capture could not adapt to \(Int(sampleRate)) Hz / \(channels) ch: \(error.localizedDescription)"
-            return false
         }
     }
 }
@@ -357,6 +386,8 @@ extension AppAudioCaptureService: SCStreamDelegate {
         isWriting = false
         audioFile = nil
         writeFormat = nil
+        processingFormat = nil
+        converter = nil
         stagingURL = nil
         startedAt = nil
         setInputLevel(0)

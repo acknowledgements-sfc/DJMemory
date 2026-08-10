@@ -65,8 +65,12 @@ struct TracklistDetailView: View {
                 }
 
                 TableColumn("Played") { track in
-                    Text(track.startTime ?? "Unknown")
-                        .foregroundStyle(track.startTime == nil ? .secondary : .primary)
+                    Text(playedLabel(for: track))
+                        .foregroundStyle(
+                            track.startTime == nil && track.playedOn == nil
+                                ? DJToken.mutedForeground
+                                : DJToken.foreground
+                        )
                 }
                 .width(min: 80, ideal: 110, max: 150)
             }
@@ -92,5 +96,20 @@ struct TracklistDetailView: View {
         case .collection:
             return "Collection"
         }
+    }
+
+    private func playedLabel(for track: TrackPlay) -> String {
+        let time = track.startTime
+        if let playedOn = track.playedOn {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            let day = formatter.string(from: playedOn)
+            if let time, !time.isEmpty {
+                return "\(day) · \(time)"
+            }
+            return day
+        }
+        return time ?? "Unknown"
     }
 }

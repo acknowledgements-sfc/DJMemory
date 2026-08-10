@@ -183,15 +183,28 @@ Closest to done already. Deltas:
 - Two `Table`s become a **segmented switch** (Archived Sets / Imported Tracklists) rather than
   stacked tables, with the detail pane as a fixed 352pt right-hand inspector.
 - Add a search field filtering recording name, event, venue, city, tags, and app.
-- Archived Sets columns: Recording (waveform + name + `event · venue, city`), App (swatch + name),
-  Tracks, Duration, Size, Matched Tracklist (badge), Archived Path.
+- Add a **date filter** (All / Today / This week / This month) on `ArchiveMetadata.detectedAt`
+  for sets, and on import/match/`playedOn` dates for tracklists.
+- Archived Sets columns: Recording (waveform + name + `event · venue, city`), Date, App (swatch +
+  name), Tracks, Duration, Size, Matched Tracklist (badge).
 - Distinct empty states for "no archived sets yet" vs "nothing matches <query>".
 - Set inspector: waveform strip, facts panel, source/archive paths with both Reveal buttons,
   editable Event/Venue/City/Tags/Notes + Save, matched-tracklist preview with Detach, manual picker
   with Apply Match, and a related-activity list.
-- Tracklist inspector: metadata, source file + reveal, track search, track table.
+- Tracklist inspector: metadata, source file + reveal, track search, track table (show set date on
+  tracks when `playedOn` is stamped from a matched archive).
 - **Waveform:** the prototype draws a deterministic seeded bar chart, *not* real audio analysis.
   Reproduce that — hash the filename, draw 18–80 bars. Do not add `AVFoundation` sample reading.
+
+### 4.4b Capture (product behavior)
+- **Auto-arm:** when App audio mode finds a shareable DJ app, arm automatically (`autoArmOnDJAppFound`,
+  default on). Explicit Disarm suppresses re-arm until Arm or mode change.
+- **Auto-input:** in Input device mode while armed (not recording), auto-select Pioneer/DJM when it
+  appears. Do not force-switch away from Input device when a DJ app is found.
+- **Format:** Capture writes **24-bit / 48 kHz** stereo WAV (app audio and input device).
+- **History autopull:** after each successful archive (Capture or folder scan), look in that app’s
+  known history folder(s) for a nearby export and import + match locally. Soft-fail if none found;
+  manual Import remains available.
 
 ### 4.5 Activity
 - Filter segmented control: All / Scans / Archives / Imports / Errors / Diagnostics (needs G1).

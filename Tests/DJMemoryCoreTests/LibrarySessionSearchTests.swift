@@ -72,13 +72,44 @@ final class LibrarySessionSearchTests: XCTestCase {
         XCTAssertEqual(results.map(\.id), summaries.map(\.id))
     }
 
-    private func archive(filename: String, appID: String = "serato") -> ArchiveMetadata {
+    func testDateFilterUsesDetectedAt() {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.date(from: DateComponents(year: 2026, month: 8, day: 9, hour: 12))!
+        let today = LibrarySessionSummary(
+            archive: archive(filename: "Today.wav", detectedAt: now),
+            matchedTracklist: nil
+        )
+        let older = LibrarySessionSummary(
+            archive: archive(
+                filename: "Older.wav",
+                detectedAt: calendar.date(byAdding: .day, value: -3, to: now)!
+            ),
+            matchedTracklist: nil
+        )
+
+        let filtered = LibrarySessionSearch().filter(
+            [today, older],
+            query: "",
+            dateFilter: .today,
+            appDisplayName: appDisplayName(for:),
+            calendar: calendar,
+            now: now
+        )
+
+        XCTAssertEqual(filtered.map(\.archive.originalFilename), ["Today.wav"])
+    }
+
+    private func archive(
+        filename: String,
+        appID: String = "serato",
+        detectedAt: Date = Date(timeIntervalSince1970: 100)
+    ) -> ArchiveMetadata {
         let id = UUID()
         return ArchiveMetadata(
             sessionID: id,
             sourceAppID: appID,
-            detectedAt: Date(timeIntervalSince1970: 100),
-            completedAt: Date(timeIntervalSince1970: 120),
+            detectedAt: detectedAt,
+            completedAt: detectedAt.addingTimeInterval(20),
             sourcePath: "/Source/\(filename)",
             archivePath: "/Archive/\(filename)",
             fileSize: 100,

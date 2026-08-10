@@ -30,6 +30,20 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 
 @main
+enum DJMemoryMain {
+    static func main() {
+        #if os(macOS)
+        let args = Array(CommandLine.arguments.dropFirst())
+        if args.first == "--app-audio-probe" {
+            let parsed = AppAudioProbeRunner.parseArgs(Array(args.dropFirst()))
+            AppAudioProbeRunner.run(softwareID: parsed.softwareID, seconds: parsed.seconds)
+            return
+        }
+        #endif
+        DJMemoryApplication.main()
+    }
+}
+
 struct DJMemoryApplication: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()

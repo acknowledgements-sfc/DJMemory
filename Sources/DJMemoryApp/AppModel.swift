@@ -135,6 +135,10 @@ final class AppModel: ObservableObject {
     private var folderChangeScanTask: Task<Void, Never>?
     var captureMeterTask: Task<Void, Never>?
     private var appAudioPollTask: Task<Void, Never>?
+    private var captureTargetPollTask: Task<Void, Never>?
+    private var captureInputPollTask: Task<Void, Never>?
+    /// When true, auto-arm must not re-arm until the user Arms again or changes mode.
+    private var userDisarmedAppAudio = false
     /// When true, profile mutations stay in memory (SwiftUI previews).
     private var suppressProfilePersistence = false
 
@@ -151,6 +155,7 @@ final class AppModel: ObservableObject {
                 self?.applyAppAudioCaptureFailure(error)
             }
         }
+        startCapturePolling()
     }
 
     deinit {
@@ -158,6 +163,8 @@ final class AppModel: ObservableObject {
         folderChangeScanTask?.cancel()
         captureMeterTask?.cancel()
         appAudioPollTask?.cancel()
+        captureTargetPollTask?.cancel()
+        captureInputPollTask?.cancel()
         folderChangeMonitor.stop()
     }
 
@@ -508,6 +515,13 @@ final class AppModel: ObservableObject {
             var context = try setContextStore.context(for: sessionID)
             context.manualTracklistID = tracklistID
             try setContextStore.save(context)
+            if let tracklistID,
+               let archive = sessions.first(where: { $0.id == sessionID }),
+               let tracklist = allImportedTracklists.first(where: { $0.id == tracklistID })
+            {
+                let stamped = tracklist.stampingPlayedOn(Calendar.current.startOfDay(for: archive.detectedAt))
+                try importedTracklistStore.save(stamped)
+            }
             try activityLogStore.append(ActivityEvent(
                 kind: .importTracklist,
                 message: tracklistID == nil ? "Detached tracklist" : "Attached tracklist"
@@ -542,6 +556,10 @@ final class AppModel: ObservableObject {
                 refresh()
                 scheduleNextScanIfNeeded()
                 statusMessage = scanStatusMessage(for: results)
+                let archived = results.flatMap(\.archivedSessions)
+                for session in archived {
+                    autopullTracklist(for: session)
+                }
             }
         }
     }
@@ -1278,6 +1296,175 @@ final class AppModel: ObservableObject {
 
         return .setHistory
     }
+
+    private func startCapturePolling() {
+        captureTargetPollTask?.cancel()
+        captureInputPollTask?.cancel()
+        captureTargetPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 15_000_000_000)
+                await MainActor.run {
+                    guard let self else { return }
+                    guard self.captureState.mode == .appAudio else { return }
+                    guard !self.captureState.isWatchingOrRecording else { return }
+                    switch self.captureState.phase {
+                    case .requestingPermission, .needsScreenRecordingPermission:
+                        return
+                    default:
+                        break
+                    }
+                    Task { await self.refreshAppAudioTargets(attemptAutoArm: true) }
+                }
+            }
+        }
+        captureInputPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 15_000_000_000)
+                await MainActor.run {
+                    guard let self else { return }
+                    guard self.captureState.mode == .inputDevice else { return }
+                    guard !self.captureState.isRecording else { return }
+                    if case .saving = self.captureState.phase { return }
+                    self.refreshAudioInputs()
+                }
+            }
+        }
+    }
+
+    /// After archive, pull a nearby history export from known local history folders (soft-fail).
+    private func autopullTracklist(for session: RecordingSession) {
+        let referenceDate = session.completedAt ?? session.detectedAt
+        let appIDs = historyAppIDsForAutopull(sourceAppID: session.sourceAppID)
+        guard !appIDs.isEmpty else {
+            appendActivity(
+                kind: .importTracklist,
+                message: "No history export found to attach",
+                detail: session.sourceURL.lastPathComponent
+            )
+            return
+        }
+
+        let ingest = HistoryFolderIngest()
+        let resolver = PathResolver()
+        var imported: ImportedTracklist?
+        var scopedURLs: [URL] = []
+        defer {
+            for url in scopedURLs {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        for appID in appIDs {
+            let software = SupportedDJSoftware.all.first { $0.id == appID }
+            let historyAccesses = folderAccesses.filter { $0.appID == appID && $0.kind == .history }
+            var bookmarked: [URL] = []
+            for access in historyAccesses {
+                guard let bookmarkData = access.bookmarkData else {
+                    bookmarked.append(folderAccessStore.resolve(access))
+                    continue
+                }
+                var isStale = false
+                guard let url = try? URL(
+                    resolvingBookmarkData: bookmarkData,
+                    options: [.withSecurityScope],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &isStale
+                ), !isStale else { continue }
+                if url.startAccessingSecurityScopedResource() {
+                    scopedURLs.append(url)
+                }
+                bookmarked.append(url)
+            }
+            let directories = ingest.historyDirectoryURLs(
+                for: appID,
+                defaultHistoryPaths: software?.defaultHistoryPaths ?? [],
+                bookmarkedHistoryURLs: bookmarked,
+                pathResolver: resolver
+            )
+            guard let candidate = ingest.bestCandidate(in: directories, near: referenceDate) else {
+                continue
+            }
+
+            do {
+                let data = try Data(contentsOf: candidate.url)
+                let parser = parserForHistory(appID: appID)
+                let tracks = try parser.parse(data: data, sourceName: candidate.url.lastPathComponent)
+                var tracklist = ImportedTracklist(
+                    appID: appID,
+                    sourceURL: candidate.url,
+                    kind: tracklistKind(appID: appID, sourceURL: candidate.url),
+                    tracks: tracks
+                )
+                guard tracklist.kind.isMatchableToRecording else { continue }
+                tracklist = tracklist.stampingPlayedOn(Calendar.current.startOfDay(for: session.detectedAt))
+                try importedTracklistStore.save(tracklist)
+                imported = tracklist
+                try activityLogStore.append(ActivityEvent(
+                    kind: .importTracklist,
+                    message: "Autopulled \(tracks.count) tracks",
+                    detail: candidate.url.lastPathComponent
+                ))
+                break
+            } catch {
+                appendActivity(
+                    kind: .error,
+                    message: "History autopull failed",
+                    detail: "\(candidate.url.lastPathComponent): \(error.localizedDescription)"
+                )
+            }
+        }
+
+        refresh()
+
+        guard let imported else {
+            appendActivity(
+                kind: .importTracklist,
+                message: "No history export found to attach",
+                detail: session.sourceURL.lastPathComponent
+            )
+            if statusMessage.hasPrefix("Archived") || statusMessage.hasPrefix("App audio") || statusMessage.hasPrefix("Capture saved") {
+                statusMessage = "\(statusMessage) No history export found to attach."
+            }
+            return
+        }
+
+        // Ensure the new import attaches to this session when automatic proximity match misses.
+        let summaries = LibrarySessionMatcher().summaries(
+            archives: sessions,
+            importedTracklists: allImportedTracklists,
+            setContexts: Array(setContexts.values)
+        )
+        if let summary = summaries.first(where: { $0.id == session.id }),
+           summary.matchedTracklist?.id != imported.id
+        {
+            do {
+                var context = try setContextStore.context(for: session.id)
+                context.manualTracklistID = imported.id
+                try setContextStore.save(context)
+                refresh()
+            } catch {
+                appendActivity(kind: .error, message: "Tracklist attachment failed", detail: error.localizedDescription)
+            }
+        }
+    }
+
+    private func historyAppIDsForAutopull(sourceAppID: String) -> [String] {
+        if !LibrarySessionMatcher.hardwareCaptureAppIDs.contains(sourceAppID) {
+            return [sourceAppID]
+        }
+        if let targetID = captureState.selectedTargetApp?.software.id {
+            return [targetID]
+        }
+        var ids: [String] = []
+        for software in SupportedDJSoftware.all {
+            let hasDefaults = !software.defaultHistoryPaths.isEmpty
+            let hasBookmark = folderAccesses.contains { $0.appID == software.id && $0.kind == .history }
+            if hasDefaults || hasBookmark {
+                ids.append(software.id)
+            }
+        }
+        return ids
+    }
 }
 
 
@@ -1300,6 +1487,7 @@ extension AppModel {
         if captureState.mode == .inputDevice, captureState.isRecording {
             stopCapture()
         }
+        userDisarmedAppAudio = false
         var next = captureState
         next.mode = mode
         next.phase = .idle
@@ -1313,11 +1501,11 @@ extension AppModel {
         if mode == .inputDevice {
             refreshAudioInputs()
         } else {
-            Task { await refreshAppAudioTargets() }
+            Task { await refreshAppAudioTargets(attemptAutoArm: true) }
         }
     }
 
-    func refreshAppAudioTargets() async {
+    func refreshAppAudioTargets(attemptAutoArm: Bool = true) async {
         do {
             let apps = try await appAudioCaptureService.listShareableDJApps()
             var next = captureState
@@ -1339,6 +1527,16 @@ extension AppModel {
                     : "Arm App audio Capture to record when the DJ app plays — even if Record/Save is off. After \(settings.appAudioIdleSeconds)s of silence, DJMemory saves and waits for the next set."
             }
             captureState = next
+
+            let canAutoArm = attemptAutoArm
+                && settings.autoArmOnDJAppFound
+                && !userDisarmedAppAudio
+                && next.mode == .appAudio
+                && !apps.isEmpty
+                && (next.phase == .idle || next.phase == .armed)
+            if canAutoArm {
+                armAppAudioCapture()
+            }
         } catch let error as AppAudioCaptureError {
             applyAppAudioCaptureFailure(error)
         } catch {
@@ -1359,8 +1557,9 @@ extension AppModel {
     }
 
     func armAppAudioCapture() {
+        userDisarmedAppAudio = false
         Task {
-            await refreshAppAudioTargets()
+            await refreshAppAudioTargets(attemptAutoArm: false)
             guard let target = captureState.selectedTargetApp else {
                 var next = captureState
                 next.phase = .failed("Choose a running DJ app before arming App audio Capture.")
@@ -1414,6 +1613,7 @@ extension AppModel {
     }
 
     func disarmAppAudioCapture() {
+        userDisarmedAppAudio = true
         appAudioPollTask?.cancel()
         appAudioPollTask = nil
         Task {
@@ -1488,12 +1688,14 @@ extension AppModel {
                     deviceID: result.deviceID,
                     deviceName: result.deviceName,
                     startedAt: result.startedAt,
-                    endedAt: result.endedAt
+                    endedAt: result.endedAt,
+                    sourceAppID: captureState.selectedTargetApp?.software.id ?? SupportedDJSoftware.captureAppID
                 )
                 refresh()
                 if settings.notifyAfterArchiving {
                     notificationService.notifyArchiveSaved(count: 1)
                 }
+                autopullTracklist(for: session)
                 var done = captureState
                 done.phase = .watching
                 done.inputLevel = appAudioCaptureService.currentInputLevel()
@@ -1528,6 +1730,19 @@ extension AppModel {
         } else if !devices.contains(where: { $0.id == next.selectedDeviceID }) {
             next.selectedDeviceID = AudioInputDeviceCatalog.preferredDefault(from: devices)?.id
         }
+
+        // While armed (not recording), auto-select Pioneer/DJM when it appears.
+        if next.mode == .inputDevice,
+           !next.isRecording,
+           next.phase != .saving,
+           let preferred = devices.first(where: \.isLikelyPioneerDJHardware),
+           next.selectedDeviceID != preferred.id
+        {
+            next.selectedDeviceID = preferred.id
+            let newSettings = settings.updating(lastCaptureDeviceID: .some(preferred.id))
+            do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
+        }
+
         if case .failed = next.phase {
             next.phase = devices.isEmpty ? .failed("No audio input devices are available.") : .armed
         } else if next.phase == .idle {
@@ -1639,6 +1854,7 @@ extension AppModel {
             let result = try captureService.stop()
             let session = try archiveService().ingestCapture(stagingURL: result.stagingURL, deviceID: result.deviceID, deviceName: result.deviceName, startedAt: result.startedAt, endedAt: result.endedAt)
             refresh()
+            autopullTracklist(for: session)
             var done = captureState
             done.phase = .armed
             done.inputLevel = 0

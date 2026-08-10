@@ -92,7 +92,7 @@ struct CaptureView: View {
         }
         .onAppear {
             if model.captureState.mode == .appAudio {
-                Task { await model.refreshAppAudioTargets() }
+                Task { await model.refreshAppAudioTargets(attemptAutoArm: true) }
             } else {
                 model.refreshAudioInputs()
             }

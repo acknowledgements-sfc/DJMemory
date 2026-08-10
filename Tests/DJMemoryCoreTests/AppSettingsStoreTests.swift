@@ -60,5 +60,6 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(settings.appAudioIdleSeconds, 90)
         XCTAssertEqual(settings.appAudioMinDurationSeconds, 30)
         XCTAssertEqual(settings.appAudioEnergyThreshold, 0.02, accuracy: 0.0001)
+        XCTAssertTrue(settings.autoArmOnDJAppFound)
     }
 }

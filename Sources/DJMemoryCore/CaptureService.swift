@@ -39,6 +39,9 @@ public final class CaptureService: @unchecked Sendable {
     private var deviceID = ""
     private var deviceName = ""
     private let levelLock = NSLock()
+    private var writeFormat: AVAudioFormat?
+    private var converter: AVAudioConverter?
+    private var lastWriteErrorDetail: String?
 
     public init(stagingDirectory: URL = CaptureService.defaultStagingDirectory(), fileManager: FileManager = .default) {
         self.stagingDirectory = stagingDirectory
@@ -70,13 +73,21 @@ public final class CaptureService: @unchecked Sendable {
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
         let url = stagingDirectory.appendingPathComponent("capture-\(UUID().uuidString).wav")
         let inputNode = engine.inputNode
-        let format = inputNode.inputFormat(forBus: 0)
-        guard format.sampleRate > 0, format.channelCount > 0 else {
+        let inputFormat = inputNode.inputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw CaptureServiceError.engineFailed("Input device has no usable audio format.")
+        }
+        guard let destinationFormat = CaptureAudioFormat.writeFormat() else {
+            throw CaptureServiceError.engineFailed("Could not create 24-bit / 48 kHz capture format.")
+        }
+        guard let audioConverter = CaptureAudioFormat.makeConverter(from: inputFormat, to: destinationFormat) else {
+            throw CaptureServiceError.engineFailed(
+                "Could not convert \(Int(inputFormat.sampleRate)) Hz input to 24-bit / 48 kHz. Choose another device, or use App audio Capture / folder Protection."
+            )
         }
 
         do {
-            audioFile = try AVAudioFile(forWriting: url, settings: format.settings)
+            audioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
         } catch {
             let nsError = error as NSError
             if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) { throw CaptureServiceError.diskFull }
@@ -84,14 +95,17 @@ public final class CaptureService: @unchecked Sendable {
         }
 
         stagingURL = url
+        self.writeFormat = destinationFormat
+        self.converter = audioConverter
+        lastWriteErrorDetail = nil
         deviceID = device.id
         deviceName = device.name
         startedAt = Date()
         inputLevel = 0
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
             guard let self else { return }
-            try? self.audioFile?.write(from: buffer)
+            self.writeConverted(buffer)
             guard let channelData = buffer.floatChannelData?[0] else { return }
             let frameLength = Int(buffer.frameLength)
             guard frameLength > 0 else { return }
@@ -106,6 +120,8 @@ public final class CaptureService: @unchecked Sendable {
         } catch {
             inputNode.removeTap(onBus: 0)
             audioFile = nil
+            self.converter = nil
+            self.writeFormat = nil
             if let stagingURL { try? fileManager.removeItem(at: stagingURL) }
             self.stagingURL = nil
             startedAt = nil
@@ -119,11 +135,18 @@ public final class CaptureService: @unchecked Sendable {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         audioFile = nil
+        converter = nil
+        writeFormat = nil
         isRecording = false
         let endedAt = Date()
         let started = startedAt ?? endedAt
         startedAt = nil
         guard let stagingURL else { throw CaptureServiceError.engineFailed("Capture staging file is missing.") }
+        if let detail = lastWriteErrorDetail {
+            try? fileManager.removeItem(at: stagingURL)
+            self.stagingURL = nil
+            throw CaptureServiceError.engineFailed(detail)
+        }
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: stagingURL.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
             throw CaptureServiceError.engineFailed("Capture staging file is missing.")
@@ -136,5 +159,38 @@ public final class CaptureService: @unchecked Sendable {
     public func currentInputLevel() -> Float {
         levelLock.lock(); defer { levelLock.unlock() }
         return inputLevel
+    }
+
+    private func writeConverted(_ buffer: AVAudioPCMBuffer) {
+        guard let audioFile, let converter, let writeFormat else { return }
+        let ratio = writeFormat.sampleRate / buffer.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 32
+        guard let converted = AVAudioPCMBuffer(pcmFormat: writeFormat, frameCapacity: max(capacity, 1)) else {
+            lastWriteErrorDetail = "Capture could not allocate a 24-bit / 48 kHz buffer."
+            return
+        }
+
+        var error: NSError?
+        var provided = false
+        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            if provided {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            provided = true
+            outStatus.pointee = .haveData
+            return buffer
+        }
+        let status = converter.convert(to: converted, error: &error, withInputFrom: inputBlock)
+        if status == .error || converted.frameLength == 0 {
+            lastWriteErrorDetail = "Capture could not convert to 24-bit / 48 kHz: \(error?.localizedDescription ?? "unknown error")."
+            return
+        }
+        do {
+            try audioFile.write(from: converted)
+            lastWriteErrorDetail = nil
+        } catch {
+            lastWriteErrorDetail = "Capture could not write audio: \(error.localizedDescription)"
+        }
     }
 }

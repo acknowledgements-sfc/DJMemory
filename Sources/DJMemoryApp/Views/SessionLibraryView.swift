@@ -8,6 +8,7 @@ struct SessionLibraryView: View {
     @State private var sessionSearch = ""
     @State private var trackSearch = ""
     @State private var segment: LibrarySegment = .archivedSets
+    @State private var dateFilter: LibraryDateFilter = .all
 
     private enum LibrarySegment: String, CaseIterable {
         case archivedSets = "Archived Sets"
@@ -31,6 +32,15 @@ struct SessionLibraryView: View {
                 .accessibilityIdentifier("library.segment")
 
                 Spacer()
+
+                Picker("Date", selection: $dateFilter) {
+                    ForEach(LibraryDateFilter.menuCases, id: \.displayName) { filter in
+                        Text(filter.displayName).tag(filter)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(width: 120)
+                .accessibilityIdentifier("library.dateFilter")
 
                 TextField(segment == .archivedSets ? "Search archived sets" : "Search tracklists", text: $sessionSearch)
                     .textFieldStyle(.roundedBorder)
@@ -59,6 +69,16 @@ struct SessionLibraryView: View {
             if let selectedSessionID,
                !filteredLibrarySummaries.contains(where: { $0.id == selectedSessionID }) {
                 self.selectedSessionID = nil
+            }
+        }
+        .onChange(of: dateFilter) {
+            if let selectedSessionID,
+               !filteredLibrarySummaries.contains(where: { $0.id == selectedSessionID }) {
+                self.selectedSessionID = nil
+            }
+            if let selectedTracklistID,
+               !filteredTracklists.contains(where: { $0.id == selectedTracklistID }) {
+                self.selectedTracklistID = nil
             }
         }
         .onChange(of: model.librarySummaries.map(\.id)) {
@@ -105,9 +125,13 @@ struct SessionLibraryView: View {
             )
         } else if filteredLibrarySummaries.isEmpty {
             EmptyStateView(
-                title: "Nothing matches “\(sessionSearch)”",
+                title: dateFilter == .all
+                    ? "Nothing matches “\(sessionSearch)”"
+                    : "Nothing matches this date filter",
                 systemImage: "magnifyingglass",
-                description: "Try a different recording name, event, venue, city, tag, or app."
+                description: dateFilter == .all
+                    ? "Try a different recording name, event, venue, city, tag, or app."
+                    : "Try All dates, or clear search."
             )
         } else {
             Table(filteredLibrarySummaries, selection: $selectedSessionID) {
@@ -132,6 +156,12 @@ struct SessionLibraryView: View {
                     }
                 }
                 .width(min: 220)
+
+                TableColumn("Date") { summary in
+                    Text(formatArchiveDate(summary.archive.detectedAt))
+                        .monospacedDigit()
+                }
+                .width(88)
 
                 TableColumn("App") { summary in
                     HStack(spacing: 6) {
@@ -180,12 +210,27 @@ struct SessionLibraryView: View {
                 systemImage: "list.bullet.rectangle",
                 description: "Import Serato CSV/TXT or rekordbox XML files from a setup card."
             )
+        } else if filteredTracklists.isEmpty {
+            EmptyStateView(
+                title: dateFilter == .all
+                    ? "Nothing matches “\(sessionSearch)”"
+                    : "Nothing matches this date filter",
+                systemImage: "magnifyingglass",
+                description: dateFilter == .all
+                    ? "Try a different file name or app."
+                    : "Try All dates, or clear search."
+            )
         } else {
             Table(filteredTracklists, selection: $selectedTracklistID) {
                 TableColumn("File") { tracklist in
                     Text(tracklist.sourceURL.lastPathComponent)
                         .help(tracklist.sourceURL.path)
                 }
+                TableColumn("Date") { tracklist in
+                    Text(formatArchiveDate(tracklistDate(for: tracklist)))
+                        .monospacedDigit()
+                }
+                .width(88)
                 TableColumn("App") { tracklist in
                     Text(model.displayName(for: tracklist.appID))
                 }
@@ -254,17 +299,29 @@ struct SessionLibraryView: View {
         LibrarySessionSearch().filter(
             model.librarySummaries,
             query: sessionSearch,
+            dateFilter: dateFilter,
             appDisplayName: model.displayName(for:)
         )
     }
 
-    private var filteredTracklists: [ImportedTracklist] {
-        let query = sessionSearch.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return model.allImportedTracklists }
-        return model.allImportedTracklists.filter {
-            $0.sourceURL.lastPathComponent.localizedCaseInsensitiveContains(query)
-                || model.displayName(for: $0.appID).localizedCaseInsensitiveContains(query)
+    private var matchedSetDatesByTracklistID: [UUID: Date] {
+        var map: [UUID: Date] = [:]
+        for summary in model.librarySummaries {
+            if let tracklist = summary.matchedTracklist {
+                map[tracklist.id] = summary.archive.detectedAt
+            }
         }
+        return map
+    }
+
+    private var filteredTracklists: [ImportedTracklist] {
+        LibrarySessionSearch().filterTracklists(
+            model.allImportedTracklists,
+            query: sessionSearch,
+            dateFilter: dateFilter,
+            matchedSetDates: matchedSetDatesByTracklistID,
+            appDisplayName: model.displayName(for:)
+        )
     }
 
     private var selectedSession: LibrarySessionSummary? {
@@ -274,7 +331,18 @@ struct SessionLibraryView: View {
 
     private var selectedTracklist: ImportedTracklist? {
         guard let selectedTracklistID else { return nil }
-        return model.allImportedTracklists.first { $0.id == selectedTracklistID }
+        return filteredTracklists.first { $0.id == selectedTracklistID }
+            ?? model.allImportedTracklists.first { $0.id == selectedTracklistID }
+    }
+
+    private func tracklistDate(for tracklist: ImportedTracklist) -> Date {
+        if let matched = matchedSetDatesByTracklistID[tracklist.id] {
+            return matched
+        }
+        if let playedOn = tracklist.tracks.compactMap(\.playedOn).first {
+            return playedOn
+        }
+        return tracklist.importedAt
     }
 
     private func contextLine(_ summary: LibrarySessionSummary) -> String {
@@ -282,6 +350,13 @@ struct SessionLibraryView: View {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         return parts.isEmpty ? summary.archive.originalFilename : parts.joined(separator: " · ")
+    }
+
+    private func formatArchiveDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 
     private func formatDuration(_ seconds: Double?) -> String {

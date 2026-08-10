@@ -123,7 +123,7 @@ public enum SupportedDJSoftware {
             defaultHistoryPaths: [],
             integrationDepth: .fileWatcher,
             supportStatus: .manualSetup,
-            notes: "App audio Capture (ScreenCaptureKit) records a running DJ app even when it is not in Record/Save. Input device Capture remains available for DJM USB / mixer paths."
+            notes: "App audio Capture (ScreenCaptureKit) records a running DJ app even when it is not in Record/Save. Verified with Serato DJ Pro; other DJ apps pending device verification. Input device Capture remains available for DJM USB / mixer paths."
         ),
         DJSoftware(
             id: "pioneer-hardware",
