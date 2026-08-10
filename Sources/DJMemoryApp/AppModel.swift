@@ -129,9 +129,12 @@ final class AppModel: ObservableObject {
     private let notificationService = LocalNotificationService()
     private let folderChangeMonitor = FolderChangeMonitor()
     let captureService = CaptureService()
+    let appAudioCaptureService = AppAudioCaptureService()
+    private var silenceSession = SilenceSessionController()
     private var scanTask: Task<Void, Never>?
     private var folderChangeScanTask: Task<Void, Never>?
     var captureMeterTask: Task<Void, Never>?
+    private var appAudioPollTask: Task<Void, Never>?
     /// When true, profile mutations stay in memory (SwiftUI previews).
     private var suppressProfilePersistence = false
 
@@ -139,12 +142,17 @@ final class AppModel: ObservableObject {
         notificationService.requestAuthorization()
         refresh()
         startBackgroundScanning()
+        var next = captureState
+        next.mode = settings.captureMode
+        captureState = next
+        silenceSession = SilenceSessionController(config: settings.silenceSessionConfig)
     }
 
     deinit {
         scanTask?.cancel()
         folderChangeScanTask?.cancel()
         captureMeterTask?.cancel()
+        appAudioPollTask?.cancel()
         folderChangeMonitor.stop()
     }
 
@@ -1279,6 +1287,228 @@ extension AppModel {
         return matchable.filter { $0.appID == archive.sourceAppID }
     }
 
+    func setCaptureMode(_ mode: CaptureMode) {
+        if captureState.mode == mode { return }
+        if captureState.mode == .appAudio, captureState.isWatchingOrRecording {
+            disarmAppAudioCapture()
+        }
+        if captureState.mode == .inputDevice, captureState.isRecording {
+            stopCapture()
+        }
+        var next = captureState
+        next.mode = mode
+        next.phase = .idle
+        next.inputLevel = 0
+        next.statusMessage = mode == .appAudio
+            ? "Choose a running DJ app, then arm App audio Capture."
+            : "Choose an input device, then start Capture."
+        captureState = next
+        let newSettings = settings.updating(captureMode: mode)
+        do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
+        if mode == .inputDevice {
+            refreshAudioInputs()
+        } else {
+            Task { await refreshAppAudioTargets() }
+        }
+    }
+
+    func refreshAppAudioTargets() async {
+        do {
+            let apps = try await appAudioCaptureService.listShareableDJApps()
+            var next = captureState
+            next.targetApps = apps
+            if next.selectedTargetAppID == nil {
+                next.selectedTargetAppID = settings.lastCaptureTargetAppID ?? apps.first?.software.id
+            } else if !apps.contains(where: { $0.software.id == next.selectedTargetAppID }) {
+                next.selectedTargetAppID = apps.first?.software.id
+            }
+            if next.phase == .idle || next.phase == .armed {
+                next.phase = apps.isEmpty ? .idle : .armed
+            }
+            if case .failed = next.phase {
+                next.phase = apps.isEmpty ? .failed("No supported DJ apps are running and shareable.") : .armed
+            }
+            if !next.isWatchingOrRecording {
+                next.statusMessage = apps.isEmpty
+                    ? "Open Serato, rekordbox, Traktor, VirtualDJ, or djay Pro, then refresh targets. If the DJ app routes audio only to a hardware interface, use Input device Capture or folder Protection instead."
+                    : "Arm App audio Capture to record when the DJ app plays — even if Record/Save is off. After \(settings.appAudioIdleSeconds)s of silence, DJMemory saves and waits for the next set."
+            }
+            captureState = next
+        } catch {
+            var next = captureState
+            next.targetApps = []
+            next.phase = .needsScreenRecordingPermission
+            next.statusMessage = "Screen & System Audio Recording permission is required for App audio Capture. Open System Settings to allow DJMemory. Audio stays on this Mac."
+            captureState = next
+        }
+    }
+
+    func selectCaptureTargetApp(_ softwareID: String) {
+        var next = captureState
+        next.selectedTargetAppID = softwareID
+        captureState = next
+        let newSettings = settings.updating(lastCaptureTargetAppID: .some(softwareID))
+        do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
+    }
+
+    func armAppAudioCapture() {
+        Task {
+            await refreshAppAudioTargets()
+            guard let target = captureState.selectedTargetApp else {
+                var next = captureState
+                next.phase = .failed("Choose a running DJ app before arming App audio Capture.")
+                next.statusMessage = "Choose a running DJ app before arming App audio Capture. Open a DJ app, refresh targets, then try again."
+                captureState = next
+                return
+            }
+
+            var requesting = captureState
+            requesting.phase = .requestingPermission
+            requesting.statusMessage = "Requesting Screen & System Audio Recording access…"
+            captureState = requesting
+
+            if !AppAudioCaptureService.screenCapturePermissionGranted() {
+                let granted = AppAudioCaptureService.requestScreenCapturePermission()
+                if !granted {
+                    var denied = captureState
+                    denied.phase = .needsScreenRecordingPermission
+                    denied.statusMessage = "Screen & System Audio Recording permission is denied. Open System Settings to allow DJMemory. Folder Protection and Input device Capture still work."
+                    captureState = denied
+                    statusMessage = "Screen recording access is denied"
+                    return
+                }
+            }
+
+            do {
+                try await appAudioCaptureService.startMonitoring(
+                    bundleIdentifier: target.matchedBundleIdentifier,
+                    displayName: target.software.displayName
+                )
+                silenceSession = SilenceSessionController(config: settings.silenceSessionConfig)
+                var watching = captureState
+                watching.phase = .watching
+                watching.inputLevel = 0
+                watching.statusMessage = "Watching \(target.software.displayName). Recording starts when audio is detected; idle silence saves the take automatically."
+                captureState = watching
+                statusMessage = "App audio Capture armed"
+                startAppAudioPolling()
+            } catch let error as AppAudioCaptureError {
+                applyAppAudioCaptureFailure(error)
+            } catch {
+                var failed = captureState
+                failed.phase = .failed(error.localizedDescription)
+                failed.statusMessage = error.localizedDescription
+                captureState = failed
+            }
+        }
+    }
+
+    func disarmAppAudioCapture() {
+        appAudioPollTask?.cancel()
+        appAudioPollTask = nil
+        Task {
+            if appAudioCaptureService.isWriting {
+                _ = try? appAudioCaptureService.endRecordingFile(discard: true)
+            }
+            await appAudioCaptureService.stopMonitoring()
+            silenceSession.resetToArmed()
+            var next = captureState
+            next.phase = next.targetApps.isEmpty ? .idle : .armed
+            next.inputLevel = 0
+            next.statusMessage = "App audio Capture is disarmed. Folder Protection still watches recording folders."
+            captureState = next
+            statusMessage = "App audio Capture disarmed"
+        }
+    }
+
+    private func startAppAudioPolling() {
+        appAudioPollTask?.cancel()
+        appAudioPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                await MainActor.run {
+                    guard let self else { return }
+                    guard self.captureState.mode == .appAudio else { return }
+                    guard self.captureState.phase == .watching || self.captureState.phase == .recording else { return }
+                    let level = self.appAudioCaptureService.currentInputLevel()
+                    var next = self.captureState
+                    next.inputLevel = level
+                    self.captureState = next
+                    self.handleSilenceSessionEvent(self.silenceSession.process(level: level))
+                }
+            }
+        }
+    }
+
+    private func handleSilenceSessionEvent(_ event: SilenceSessionEvent?) {
+        guard let event else { return }
+        switch event {
+        case .startedRecording:
+            do {
+                try appAudioCaptureService.beginRecordingFile()
+                var recording = captureState
+                recording.phase = .recording
+                recording.statusMessage = "Recording \(captureState.selectedTargetApp?.software.displayName ?? "DJ app") app audio…"
+                captureState = recording
+                statusMessage = "App audio session started"
+            } catch let error as AppAudioCaptureError {
+                applyAppAudioCaptureFailure(error)
+            } catch {
+                var failed = captureState
+                failed.phase = .failed(error.localizedDescription)
+                failed.statusMessage = error.localizedDescription
+                captureState = failed
+            }
+
+        case .finalizeSession(_, let discard):
+            finalizeAppAudioSession(discard: discard)
+        }
+    }
+
+    private func finalizeAppAudioSession(discard: Bool) {
+        var saving = captureState
+        saving.phase = .saving
+        saving.statusMessage = discard ? "Discarding short take…" : "Saving app audio into your archive…"
+        captureState = saving
+        do {
+            let result = try appAudioCaptureService.endRecordingFile(discard: discard)
+            if let result, !discard {
+                let session = try archiveService().ingestCapture(
+                    stagingURL: result.stagingURL,
+                    deviceID: result.deviceID,
+                    deviceName: result.deviceName,
+                    startedAt: result.startedAt,
+                    endedAt: result.endedAt
+                )
+                refresh()
+                if settings.notifyAfterArchiving {
+                    notificationService.notifyArchiveSaved(count: 1)
+                }
+                var done = captureState
+                done.phase = .watching
+                done.inputLevel = appAudioCaptureService.currentInputLevel()
+                done.lastArchivedSessionID = session.id
+                done.statusMessage = "App audio saved. Watching for the next set. Source DJ app files were not moved."
+                captureState = done
+                statusMessage = "App audio Capture saved"
+            } else {
+                var done = captureState
+                done.phase = .watching
+                done.inputLevel = appAudioCaptureService.currentInputLevel()
+                done.statusMessage = "Short take discarded (under \(settings.appAudioMinDurationSeconds)s). Still watching."
+                captureState = done
+            }
+        } catch let error as AppAudioCaptureError {
+            applyAppAudioCaptureFailure(error)
+        } catch {
+            var failed = captureState
+            failed.phase = .failed(error.localizedDescription)
+            failed.statusMessage = error.localizedDescription
+            captureState = failed
+            statusMessage = "Could not save app audio: \(error.localizedDescription)"
+        }
+    }
+
     func refreshAudioInputs() {
         let devices = AudioInputDeviceCatalog.listInputs()
         var next = captureState
@@ -1293,7 +1523,9 @@ extension AppModel {
         } else if next.phase == .idle {
             next.phase = devices.isEmpty ? .idle : .armed
         }
-        next.statusMessage = devices.isEmpty ? "Connect a DJM or other audio input, then refresh devices." : "Choose an input device, then start Capture."
+        if next.mode == .inputDevice, !next.isRecording, next.phase != .saving {
+            next.statusMessage = devices.isEmpty ? "Connect a DJM or other audio input, then refresh devices." : "Choose an input device, then start Capture."
+        }
         captureState = next
     }
 
@@ -1306,6 +1538,10 @@ extension AppModel {
     }
 
     func startCapture() {
+        guard captureState.mode == .inputDevice else {
+            armAppAudioCapture()
+            return
+        }
         refreshAudioInputs()
         guard let device = captureState.selectedDevice else {
             var next = captureState
@@ -1362,6 +1598,25 @@ extension AppModel {
     }
 
     func stopCapture() {
+        if captureState.mode == .appAudio {
+            switch captureState.phase {
+            case .recording, .saving:
+                silenceSession.resetToArmed()
+                finalizeAppAudioSession(discard: false)
+                if appAudioCaptureService.isMonitoring {
+                    var watching = captureState
+                    if case .failed = watching.phase { return }
+                    if case .needsScreenRecordingPermission = watching.phase { return }
+                    watching.phase = .watching
+                    watching.statusMessage = "Manual stop saved. Still watching for the next set."
+                    captureState = watching
+                    startAppAudioPolling()
+                }
+            default:
+                disarmAppAudioCapture()
+            }
+            return
+        }
         captureMeterTask?.cancel(); captureMeterTask = nil
         var saving = captureState
         saving.phase = .saving
@@ -1394,6 +1649,12 @@ extension AppModel {
 
     func openMicrophonePrivacySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func openScreenRecordingPrivacySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -1466,5 +1727,48 @@ extension AppModel {
         failed.statusMessage = message
         captureState = failed
         statusMessage = message
+    }
+
+    private func applyAppAudioCaptureFailure(_ error: AppAudioCaptureError) {
+        appAudioPollTask?.cancel()
+        appAudioPollTask = nil
+        let message: String
+        let phase: CapturePhase
+        switch error {
+        case .permissionDenied:
+            message = "Screen & System Audio Recording permission is denied. Open System Settings to allow DJMemory. Folder Protection and Input device Capture still work."
+            phase = .needsScreenRecordingPermission
+        case .appNotShareable(let name):
+            message = "\(name) is not available to ScreenCaptureKit right now. Open the DJ app, refresh targets, or use Input device Capture / folder Protection if audio is routed only to hardware."
+            phase = .failed(message)
+        case .noDisplay:
+            message = "No display is available for App audio Capture."
+            phase = .failed(message)
+        case .diskFull:
+            message = "This Mac is out of disk space. Free space, then arm App audio Capture again."
+            phase = .failed(message)
+        case .engineFailed(let detail):
+            message = "App audio Capture failed: \(detail)"
+            phase = .failed(message)
+        case .alreadyMonitoring:
+            message = "App audio Capture is already armed."
+            phase = .watching
+        case .notMonitoring:
+            message = "App audio Capture is not armed."
+            phase = .armed
+        case .alreadyWriting:
+            message = "An app audio session is already recording."
+            phase = .recording
+        case .notWriting:
+            message = "No app audio session is recording."
+            phase = .watching
+        }
+        var failed = captureState
+        failed.phase = phase
+        failed.inputLevel = 0
+        failed.statusMessage = message
+        captureState = failed
+        statusMessage = message
+        Task { await appAudioCaptureService.stopMonitoring() }
     }
 }

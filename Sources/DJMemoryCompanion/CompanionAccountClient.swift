@@ -1,8 +1,8 @@
 import Foundation
 import DJMemoryCore
 
-/// Optional accounts HTTP client for the iPad companion. Local library never depends on this.
-/// Uses the same Vercel/Clerk/Supabase stack as the Mac app.
+/// Optional accounts HTTP client for DJMemory on iPad. Local library never depends on this.
+/// Uses the same Vercel/Clerk/Supabase stack for **accounts only** — not archives or Capture.
 enum CompanionAccountClient {
     enum ClientError: LocalizedError {
         case notConfigured

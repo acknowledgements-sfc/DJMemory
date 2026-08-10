@@ -56,5 +56,9 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertTrue(settings.verifyCopies)
         XCTAssertTrue(settings.notifyAfterArchiving)
         XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertEqual(settings.captureMode, .appAudio)
+        XCTAssertEqual(settings.appAudioIdleSeconds, 90)
+        XCTAssertEqual(settings.appAudioMinDurationSeconds, 30)
+        XCTAssertEqual(settings.appAudioEnergyThreshold, 0.02, accuracy: 0.0001)
     }
 }

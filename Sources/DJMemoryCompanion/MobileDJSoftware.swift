@@ -1,7 +1,7 @@
 import Foundation
 import DJMemoryCore
 
-/// Mobile DJ adapters for the iPad companion. Honest Manual Setup labels only.
+/// Mobile DJ adapters for DJMemory on iPad. Standalone device — no Mac connection. Honest Manual Setup labels only.
 public enum MobileDJSoftware: String, CaseIterable, Identifiable, Sendable {
     case djay
     case capture
@@ -32,7 +32,7 @@ public enum MobileDJSoftware: String, CaseIterable, Identifiable, Sendable {
         case .djay:
             return "Recordings often appear under Files → On My iPad → djay. Pick those files here, or Share → Save to DJMemory. Streaming mixes may not be recordable — if import fails, that is why."
         case .capture:
-            return "Parallel capture records this iPad’s input while you DJ in another app. It does not watch other apps in the background."
+            return "Capture records this iPad’s microphone or interface input while you DJ in an app on this iPad. It does not connect to a Mac, and it does not tap another app’s audio in the background. Import recordings from Files or Share when the DJ app writes them on this iPad."
         }
     }
 

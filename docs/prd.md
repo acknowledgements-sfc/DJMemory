@@ -1,6 +1,6 @@
 # PRD: DJMemory macOS App
 
-Last updated: August 6, 2026.
+Last updated: August 9, 2026.
 
 ## One-Line Pitch
 
@@ -8,15 +8,19 @@ DJMemory is a macOS safety net for DJs: it automatically preserves set recording
 
 ## Product Thesis
 
-The first version should not try to become a universal DJ recorder. It should solve a narrower and more painful problem: DJs already record inside Serato, Traktor, rekordbox, VirtualDJ, or djay, but recordings and histories are easy to lose, forget, misname, overwrite, or separate from the setlist.
+DJMemory’s primary Mac safety net is **App audio Capture**: when armed, it records a running DJ app via ScreenCaptureKit even if that app is **not** in Record/Save. After configurable idle silence, it saves the take and waits for the next set.
 
-DJMemory wins by being quiet, reliable, and cross-platform:
+Folder Protection remains the co-equal safety net for recordings the DJ app *does* write: DJMemory watches the right places, detects when a file has finished, copies it into a durable library, and never mutates or deletes the DJ software’s original files.
 
-- it watches the right places
-- it detects when a set recording has finished
-- it copies the recording into a durable library
-- it adds a readable name and metadata sidecar
-- it never mutates or deletes the DJ software's original files
+Input device Capture (DJM USB / mixer) covers cases where the mix never reaches Mac system audio (exclusive hardware routing).
+
+DJMemory wins by being quiet, reliable, and honest about limits:
+
+- App audio Capture when Record/Save was forgotten
+- folder Protection when the DJ app did record
+- readable names and metadata sidecars
+- never mutates or deletes the DJ software's original files
+- never uploads audio by default
 
 ## Target Users
 
@@ -74,7 +78,7 @@ The emotional pain is simple: "I played a great set and now I cannot find, save,
 - Do not bypass DRM or streaming-service recording restrictions.
 - Do not use private APIs or patch DJ software internals.
 - Do not automate UI clicking inside DJ apps in v0.1.
-- Do not replace native DJ app recording workflows in v0.1.
+- Do not claim a Mac↔iPad connection for Capture, archives, or folder Protection. Mac and iPad share **accounts only**; each device listens only to DJ apps / audio on that device.
 - Do not upload or publish recordings automatically in v0.1.
 - Do not delete, move, rename, or mutate original source recordings.
 
@@ -553,7 +557,7 @@ Status: documented in `docs/onboarding-accounts-security.md`.
 - Default archive location: `~/Music/DJMemory`.
 - First compatibility targets: Serato DJ Pro and rekordbox.
 - First metadata parser: Serato history export, followed by rekordbox XML/history imports.
-- Direct audio capture is an **in-app Capture mode** (not a separate product). Additive to folder watching.
+- Direct audio capture is an **in-app Capture mode** (not a separate product). **App audio** (ScreenCaptureKit per-app) is the primary Capture path on Mac; **Input device** (Core Audio) remains for mixer/USB. Both are additive to folder Protection.
 
 ## Open Decisions
 

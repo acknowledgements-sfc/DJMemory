@@ -12,7 +12,7 @@ struct CompanionLibraryView: View {
                     ContentUnavailableView {
                         Label("No sets archived yet", systemImage: "rectangle.stack")
                     } description: {
-                        Text("Import a djay recording from Files, or use Capture. Serato and other desktop apps stay on the Mac.")
+                        Text("Import a recording from an iPad DJ app (djay first) via Files or Share, or use Capture on this iPad. There is no Mac connection — this library stays on this device.")
                     } actions: {
                         Button("Import") {
                             model.selectedRoute = .importSets

@@ -123,7 +123,7 @@ public enum SupportedDJSoftware {
             defaultHistoryPaths: [],
             integrationDepth: .fileWatcher,
             supportStatus: .manualSetup,
-            notes: "Live Core Audio capture into the DJMemory archive. Choose a DJM or other input in Capture."
+            notes: "App audio Capture (ScreenCaptureKit) records a running DJ app even when it is not in Record/Save. Input device Capture remains available for DJM USB / mixer paths."
         ),
         DJSoftware(
             id: "pioneer-hardware",

@@ -1,24 +1,25 @@
-# DJMemory iPad Companion
+# DJMemory for iPad
 
 Last updated: August 9, 2026.
 
 ## Product shape
 
-**iPadOS 17+ companion** — a **standalone** iOS app (bundle ID `app.djmemory.DJMemory.iPad`) that runs without the Mac app. It is **not** a port of Mac folder Protection.
+**DJMemory for iPad** is a **standalone** iPadOS 17+ app (bundle ID `app.djmemory.DJMemory.iPad`).
 
-| Mac-only | iPad companion |
+There is **no Mac connection**. It does not pair with, mirror, or sync archives from the Mac app. It only works with DJ apps and audio **on this iPad**.
+
+| On this iPad | Not on iPad |
 | --- | --- |
-| Serato / rekordbox / Traktor / VirtualDJ folder watch | Library browse / edit |
-| Menu bar, login items | Files + Share import (djay first) |
-| Claiming desktop apps are installed | Optional parallel capture |
+| Local library browse / edit | Mac folder Protection |
+| Files + Share import (djay first) | Listening to Mac DJ apps (Serato, rekordbox, Traktor, VirtualDJ, …) |
+| Parallel **device input** capture while you DJ on this iPad | ScreenCaptureKit / per-app audio tap of another iPad app (iPadOS does not allow that) |
+| Optional account sign-in | Requiring the Mac app to be online |
 
-Honest labels: mobile adapters start **Manual Setup**. Serato and other desktop engines stay Mac-only on this device.
+Honest labels: mobile adapters start **Manual Setup**. Desktop DJ engines are a separate Mac product — they are not “missing” from iPad; they are out of scope here.
 
-“Not full DJMemory on iPad” means the **local job** differs (no desktop folder Protection). Same product family; different on-device workflow.
+## What Mac and iPad share (only this)
 
-## Shared accounts backend (locked)
-
-Mac and iPad use **one** Clerk + Supabase + Vercel stack:
+**User accounts and account-related information** — one Clerk + Supabase + Vercel stack:
 
 | Layer | Shared |
 | --- | --- |
@@ -26,7 +27,9 @@ Mac and iPad use **one** Clerk + Supabase + Vercel stack:
 | Supabase | Project `alywaxyxnaxwbbsiaafs` (users, devices, licenses, diagnostics) |
 | Vercel | `djmemory-admin` — `/api/devices`, `/api/license`, `/api/diagnostics` |
 
-Both clients resolve the host via [`DJMemoryAccountConfiguration`](../Sources/DJMemoryCore/DJMemoryAccountConfiguration.swift) (`DJMEMORY_ACCOUNT_URL`, default `https://djmemory-admin.vercel.app`). Local library/import never depends on sign-in.
+Both clients resolve the host via [`DJMemoryAccountConfiguration`](../Sources/DJMemoryCore/DJMemoryAccountConfiguration.swift) (`DJMEMORY_ACCOUNT_URL`, default `https://beatrevival.com`).
+
+**Not shared:** local archives, recordings, tracklists, Capture sessions, folder bookmarks, or any live audio path. Local library/import never depends on sign-in.
 
 ## Open in Xcode
 
@@ -42,7 +45,7 @@ Bundle ID: `app.djmemory.DJMemory.iPad`
 
 ## Architecture
 
-- Shared [`DJMemoryCore`](../Sources/DJMemoryCore) (PathProviding + iOS bookmark options + account URL config).
+- Shared [`DJMemoryCore`](../Sources/DJMemoryCore) code (paths, archive helpers, account URL config) — not a runtime link to a Mac.
 - UI in [`Sources/DJMemoryCompanion`](../Sources/DJMemoryCompanion).
 - Thin `@main` wrapper in [`Apps/DJMemoryCompanion`](../Apps/DJMemoryCompanion).
-- Optional Clerk account (same privacy rules as Mac).
+- Optional Clerk account (same privacy rules as Mac: no automatic audio upload).

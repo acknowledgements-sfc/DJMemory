@@ -162,8 +162,9 @@ struct AdapterDetailView: View {
         case "djmemory-capture":
             return [
                 "Open Capture in the sidebar.",
-                "Select a DJM MIX (REC OUT) USB input (or another Core Audio device).",
-                "Start Capture for the set, then Stop to archive into DJMemory."
+                "App audio (default): pick a running DJ app, Arm, and grant Screen & System Audio Recording. Recording starts when audio is detected; idle silence saves and re-arms.",
+                "Input device: select a DJM MIX (REC OUT) USB input when the mix never hits Mac system audio.",
+                "Folder Protection still copies files the DJ app writes. Source files are never moved."
             ]
         default:
             return [

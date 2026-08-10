@@ -6,7 +6,7 @@ import Observation
 import UIKit
 #endif
 
-/// iPad companion view-model. Local archive/import never depends on an account.
+/// iPad view-model. Standalone local archive/import; optional account only. No Mac connection.
 @MainActor
 @Observable
 public final class CompanionModel {

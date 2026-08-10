@@ -13,41 +13,26 @@ struct CaptureView: View {
                 SupportBadge(status: .manualSetup)
             }
 
-            Text("Record the master mix from a DJM USB input into your DJMemory archive. USB MASTER REC sticks stay untouched—add Pioneer Hardware to watch PIONEERREC.")
+            Text(introCopy)
                 .font(.system(size: DJToken.TypeSize.body))
                 .foregroundStyle(DJToken.mutedForeground)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Panel(title: "Input", padding: 12) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if model.captureState.devices.isEmpty {
-                        Text("No audio inputs found.")
-                            .font(.system(size: DJToken.TypeSize.body))
-                            .foregroundStyle(DJToken.mutedForeground)
-                    } else {
-                        Picker("Device", selection: Binding(
-                            get: { model.captureState.selectedDeviceID },
-                            set: { if let v = $0 { model.selectCaptureDevice(v) } }
-                        )) {
-                            ForEach(model.captureState.devices) { device in
-                                Text(device.manufacturer.isEmpty ? device.name : "\(device.name) (\(device.manufacturer))")
-                                    .tag(Optional(device.id))
-                            }
-                        }
-                        .accessibilityIdentifier("capture.devicePicker")
-                    }
-                    Button("Refresh Devices") { model.refreshAudioInputs() }
-                        .accessibilityIdentifier("capture.refreshDevices")
-                    GeometryReader { proxy in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: DJToken.Radius.badge).fill(DJToken.muted)
-                            RoundedRectangle(cornerRadius: DJToken.Radius.badge).fill(DJToken.ok)
-                                .frame(width: max(4, proxy.size.width * CGFloat(model.captureState.inputLevel)))
-                        }
-                    }
-                    .frame(height: 8)
-                    .accessibilityIdentifier("capture.levelMeter")
+            Picker("Mode", selection: Binding(
+                get: { model.captureState.mode },
+                set: { model.setCaptureMode($0) }
+            )) {
+                ForEach(CaptureMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
                 }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("capture.mode")
+
+            if model.captureState.mode == .appAudio {
+                appAudioPanels
+            } else {
+                inputDevicePanels
             }
 
             Panel(title: "Session", padding: 12) {
@@ -56,18 +41,12 @@ struct CaptureView: View {
                         .font(.system(size: DJToken.TypeSize.body))
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 10) {
-                        if model.captureState.isRecording || model.captureState.phase == .saving {
-                            Button("Stop") { model.stopCapture() }
-                                .buttonStyle(DJPrimaryButtonStyle())
-                                .disabled(model.captureState.phase == .saving)
-                                .accessibilityIdentifier("capture.stop")
-                        } else {
-                            Button("Start") { model.startCapture() }
-                                .buttonStyle(DJPrimaryButtonStyle())
-                                .disabled(model.captureState.devices.isEmpty || model.captureState.phase == .requestingPermission)
-                                .accessibilityIdentifier("capture.start")
+                        sessionButtons
+                        if case .needsScreenRecordingPermission = model.captureState.phase {
+                            Button("Open Screen Recording Settings") { model.openScreenRecordingPrivacySettings() }
+                                .accessibilityIdentifier("capture.openScreenRecordingSettings")
                         }
-                        if case .failed = model.captureState.phase {
+                        if case .failed = model.captureState.phase, model.captureState.mode == .inputDevice {
                             Button("Open Microphone Settings") { model.openMicrophonePrivacySettings() }
                                 .accessibilityIdentifier("capture.openPrivacySettings")
                         }
@@ -79,21 +58,155 @@ struct CaptureView: View {
                 }
             }
 
-            Panel(title: "Hardware tips", padding: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(SupportedHardware.all.prefix(4)) { profile in
-                        Text("\(profile.displayName): \(profile.captureHint)")
+            if model.captureState.mode == .inputDevice {
+                Panel(title: "Hardware tips", padding: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(SupportedHardware.all.prefix(4)) { profile in
+                            Text("\(profile.displayName): \(profile.captureHint)")
+                                .font(.system(size: DJToken.TypeSize.secondary))
+                                .foregroundStyle(DJToken.mutedForeground)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Text("CDJs need a DJM or an all-in-one MASTER REC path.")
+                            .font(.system(size: DJToken.TypeSize.secondary))
+                            .foregroundStyle(DJToken.warn)
+                    }
+                }
+            } else {
+                Panel(title: "Limits", padding: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("If the DJ app routes audio only to a hardware interface, App audio Capture hears silence. Use Input device Capture or folder Protection.")
                             .font(.system(size: DJToken.TypeSize.secondary))
                             .foregroundStyle(DJToken.mutedForeground)
                             .fixedSize(horizontal: false, vertical: true)
+                        Text("Folder Protection still copies recordings the DJ app writes. Source files are never moved, renamed, or deleted.")
+                            .font(.system(size: DJToken.TypeSize.secondary))
+                            .foregroundStyle(DJToken.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Idle silence \(model.settings.appAudioIdleSeconds)s · min take \(model.settings.appAudioMinDurationSeconds)s. Audio stays on this Mac.")
+                            .font(.system(size: DJToken.TypeSize.secondary))
+                            .foregroundStyle(DJToken.mutedForeground)
                     }
-                    Text("CDJs need a DJM or an all-in-one MASTER REC path.")
-                        .font(.system(size: DJToken.TypeSize.secondary))
-                        .foregroundStyle(DJToken.warn)
                 }
             }
         }
-        .onAppear { model.refreshAudioInputs() }
+        .onAppear {
+            if model.captureState.mode == .appAudio {
+                Task { await model.refreshAppAudioTargets() }
+            } else {
+                model.refreshAudioInputs()
+            }
+        }
+    }
+
+    private var introCopy: String {
+        switch model.captureState.mode {
+        case .appAudio:
+            return "Record audio from a running DJ app even when Record/Save is off. After idle silence, DJMemory saves the take and waits for the next set."
+        case .inputDevice:
+            return "Record the master mix from a DJM USB input into your DJMemory archive. USB MASTER REC sticks stay untouched—add Pioneer Hardware to watch PIONEERREC."
+        }
+    }
+
+    @ViewBuilder
+    private var appAudioPanels: some View {
+        Panel(title: "Target app", padding: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                if model.captureState.targetApps.isEmpty {
+                    Text("No supported DJ apps are running and shareable.")
+                        .font(.system(size: DJToken.TypeSize.body))
+                        .foregroundStyle(DJToken.mutedForeground)
+                } else {
+                    Picker("App", selection: Binding(
+                        get: { model.captureState.selectedTargetAppID },
+                        set: { if let v = $0 { model.selectCaptureTargetApp(v) } }
+                    )) {
+                        ForEach(model.captureState.targetApps) { app in
+                            Text(app.software.displayName).tag(Optional(app.software.id))
+                        }
+                    }
+                    .disabled(model.captureState.isWatchingOrRecording)
+                    .accessibilityIdentifier("capture.targetApp")
+                }
+                Button("Refresh Targets") {
+                    Task { await model.refreshAppAudioTargets() }
+                }
+                .disabled(model.captureState.isWatchingOrRecording)
+                .accessibilityIdentifier("capture.refreshTargets")
+                levelMeter
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inputDevicePanels: some View {
+        Panel(title: "Input", padding: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                if model.captureState.devices.isEmpty {
+                    Text("No audio inputs found.")
+                        .font(.system(size: DJToken.TypeSize.body))
+                        .foregroundStyle(DJToken.mutedForeground)
+                } else {
+                    Picker("Device", selection: Binding(
+                        get: { model.captureState.selectedDeviceID },
+                        set: { if let v = $0 { model.selectCaptureDevice(v) } }
+                    )) {
+                        ForEach(model.captureState.devices) { device in
+                            Text(device.manufacturer.isEmpty ? device.name : "\(device.name) (\(device.manufacturer))")
+                                .tag(Optional(device.id))
+                        }
+                    }
+                    .accessibilityIdentifier("capture.devicePicker")
+                }
+                Button("Refresh Devices") { model.refreshAudioInputs() }
+                    .accessibilityIdentifier("capture.refreshDevices")
+                levelMeter
+            }
+        }
+    }
+
+    private var levelMeter: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: DJToken.Radius.badge).fill(DJToken.muted)
+                RoundedRectangle(cornerRadius: DJToken.Radius.badge).fill(DJToken.ok)
+                    .frame(width: max(4, proxy.size.width * CGFloat(model.captureState.inputLevel)))
+            }
+        }
+        .frame(height: 8)
+        .accessibilityIdentifier("capture.levelMeter")
+    }
+
+    @ViewBuilder
+    private var sessionButtons: some View {
+        if model.captureState.mode == .appAudio {
+            if model.captureState.isWatchingOrRecording {
+                if model.captureState.isRecording || model.captureState.phase == .saving {
+                    Button("Stop & Save") { model.stopCapture() }
+                        .buttonStyle(DJPrimaryButtonStyle())
+                        .disabled(model.captureState.phase == .saving)
+                        .accessibilityIdentifier("capture.stop")
+                }
+                Button("Disarm") { model.disarmAppAudioCapture() }
+                    .disabled(model.captureState.phase == .saving)
+                    .accessibilityIdentifier("capture.disarm")
+            } else {
+                Button("Arm") { model.armAppAudioCapture() }
+                    .buttonStyle(DJPrimaryButtonStyle())
+                    .disabled(model.captureState.targetApps.isEmpty || model.captureState.phase == .requestingPermission)
+                    .accessibilityIdentifier("capture.arm")
+            }
+        } else if model.captureState.isRecording || model.captureState.phase == .saving {
+            Button("Stop") { model.stopCapture() }
+                .buttonStyle(DJPrimaryButtonStyle())
+                .disabled(model.captureState.phase == .saving)
+                .accessibilityIdentifier("capture.stop")
+        } else {
+            Button("Start") { model.startCapture() }
+                .buttonStyle(DJPrimaryButtonStyle())
+                .disabled(model.captureState.devices.isEmpty || model.captureState.phase == .requestingPermission)
+                .accessibilityIdentifier("capture.start")
+        }
     }
 }
 
@@ -101,10 +214,13 @@ struct CaptureView: View {
 #Preview("Capture idle") {
     let model = AppModel()
     model.previewApplyCaptureState(CaptureUIState(
+        mode: .appAudio,
         phase: .armed,
-        devices: [AudioInputDevice(id: "djm", name: "DJM-V10", manufacturer: "Pioneer DJ")],
-        selectedDeviceID: "djm"
+        statusMessage: "Choose a running DJ app, then arm App audio Capture."
     ))
-    return CaptureView().environmentObject(model).frame(width: 720, height: 560).preferredColorScheme(.dark)
+    return CaptureView()
+        .environmentObject(model)
+        .padding()
+        .frame(width: 520)
 }
 #endif

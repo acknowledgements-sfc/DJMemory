@@ -13,6 +13,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let notifyAfterArchiving: Bool
     public let launchAtLogin: Bool
     public let lastCaptureDeviceID: String?
+    public let captureMode: CaptureMode
+    public let lastCaptureTargetAppID: String?
+    public let appAudioIdleSeconds: Int
+    public let appAudioMinDurationSeconds: Int
+    public let appAudioEnergyThreshold: Float
     public let cloudSyncEnabled: Bool
     public let cloudArchiveBackupEnabled: Bool
 
@@ -27,6 +32,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
         notifyAfterArchiving: Bool = true,
         launchAtLogin: Bool = false,
         lastCaptureDeviceID: String? = nil,
+        captureMode: CaptureMode = .appAudio,
+        lastCaptureTargetAppID: String? = nil,
+        appAudioIdleSeconds: Int = 90,
+        appAudioMinDurationSeconds: Int = 30,
+        appAudioEnergyThreshold: Float = 0.02,
         cloudSyncEnabled: Bool = false,
         cloudArchiveBackupEnabled: Bool = false
     ) {
@@ -40,17 +50,33 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.notifyAfterArchiving = notifyAfterArchiving
         self.launchAtLogin = launchAtLogin
         self.lastCaptureDeviceID = lastCaptureDeviceID
+        self.captureMode = captureMode
+        self.lastCaptureTargetAppID = lastCaptureTargetAppID
+        self.appAudioIdleSeconds = appAudioIdleSeconds
+        self.appAudioMinDurationSeconds = appAudioMinDurationSeconds
+        self.appAudioEnergyThreshold = appAudioEnergyThreshold
         self.cloudSyncEnabled = cloudSyncEnabled
         self.cloudArchiveBackupEnabled = cloudArchiveBackupEnabled
     }
 
     public static let `default` = AppSettings()
 
+    public var silenceSessionConfig: SilenceSessionConfig {
+        SilenceSessionConfig(
+            energyThreshold: appAudioEnergyThreshold,
+            startHoldSeconds: 0.5,
+            idleSeconds: TimeInterval(appAudioIdleSeconds),
+            minDurationSeconds: TimeInterval(appAudioMinDurationSeconds)
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case automaticScanningEnabled, scanIntervalSeconds, archiveNamingTemplate
         case archiveRootPath, archiveRootBookmarkData, hasCompletedOnboarding
         case verifyCopies, notifyAfterArchiving, launchAtLogin
-        case lastCaptureDeviceID, cloudSyncEnabled, cloudArchiveBackupEnabled
+        case lastCaptureDeviceID, captureMode, lastCaptureTargetAppID
+        case appAudioIdleSeconds, appAudioMinDurationSeconds, appAudioEnergyThreshold
+        case cloudSyncEnabled, cloudArchiveBackupEnabled
     }
 
     public init(from decoder: Decoder) throws {
@@ -65,6 +91,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
         notifyAfterArchiving = try c.decodeIfPresent(Bool.self, forKey: .notifyAfterArchiving) ?? true
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         lastCaptureDeviceID = try c.decodeIfPresent(String.self, forKey: .lastCaptureDeviceID)
+        captureMode = try c.decodeIfPresent(CaptureMode.self, forKey: .captureMode) ?? .appAudio
+        lastCaptureTargetAppID = try c.decodeIfPresent(String.self, forKey: .lastCaptureTargetAppID)
+        appAudioIdleSeconds = try c.decodeIfPresent(Int.self, forKey: .appAudioIdleSeconds) ?? 90
+        appAudioMinDurationSeconds = try c.decodeIfPresent(Int.self, forKey: .appAudioMinDurationSeconds) ?? 30
+        appAudioEnergyThreshold = try c.decodeIfPresent(Float.self, forKey: .appAudioEnergyThreshold) ?? 0.02
         cloudSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .cloudSyncEnabled) ?? false
         cloudArchiveBackupEnabled = try c.decodeIfPresent(Bool.self, forKey: .cloudArchiveBackupEnabled) ?? false
     }
@@ -80,6 +111,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
         notifyAfterArchiving: Bool? = nil,
         launchAtLogin: Bool? = nil,
         lastCaptureDeviceID: String?? = nil,
+        captureMode: CaptureMode? = nil,
+        lastCaptureTargetAppID: String?? = nil,
+        appAudioIdleSeconds: Int? = nil,
+        appAudioMinDurationSeconds: Int? = nil,
+        appAudioEnergyThreshold: Float? = nil,
         cloudSyncEnabled: Bool? = nil,
         cloudArchiveBackupEnabled: Bool? = nil
     ) -> AppSettings {
@@ -94,6 +130,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
             notifyAfterArchiving: notifyAfterArchiving ?? self.notifyAfterArchiving,
             launchAtLogin: launchAtLogin ?? self.launchAtLogin,
             lastCaptureDeviceID: lastCaptureDeviceID ?? self.lastCaptureDeviceID,
+            captureMode: captureMode ?? self.captureMode,
+            lastCaptureTargetAppID: lastCaptureTargetAppID ?? self.lastCaptureTargetAppID,
+            appAudioIdleSeconds: appAudioIdleSeconds ?? self.appAudioIdleSeconds,
+            appAudioMinDurationSeconds: appAudioMinDurationSeconds ?? self.appAudioMinDurationSeconds,
+            appAudioEnergyThreshold: appAudioEnergyThreshold ?? self.appAudioEnergyThreshold,
             cloudSyncEnabled: cloudSyncEnabled ?? self.cloudSyncEnabled,
             cloudArchiveBackupEnabled: cloudArchiveBackupEnabled ?? self.cloudArchiveBackupEnabled
         )
