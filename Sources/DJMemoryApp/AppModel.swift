@@ -617,6 +617,26 @@ final class AppModel: ObservableObject {
         saveSettings(settings.updating(notifyAfterArchiving: enabled))
     }
 
+    func updateAutoArmOnDJAppFound(enabled: Bool) {
+        let newSettings = settings.updating(autoArmOnDJAppFound: enabled)
+        do {
+            try appSettingsStore.save(newSettings)
+            settings = newSettings
+            if enabled {
+                userDisarmedAppAudio = false
+                statusMessage = "Auto-arm is on. App audio Capture will arm when a shareable DJ app is found."
+                if captureState.mode == .appAudio, !captureState.isWatchingOrRecording {
+                    Task { await refreshAppAudioTargets(attemptAutoArm: true) }
+                }
+            } else {
+                statusMessage = "Auto-arm is off. Arm App audio Capture manually when you want it watching."
+            }
+        } catch {
+            appendActivity(kind: .error, message: "Settings save failed", detail: error.localizedDescription)
+            statusMessage = "Could not save settings: \(error.localizedDescription)"
+        }
+    }
+
     func updateLaunchAtLogin(enabled: Bool) {
         applyLaunchAtLogin(enabled: enabled, persistPreference: true)
     }

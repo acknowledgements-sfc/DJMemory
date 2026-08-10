@@ -215,6 +215,8 @@ Closest to done already. Deltas:
 ### 4.6 Settings
 - Rows in a Scanning panel: automatic scanning, scan interval, verify each copy, notify after
   archiving, launch at login (needs G4) — each with a one-line explanation under the title.
+- Capture panel: auto-arm when a DJ app is running (maps to `autoArmOnDJAppFound`); note that
+  Capture writes 24-bit / 48 kHz and stays local.
 - Scan interval description text changes per selection.
 - Archive panel: folder field + Change, naming template + Reset, and a **live** example filename.
 - Current State panel: archive folder, protected sources, archived sets, imported tracklists,
