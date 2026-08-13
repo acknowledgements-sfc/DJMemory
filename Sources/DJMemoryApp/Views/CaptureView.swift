@@ -102,7 +102,7 @@ struct CaptureView: View {
     private var introCopy: String {
         switch model.captureState.mode {
         case .appAudio:
-            return "Record audio from a running DJ app even when Record/Save is off. After idle silence, DJMemory saves the take and waits for the next set."
+            return "Record audio from a running DJ app even when Record/Save is off. DJMemory uses Process Audio Tap when available, then saves after idle silence."
         case .inputDevice:
             return "Record the master mix from a DJM USB input into your DJMemory archive. USB MASTER REC sticks stay untouched—add Pioneer Hardware to watch PIONEERREC."
         }

@@ -1,5 +1,4 @@
 import Foundation
-import DJMemoryCore
 
 #if os(macOS)
 /// Headless App audio Capture probe (shared by `djmemory` CLI and `DJMemoryApp --app-audio-probe`).
@@ -44,6 +43,7 @@ public enum AppAudioProbeRunner {
                     bundleIdentifier: chosen.matchedBundleIdentifier,
                     displayName: chosen.software.displayName
                 )
+                print("backend: \(service.activeBackendKind.displayName)")
                 var peak: Float = 0
                 let ticks = max(1, seconds * 5)
                 for i in 0..<ticks {

@@ -1529,10 +1529,13 @@ extension AppModel {
 
             var requesting = captureState
             requesting.phase = .requestingPermission
-            requesting.statusMessage = "Requesting Screen & System Audio Recording access…"
+            let preferredBackend = AppAudioCaptureService.preferredBackendKind()
+            requesting.statusMessage = preferredBackend == .processAudioTap
+                ? "Requesting System Audio Recording access for Process Audio Tap…"
+                : "Requesting Screen & System Audio Recording access…"
             captureState = requesting
 
-            if !AppAudioCaptureService.screenCapturePermissionGranted() {
+            if preferredBackend == .screenCaptureKit, !AppAudioCaptureService.screenCapturePermissionGranted() {
                 // CGRequestScreenCaptureAccess often returns before the user finishes Settings.
                 _ = AppAudioCaptureService.requestScreenCapturePermission()
                 // Brief settle for in-process grants; Settings toggles still require Arm again.
@@ -1562,9 +1565,12 @@ extension AppModel {
                 var watching = captureState
                 watching.phase = tick.phase
                 watching.inputLevel = tick.inputLevel
-                watching.statusMessage = tick.statusMessage
+                watching.statusMessage = appAudioCaptureService.activeBackendKind == .screenCaptureKit
+                    && preferredBackend == .processAudioTap
+                    ? "Process audio capture is unavailable on this Mac; using fallback capture. \(tick.statusMessage)"
+                    : tick.statusMessage
                 captureState = watching
-                statusMessage = "App audio Capture armed"
+                statusMessage = "\(appAudioCaptureService.activeBackendKind.displayName) Capture armed"
                 startAppAudioPolling()
             } catch let error as AppAudioCaptureError {
                 applyAppAudioCaptureFailure(error)
@@ -1627,7 +1633,12 @@ extension AppModel {
         case .beginRecordingFile:
             do {
                 try appAudioCaptureService.beginRecordingFile()
-                statusMessage = "App audio session started"
+                let now = Date()
+                let displayName = captureState.selectedTargetApp?.software.displayName ?? "DJ app"
+                if settings.notifyAfterArchiving {
+                    notificationService.notifyCaptureStarted(displayName: displayName, at: now)
+                }
+                statusMessage = LocalNotificationService.captureStartedBody(displayName: displayName, at: now)
             } catch let error as AppAudioCaptureError {
                 applyAppAudioCaptureFailure(error)
             } catch {
@@ -1949,10 +1960,10 @@ extension AppModel {
         let phase: CapturePhase
         switch error {
         case .permissionDenied:
-            message = "Screen & System Audio Recording permission is required. Open System Settings to allow DJMemory, then return here and Arm again. Folder Protection and Input device Capture still work."
+            message = "System Audio Recording permission is required. Open System Settings to allow DJMemory, then return here and Arm again. Folder Protection and Input device Capture still work."
             phase = .needsScreenRecordingPermission
         case .appNotShareable(let name):
-            message = "\(name) is not available to ScreenCaptureKit right now. Open the DJ app, refresh targets, or use Input device Capture / folder Protection if audio is routed only to hardware."
+            message = "\(name) is not available to app-audio capture right now. Open the DJ app, refresh targets, or use Input device Capture / folder Protection if audio is routed only to hardware."
             phase = .failed(message)
         case .noDisplay:
             message = "No display is available for App audio Capture."

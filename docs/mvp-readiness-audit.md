@@ -1,20 +1,22 @@
 # DJMemory MVP Readiness Audit
 
-Last updated: August 9, 2026.
+Last updated: August 13, 2026.
 
 This audit maps the v0.1 PRD acceptance criteria to current implementation evidence and the manual checks still needed before handing a beta to DJs.
 
 ## Automated Evidence
 
-Current passing baseline (commit `5301588`, 2026-08-07):
+Current passing baseline (2026-08-13):
 
-- `swift test`: 91 tests, 0 failures.
+- `swift test`: 150 tests, 0 failures.
 - `bash scripts/smoke-cli.sh`: CLI archive/scan/diagnostics smoke path passes.
 - `swift build --product DJMemoryApp`: passes.
-- `bash scripts/build-app.sh release`: `.build/DJMemory.app` builds and signs with sandbox-oriented entitlements.
+- `bash scripts/build-app.sh`: `.build/DJMemory.app` builds and signs with sandbox-oriented entitlements.
+- Built app `Info.plist` includes `NSAudioCaptureUsageDescription` for system audio capture.
 - `codesign --verify --deep --strict .build/DJMemory.app`: passes.
 - `bash scripts/smoke-app.sh`: packaged app launches, verifies code signature, performs best-effort window detection, and quits cleanly.
-- `bash scripts/package-beta.sh`: creates `.build/distribution/DJMemory-0.1.0-ff5e0c6.zip` + JSON manifest with matching SHA-256 (`c11df4c7…`) from the prior package cut; re-run after new commits for a matching SHA.
+- App audio backend probe: VirtualDJ target armed with default `Process Audio Tap`; forced `DJMEMORY_FORCE_SCK_APP_AUDIO=1` armed with `ScreenCaptureKit`. Meter was silent, so live audio archive verification is still pending.
+- `bash scripts/package-beta.sh`: creates a commit-named `.build/distribution/DJMemory-0.1.0-<commit>.zip` + JSON manifest with matching SHA-256; rerun after the final commit for the handoff artifact.
 - `swift run djmemory diagnostics <path>`: writes metadata-only report (counts, paths, activity messages; no track titles/artists).
 - Signing: ad-hoc sandboxed local beta. Notarization: not notarized (Developer ID path gated; see `docs/signing-and-notarization.md`).
 
@@ -114,6 +116,7 @@ Tester: Rob (internal). macOS 26.6 (25G72). DJMemory `0.1.0` / commit `2d0d4f5`.
 - Next Scan **Soon** label eye-check in the live UI (activity wait path Pass; label not confirmed).
 - In-app tracklist import via NSOpenPanel + library search click-path.
 - Menu-bar behavior during a live recording session.
+- Process Audio Tap live meter + archive verification with Serato and rekordbox.
 - Traktor NML on a machine that has one.
 - Notarized Developer ID build path before broad direct-download distribution (Round 4).
 - Sandboxed `.app` launch failure (RBS/Launchd 163) on this macOS 26.6 build — investigate separately from archive correctness.

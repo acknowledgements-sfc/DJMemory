@@ -1,5 +1,7 @@
 #if os(macOS)
 import AVFoundation
+import AppKit
+import CoreAudio
 import CoreGraphics
 import CoreMedia
 import Foundation
@@ -18,8 +20,606 @@ public enum AppAudioCaptureError: Error, Equatable, Sendable {
     case streamStopped(String)
 }
 
+public enum AppAudioCaptureBackendKind: String, Equatable, Sendable {
+    case processAudioTap
+    case screenCaptureKit
+
+    public var displayName: String {
+        switch self {
+        case .processAudioTap: return "Process Audio Tap"
+        case .screenCaptureKit: return "ScreenCaptureKit"
+        }
+    }
+}
+
+public protocol AppAudioCaptureBackend: AnyObject, Sendable {
+    var backendKind: AppAudioCaptureBackendKind { get }
+    var isMonitoring: Bool { get }
+    var isWriting: Bool { get }
+    var onStreamStopped: ((AppAudioCaptureError) -> Void)? { get set }
+
+    func listShareableDJApps() async throws -> [MatchedDJApp]
+    func startMonitoring(bundleIdentifier: String, displayName: String, prerollSeconds: TimeInterval) async throws
+    func stopMonitoring() async
+    func beginRecordingFile() throws
+    func endRecordingFile(discard: Bool) throws -> CaptureResult?
+    func currentInputLevel() -> Float
+}
+
+public enum AppAudioCaptureBackendSelector {
+    public static func preferredBackend(
+        processTapSupported: Bool,
+        forceScreenCaptureKit: Bool = ProcessInfo.processInfo.environment["DJMEMORY_FORCE_SCK_APP_AUDIO"] == "1"
+    ) -> AppAudioCaptureBackendKind {
+        if processTapSupported && !forceScreenCaptureKit {
+            return .processAudioTap
+        }
+        return .screenCaptureKit
+    }
+}
+
+/// Facade for app-audio capture. It prefers Core Audio Process Taps on macOS 14.2+,
+/// and falls back to the existing ScreenCaptureKit path before recording starts.
+public final class AppAudioCaptureService: @unchecked Sendable {
+    public private(set) var activeBackendKind: AppAudioCaptureBackendKind = .screenCaptureKit
+
+    public var isMonitoring: Bool { activeBackend.isMonitoring }
+    public var isWriting: Bool { activeBackend.isWriting }
+    public var onStreamStopped: ((AppAudioCaptureError) -> Void)? {
+        didSet { configureCallbacks() }
+    }
+
+    private let processTapBackend: ProcessAudioTapCaptureService
+    private let screenCaptureBackend: ScreenCaptureKitAppAudioCaptureService
+    private var activeBackend: AppAudioCaptureBackend
+
+    public init(stagingDirectory: URL = CaptureService.defaultStagingDirectory(), fileManager: FileManager = .default) {
+        self.processTapBackend = ProcessAudioTapCaptureService(stagingDirectory: stagingDirectory, fileManager: fileManager)
+        self.screenCaptureBackend = ScreenCaptureKitAppAudioCaptureService(stagingDirectory: stagingDirectory, fileManager: fileManager)
+        let preferred = AppAudioCaptureBackendSelector.preferredBackend(
+            processTapSupported: ProcessAudioTapCaptureService.isSupported
+        )
+        if preferred == .processAudioTap {
+            self.activeBackend = processTapBackend
+            self.activeBackendKind = .processAudioTap
+        } else {
+            self.activeBackend = screenCaptureBackend
+            self.activeBackendKind = .screenCaptureKit
+        }
+        configureCallbacks()
+    }
+
+    public static func screenCapturePermissionGranted() -> Bool {
+        ScreenCaptureKitAppAudioCaptureService.screenCapturePermissionGranted()
+    }
+
+    @discardableResult
+    public static func requestScreenCapturePermission() -> Bool {
+        ScreenCaptureKitAppAudioCaptureService.requestScreenCapturePermission()
+    }
+
+    public static func preferredBackendKind() -> AppAudioCaptureBackendKind {
+        AppAudioCaptureBackendSelector.preferredBackend(
+            processTapSupported: ProcessAudioTapCaptureService.isSupported
+        )
+    }
+
+    public func listShareableDJApps() async throws -> [MatchedDJApp] {
+        if AppAudioCaptureBackendSelector.preferredBackend(
+            processTapSupported: ProcessAudioTapCaptureService.isSupported
+        ) == .processAudioTap {
+            let processTapApps = try await processTapBackend.listShareableDJApps()
+            if !processTapApps.isEmpty {
+                return processTapApps
+            }
+        }
+        return try await screenCaptureBackend.listShareableDJApps()
+    }
+
+    public func startMonitoring(
+        bundleIdentifier: String,
+        displayName: String,
+        prerollSeconds: TimeInterval = 1.0
+    ) async throws {
+        let preferred = AppAudioCaptureBackendSelector.preferredBackend(
+            processTapSupported: ProcessAudioTapCaptureService.isSupported
+        )
+        if preferred == .processAudioTap {
+            do {
+                try await processTapBackend.startMonitoring(
+                    bundleIdentifier: bundleIdentifier,
+                    displayName: displayName,
+                    prerollSeconds: prerollSeconds
+                )
+                activeBackend = processTapBackend
+                activeBackendKind = .processAudioTap
+                configureCallbacks()
+                return
+            } catch AppAudioCaptureError.permissionDenied {
+                throw AppAudioCaptureError.permissionDenied
+            } catch AppAudioCaptureError.alreadyMonitoring {
+                throw AppAudioCaptureError.alreadyMonitoring
+            } catch {
+                try await screenCaptureBackend.startMonitoring(
+                    bundleIdentifier: bundleIdentifier,
+                    displayName: displayName,
+                    prerollSeconds: prerollSeconds
+                )
+                activeBackend = screenCaptureBackend
+                activeBackendKind = .screenCaptureKit
+                configureCallbacks()
+                return
+            }
+        }
+
+        try await screenCaptureBackend.startMonitoring(
+            bundleIdentifier: bundleIdentifier,
+            displayName: displayName,
+            prerollSeconds: prerollSeconds
+        )
+        activeBackend = screenCaptureBackend
+        activeBackendKind = .screenCaptureKit
+        configureCallbacks()
+    }
+
+    public func stopMonitoring() async {
+        await activeBackend.stopMonitoring()
+    }
+
+    public func beginRecordingFile() throws {
+        try activeBackend.beginRecordingFile()
+    }
+
+    public func endRecordingFile(discard: Bool = false) throws -> CaptureResult? {
+        try activeBackend.endRecordingFile(discard: discard)
+    }
+
+    public func currentInputLevel() -> Float {
+        activeBackend.currentInputLevel()
+    }
+
+    static func isScreenCapturePermissionError(_ error: Error) -> Bool {
+        ScreenCaptureKitAppAudioCaptureService.isScreenCapturePermissionError(error)
+    }
+
+    private func configureCallbacks() {
+        processTapBackend.onStreamStopped = onStreamStopped
+        screenCaptureBackend.onStreamStopped = onStreamStopped
+    }
+}
+
+public final class ProcessAudioTapCaptureService: @unchecked Sendable, AppAudioCaptureBackend {
+    public let backendKind: AppAudioCaptureBackendKind = .processAudioTap
+    public private(set) var isMonitoring = false
+    public private(set) var isWriting = false
+    public private(set) var inputLevel: Float = 0
+    public private(set) var startedAt: Date?
+    public private(set) var targetBundleIdentifier = ""
+    public private(set) var targetDisplayName = ""
+
+    public var onStreamStopped: ((AppAudioCaptureError) -> Void)?
+
+    private let fileManager: FileManager
+    private let stagingDirectory: URL
+    private let sampleHandlerQueue = DispatchQueue(label: "app.djmemory.ProcessAudioTap.sample")
+    private let levelLock = NSLock()
+    private var tapID = AudioObjectID(kAudioObjectUnknown)
+    private var aggregateDeviceID = AudioObjectID(kAudioObjectUnknown)
+    private var ioProcID: AudioDeviceIOProcID?
+    private var audioFile: AVAudioFile?
+    private var stagingURL: URL?
+    private var sourceFormat: AVAudioFormat?
+    private var writeFormat: AVAudioFormat?
+    private var converter: AVAudioConverter?
+    private var sourceASBD: AudioStreamBasicDescription?
+    private var lastFormatMismatchDetail: String?
+    private var prerollBuffers: [AVAudioPCMBuffer] = []
+    private var prerollFrames: AVAudioFrameCount = 0
+    private var prerollFrameBudget: AVAudioFrameCount = 0
+
+    public init(stagingDirectory: URL = CaptureService.defaultStagingDirectory(), fileManager: FileManager = .default) {
+        self.stagingDirectory = stagingDirectory
+        self.fileManager = fileManager
+    }
+
+    public static var isSupported: Bool {
+        if #available(macOS 14.2, *) {
+            return true
+        }
+        return false
+    }
+
+    public func listShareableDJApps() async throws -> [MatchedDJApp] {
+        let bundleIDs = NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier)
+        return DJAppProcessMatcher.matchRunning(bundleIdentifiers: bundleIDs)
+    }
+
+    public func startMonitoring(
+        bundleIdentifier: String,
+        displayName: String,
+        prerollSeconds: TimeInterval = 1.0
+    ) async throws {
+        guard !isMonitoring else { throw AppAudioCaptureError.alreadyMonitoring }
+        guard Self.isSupported else {
+            throw AppAudioCaptureError.engineFailed("Process Audio Tap requires macOS 14.2 or later.")
+        }
+        guard let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleIdentifier }) else {
+            throw AppAudioCaptureError.appNotShareable(displayName)
+        }
+
+        let processObjectID = try translatePIDToProcessObject(app.processIdentifier, displayName: displayName)
+        let tapID = try createProcessTap(processObjectID: processObjectID, displayName: displayName)
+        do {
+            let tapUID = try readTapUID(tapID)
+            let sourceASBD = try readTapFormat(tapID)
+            let aggregateDeviceID = try createAggregateDevice(tapUID: tapUID, displayName: displayName)
+            let sourceFormat = try makeSourceFormat(from: sourceASBD)
+            let writeFormat = CaptureAudioFormat.processingFormat()
+            guard let writeFormat,
+                  let converter = CaptureAudioFormat.makeConverter(from: sourceFormat, to: writeFormat)
+            else {
+                throw AppAudioCaptureError.engineFailed("Process Audio Tap could not convert app audio to 24-bit / 48 kHz.")
+            }
+
+            var newIOProcID: AudioDeviceIOProcID?
+            self.aggregateDeviceID = aggregateDeviceID
+            let status = AudioDeviceCreateIOProcIDWithBlock(&newIOProcID, aggregateDeviceID, sampleHandlerQueue) { [weak self] _, inputData, _, _, _ in
+                guard let self else { return }
+                self.handleAudioBufferList(inputData)
+            }
+            guard status == noErr, let newIOProcID else {
+                throw statusError("create Process Audio Tap IO callback", status)
+            }
+
+            let startStatus = AudioDeviceStart(aggregateDeviceID, newIOProcID)
+            guard startStatus == noErr else {
+                _ = AudioDeviceDestroyIOProcID(aggregateDeviceID, newIOProcID)
+                throw statusError("start Process Audio Tap", startStatus)
+            }
+
+            self.tapID = tapID
+            self.ioProcID = newIOProcID
+            self.sourceASBD = sourceASBD
+            self.sourceFormat = sourceFormat
+            self.writeFormat = writeFormat
+            self.converter = converter
+            self.targetBundleIdentifier = bundleIdentifier
+            self.targetDisplayName = displayName
+            self.isMonitoring = true
+            self.lastFormatMismatchDetail = nil
+            sampleHandlerQueue.sync {
+                prerollBuffers.removeAll()
+                prerollFrames = 0
+                prerollFrameBudget = AVAudioFrameCount(max(0, prerollSeconds) * CaptureAudioFormat.sampleRate)
+            }
+            setInputLevel(0)
+        } catch {
+            destroyTap(tapID)
+            cleanupAggregate()
+            throw error
+        }
+    }
+
+    public func stopMonitoring() async {
+        guard isMonitoring || tapID != kAudioObjectUnknown || aggregateDeviceID != kAudioObjectUnknown else { return }
+        if isWriting {
+            _ = try? endRecordingFile(discard: true)
+        }
+        cleanupAggregate()
+        destroyTap(tapID)
+        tapID = AudioObjectID(kAudioObjectUnknown)
+        isMonitoring = false
+        targetBundleIdentifier = ""
+        targetDisplayName = ""
+        sourceASBD = nil
+        sourceFormat = nil
+        writeFormat = nil
+        converter = nil
+        sampleHandlerQueue.sync {
+            prerollBuffers.removeAll()
+            prerollFrames = 0
+        }
+        setInputLevel(0)
+    }
+
+    public func beginRecordingFile() throws {
+        guard isMonitoring else { throw AppAudioCaptureError.notMonitoring }
+        guard !isWriting else { throw AppAudioCaptureError.alreadyWriting }
+
+        try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+        let url = stagingDirectory.appendingPathComponent("process-tap-\(UUID().uuidString).wav")
+        let newAudioFile: AVAudioFile
+        do {
+            newAudioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) {
+                throw AppAudioCaptureError.diskFull
+            }
+            throw AppAudioCaptureError.engineFailed(error.localizedDescription)
+        }
+        let fileFormat = newAudioFile.processingFormat
+
+        sampleHandlerQueue.sync {
+            var flushedFrames: AVAudioFrameCount = 0
+            if let writeFormat, fileFormat.isEqual(writeFormat) {
+                for buffer in prerollBuffers {
+                    if CapturePCMWriter.write(buffer: buffer, to: newAudioFile) == nil {
+                        flushedFrames += buffer.frameLength
+                    }
+                }
+            }
+            prerollBuffers.removeAll()
+            prerollFrames = 0
+            audioFile = newAudioFile
+            let prerollDuration = Double(flushedFrames) / CaptureAudioFormat.sampleRate
+            startedAt = Date().addingTimeInterval(-prerollDuration)
+            isWriting = true
+        }
+        stagingURL = url
+        lastFormatMismatchDetail = nil
+    }
+
+    public func endRecordingFile(discard: Bool = false) throws -> CaptureResult? {
+        guard isWriting else { throw AppAudioCaptureError.notWriting }
+        sampleHandlerQueue.sync {
+            audioFile = nil
+            isWriting = false
+        }
+        let endedAt = Date()
+        let started = startedAt ?? endedAt
+        startedAt = nil
+        guard let stagingURL else {
+            throw AppAudioCaptureError.engineFailed("Capture staging file is missing.")
+        }
+        self.stagingURL = nil
+
+        if discard {
+            try? fileManager.removeItem(at: stagingURL)
+            return nil
+        }
+        if let detail = lastFormatMismatchDetail {
+            try? fileManager.removeItem(at: stagingURL)
+            throw AppAudioCaptureError.engineFailed(detail)
+        }
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: stagingURL.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
+            throw AppAudioCaptureError.engineFailed("Capture staging file is missing.")
+        }
+        return CaptureResult(
+            stagingURL: stagingURL,
+            deviceID: targetBundleIdentifier,
+            deviceName: "\(targetDisplayName) process audio",
+            startedAt: started,
+            endedAt: endedAt
+        )
+    }
+
+    public func currentInputLevel() -> Float {
+        levelLock.lock(); defer { levelLock.unlock() }
+        return inputLevel
+    }
+
+    private func translatePIDToProcessObject(_ pid: pid_t, displayName: String) throws -> AudioObjectID {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyTranslatePIDToProcessObject,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var processID = pid
+        var processObjectID = AudioObjectID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            UInt32(MemoryLayout<pid_t>.size),
+            &processID,
+            &size,
+            &processObjectID
+        )
+        guard status == noErr, processObjectID != kAudioObjectUnknown else {
+            throw AppAudioCaptureError.appNotShareable(displayName)
+        }
+        return processObjectID
+    }
+
+    private func createProcessTap(processObjectID: AudioObjectID, displayName: String) throws -> AudioObjectID {
+        guard #available(macOS 14.2, *) else {
+            throw AppAudioCaptureError.engineFailed("Process Audio Tap requires macOS 14.2 or later.")
+        }
+        let description = CATapDescription(stereoMixdownOfProcesses: [processObjectID])
+        description.name = "DJMemory \(displayName)"
+        description.isPrivate = true
+        description.muteBehavior = CATapMuteBehavior(rawValue: 0) ?? description.muteBehavior
+
+        var newTapID = AudioObjectID(kAudioObjectUnknown)
+        let status = AudioHardwareCreateProcessTap(description, &newTapID)
+        guard status == noErr, newTapID != kAudioObjectUnknown else {
+            if status == kAudioHardwareIllegalOperationError {
+                throw AppAudioCaptureError.permissionDenied
+            }
+            throw statusError("create Process Audio Tap", status)
+        }
+        return newTapID
+    }
+
+    private func readTapUID(_ tapID: AudioObjectID) throws -> String {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioTapPropertyUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var uid: CFString = "" as CFString
+        var size = UInt32(MemoryLayout<CFString>.size)
+        let status = withUnsafeMutablePointer(to: &uid) { pointer in
+            AudioObjectGetPropertyData(tapID, &address, 0, nil, &size, pointer)
+        }
+        guard status == noErr else { throw statusError("read Process Audio Tap UID", status) }
+        return uid as String
+    }
+
+    private func readTapFormat(_ tapID: AudioObjectID) throws -> AudioStreamBasicDescription {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioTapPropertyFormat,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var asbd = AudioStreamBasicDescription()
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        let status = AudioObjectGetPropertyData(tapID, &address, 0, nil, &size, &asbd)
+        guard status == noErr else { throw statusError("read Process Audio Tap format", status) }
+        return asbd
+    }
+
+    private func createAggregateDevice(tapUID: String, displayName: String) throws -> AudioObjectID {
+        let uid = "app.djmemory.process-tap.\(UUID().uuidString)"
+        let tapList: [[String: Any]] = [[
+            kAudioSubTapUIDKey: tapUID,
+            kAudioSubTapDriftCompensationKey: true
+        ]]
+        let description: [String: Any] = [
+            kAudioAggregateDeviceNameKey: "DJMemory \(displayName) Tap",
+            kAudioAggregateDeviceUIDKey: uid,
+            kAudioAggregateDeviceIsPrivateKey: true,
+            kAudioAggregateDeviceTapAutoStartKey: true,
+            kAudioAggregateDeviceTapListKey: tapList
+        ]
+
+        var newDeviceID = AudioObjectID(kAudioObjectUnknown)
+        let status = AudioHardwareCreateAggregateDevice(description as CFDictionary, &newDeviceID)
+        guard status == noErr, newDeviceID != kAudioObjectUnknown else {
+            throw statusError("create Process Audio Tap aggregate device", status)
+        }
+        return newDeviceID
+    }
+
+    private func makeSourceFormat(from asbd: AudioStreamBasicDescription) throws -> AVAudioFormat {
+        guard let format = AVAudioFormat(streamDescription: withUnsafePointer(to: asbd) { $0 }) else {
+            throw AppAudioCaptureError.engineFailed("Process Audio Tap returned an unsupported audio format.")
+        }
+        return format
+    }
+
+    private func handleAudioBufferList(_ audioBufferList: UnsafePointer<AudioBufferList>) {
+        guard let sourceASBD, let sourceFormat, let writeFormat, let converter else { return }
+        let list = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: audioBufferList))
+        let isFloat = sourceASBD.mFormatFlags & kAudioFormatFlagIsFloat != 0
+        let isInterleaved = sourceASBD.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
+        let sourceChannels = max(1, Int(sourceASBD.mChannelsPerFrame))
+        guard isFloat else {
+            lastFormatMismatchDetail = "Process Audio Tap received non-float audio buffers. Use ScreenCaptureKit or Input device Capture."
+            return
+        }
+
+        let frameLength: Int
+        if isInterleaved, let first = list.first {
+            let bytesPerFrame = max(1, Int(sourceASBD.mBytesPerFrame))
+            frameLength = Int(first.mDataByteSize) / bytesPerFrame
+        } else {
+            let bytesPerSample = MemoryLayout<Float>.size
+            frameLength = list.map { Int($0.mDataByteSize) / bytesPerSample }.max() ?? 0
+        }
+        guard frameLength > 0,
+              let pcm = AVAudioPCMBuffer(pcmFormat: sourceFormat, frameCapacity: AVAudioFrameCount(frameLength))
+        else { return }
+        pcm.frameLength = AVAudioFrameCount(frameLength)
+        guard let floatChannels = pcm.floatChannelData else { return }
+
+        var sumSquares: Float = 0
+        var sampleCount = 0
+        if isInterleaved, let first = list.first, let src = first.mData {
+            let interleaved = src.bindMemory(to: Float.self, capacity: frameLength * sourceChannels)
+            for frame in 0..<frameLength {
+                for channel in 0..<Int(sourceFormat.channelCount) {
+                    let srcChannel = min(channel, sourceChannels - 1)
+                    let sample = interleaved[frame * sourceChannels + srcChannel]
+                    floatChannels[channel][frame] = sample
+                    sumSquares += sample * sample
+                    sampleCount += 1
+                }
+            }
+        } else {
+            for channel in 0..<Int(sourceFormat.channelCount) {
+                let srcIndex = min(channel, list.count - 1)
+                guard srcIndex >= 0, let src = list[srcIndex].mData else { continue }
+                let count = min(frameLength, Int(list[srcIndex].mDataByteSize) / MemoryLayout<Float>.size)
+                let samples = src.bindMemory(to: Float.self, capacity: count)
+                for frame in 0..<count {
+                    let sample = samples[frame]
+                    floatChannels[channel][frame] = sample
+                    sumSquares += sample * sample
+                    sampleCount += 1
+                }
+            }
+        }
+        if sampleCount > 0 {
+            setInputLevel(min(1, sqrt(sumSquares / Float(sampleCount)) * 4))
+        }
+
+        let conversion = CapturePCMWriter.convert(buffer: pcm, converter: converter, writeFormat: writeFormat)
+        if let detail = conversion.error {
+            lastFormatMismatchDetail = "Process Audio Tap \(detail)"
+            return
+        }
+        guard let converted = conversion.buffer else {
+            lastFormatMismatchDetail = "Process Audio Tap could not convert to 24-bit / 48 kHz."
+            return
+        }
+        if isWriting, let audioFile {
+            if let detail = CapturePCMWriter.write(buffer: converted, to: audioFile) {
+                lastFormatMismatchDetail = "Process Audio Tap \(detail)"
+            } else {
+                lastFormatMismatchDetail = nil
+            }
+        } else {
+            appendPreroll(converted)
+            lastFormatMismatchDetail = nil
+        }
+    }
+
+    private func appendPreroll(_ buffer: AVAudioPCMBuffer) {
+        guard prerollFrameBudget > 0 else { return }
+        prerollBuffers.append(buffer)
+        prerollFrames += buffer.frameLength
+        while prerollFrames > prerollFrameBudget, prerollBuffers.count > 1 {
+            let removed = prerollBuffers.removeFirst()
+            prerollFrames -= min(prerollFrames, removed.frameLength)
+        }
+    }
+
+    private func cleanupAggregate() {
+        if let ioProcID, aggregateDeviceID != kAudioObjectUnknown {
+            _ = AudioDeviceStop(aggregateDeviceID, ioProcID)
+            _ = AudioDeviceDestroyIOProcID(aggregateDeviceID, ioProcID)
+        }
+        ioProcID = nil
+        if aggregateDeviceID != kAudioObjectUnknown {
+            _ = AudioHardwareDestroyAggregateDevice(aggregateDeviceID)
+        }
+        aggregateDeviceID = AudioObjectID(kAudioObjectUnknown)
+    }
+
+    private func destroyTap(_ tapID: AudioObjectID) {
+        guard tapID != kAudioObjectUnknown else { return }
+        if #available(macOS 14.2, *) {
+            _ = AudioHardwareDestroyProcessTap(tapID)
+        }
+    }
+
+    private func statusError(_ action: String, _ status: OSStatus) -> AppAudioCaptureError {
+        AppAudioCaptureError.engineFailed("\(action) failed (\(status)).")
+    }
+
+    private func setInputLevel(_ value: Float) {
+        levelLock.lock()
+        inputLevel = value
+        levelLock.unlock()
+    }
+}
+
 /// Captures a single macOS app's audio via ScreenCaptureKit into staging WAVs.
-public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
+public final class ScreenCaptureKitAppAudioCaptureService: NSObject, @unchecked Sendable, AppAudioCaptureBackend {
+    public let backendKind: AppAudioCaptureBackendKind = .screenCaptureKit
     public private(set) var isMonitoring = false
     public private(set) var isWriting = false
     public private(set) var inputLevel: Float = 0
@@ -181,7 +781,7 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             var flushedFrames: AVAudioFrameCount = 0
             if let writeFormat, fileFormat.isEqual(writeFormat) {
                 for buffer in prerollBuffers {
-                    if AppAudioCaptureService.writeSucceeded(buffer, to: newAudioFile) {
+                    if ScreenCaptureKitAppAudioCaptureService.writeSucceeded(buffer, to: newAudioFile) {
                         flushedFrames += buffer.frameLength
                     }
                 }
@@ -432,7 +1032,7 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
     }
 }
 
-extension AppAudioCaptureService: SCStreamDelegate {
+extension ScreenCaptureKitAppAudioCaptureService: SCStreamDelegate {
     public func stream(_ stream: SCStream, didStopWithError error: Error) {
         let wasMonitoring = isMonitoring
         let wasWriting = isWriting
@@ -453,7 +1053,7 @@ extension AppAudioCaptureService: SCStreamDelegate {
     }
 }
 
-extension AppAudioCaptureService: SCStreamOutput {
+extension ScreenCaptureKitAppAudioCaptureService: SCStreamOutput {
     public func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard type == .audio else { return }
         handleAudioSampleBuffer(sampleBuffer)

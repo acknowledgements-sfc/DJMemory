@@ -123,7 +123,7 @@ public enum SupportedDJSoftware {
             defaultHistoryPaths: [],
             integrationDepth: .fileWatcher,
             supportStatus: .manualSetup,
-            notes: "App audio Capture (ScreenCaptureKit) records a running DJ app even when it is not in Record/Save. Verified with Serato DJ Pro; rekordbox/djay/VirtualDJ/Traktor DJ 2 arm+shareable OK — raise only after live meter+archive PASS. Input device Capture remains available for DJM USB / mixer paths. Twitch Live Playlist, SSL-API, and Traktor QML CSI patches are research-only while sandboxed."
+            notes: "App audio Capture prefers Process Audio Tap on macOS 14.2+ and falls back to ScreenCaptureKit. ScreenCaptureKit is verified with Serato, rekordbox, djay, VirtualDJ, and Traktor DJ 2; Process Audio Tap still needs live meter+archive PASS. Input device Capture remains available for DJM USB / mixer paths. Twitch Live Playlist, SSL-API, and Traktor QML CSI patches are research-only while sandboxed."
         ),
         DJSoftware(
             id: "pioneer-hardware",
