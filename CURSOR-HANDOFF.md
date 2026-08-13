@@ -3,6 +3,25 @@
 How to drive Cursor against this repo. The design source is a Figma Make prototype that is **not**
 checked out here; the specs below are self-sufficient.
 
+## M14 VirtualDJ plugin work
+
+Artifact A now has its own visible Xcode build surface at
+`docs/virtualdj-plugin-scaffold/DJMemoryVirtualDJPlugin.xcodeproj`. It is a
+separate C++ `.bundle`; do not add it to `Package.swift` or `DJMemory.app`.
+The target references the supplied VirtualDJ SDK at
+`/Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003`.
+
+The bundle compiles for arm64 and x86_64 and exports `DllGetClassObject`.
+`VDJSDKAdapter.cpp` intentionally centralizes the candidate VDJScript getter
+strings. Do not mark M14 Supported or claim the deck/on-air behavior works until
+a real VirtualDJ mix writes JSONL and DJMemory imports and matches it. Details:
+`docs/m14-vdj-plugin-spec.md` and `docs/virtualdj-plugin-scaffold/README.md`.
+
+Live probe on 2026-08-13 found the sandboxed app's real Apple Silicon plugin
+tree under its container at `PluginsMacArm`. The ad-hoc signed startup bundle
+was not loaded by the current license session; general/basic plugin loading may
+require VirtualDJ Pro. Treat that as the next live-test prerequisite.
+
 ---
 
 ## What Cursor reads

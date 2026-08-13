@@ -1,0 +1,235 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000001 /* DJMemoryVirtualDJPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* DJMemoryVirtualDJPlugin.cpp */; };
+		100000000000000000000002 /* JSONLWriter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* JSONLWriter.cpp */; };
+		100000000000000000000003 /* VDJSDKAdapter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* VDJSDKAdapter.cpp */; };
+		100000000000000000000004 /* VDJDeckPoller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* VDJDeckPoller.cpp */; };
+		100000000000000000000005 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* CoreFoundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		200000000000000000000001 /* DJMemoryVirtualDJPlugin.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = DJMemoryVirtualDJPlugin.cpp; sourceTree = "<group>"; };
+		200000000000000000000002 /* JSONLWriter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSONLWriter.cpp; sourceTree = "<group>"; };
+		200000000000000000000003 /* JSONLWriter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSONLWriter.h; sourceTree = "<group>"; };
+		200000000000000000000004 /* VDJSDKAdapter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = VDJSDKAdapter.cpp; sourceTree = "<group>"; };
+		200000000000000000000005 /* VDJSDKAdapter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VDJSDKAdapter.h; sourceTree = "<group>"; };
+		200000000000000000000006 /* VDJDeckPoller.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = VDJDeckPoller.cpp; sourceTree = "<group>"; };
+		200000000000000000000007 /* VDJDeckPoller.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VDJDeckPoller.h; sourceTree = "<group>"; };
+		200000000000000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		200000000000000000000009 /* DJMemoryVirtualDJPlugin.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DJMemoryVirtualDJPlugin.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		20000000000000000000000A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		20000000000000000000000B /* vdjPlugin8.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = vdjPlugin8.h; path = /Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003/vdjPlugin8.h; sourceTree = "<absolute>"; };
+		20000000000000000000000C /* vdjDsp8.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = vdjDsp8.h; path = /Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003/vdjDsp8.h; sourceTree = "<absolute>"; };
+		20000000000000000000000D /* vdjVideo8.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = vdjVideo8.h; path = /Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003/vdjVideo8.h; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		300000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (100000000000000000000005 /* CoreFoundation.framework in Frameworks */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		400000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				400000000000000000000002 /* Sources */,
+				400000000000000000000003 /* VirtualDJ SDK */,
+				400000000000000000000004 /* Frameworks */,
+				400000000000000000000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		400000000000000000000002 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000001 /* DJMemoryVirtualDJPlugin.cpp */,
+				200000000000000000000003 /* JSONLWriter.h */,
+				200000000000000000000002 /* JSONLWriter.cpp */,
+				200000000000000000000005 /* VDJSDKAdapter.h */,
+				200000000000000000000004 /* VDJSDKAdapter.cpp */,
+				200000000000000000000007 /* VDJDeckPoller.h */,
+				200000000000000000000006 /* VDJDeckPoller.cpp */,
+				200000000000000000000008 /* Info.plist */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		400000000000000000000003 /* VirtualDJ SDK */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000000B /* vdjPlugin8.h */,
+				20000000000000000000000C /* vdjDsp8.h */,
+				20000000000000000000000D /* vdjVideo8.h */,
+			);
+			name = "VirtualDJ SDK";
+			sourceTree = "<group>";
+		};
+		400000000000000000000004 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (20000000000000000000000A /* CoreFoundation.framework */,);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		400000000000000000000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (200000000000000000000009 /* DJMemoryVirtualDJPlugin.bundle */,);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		500000000000000000000001 /* DJMemoryVirtualDJPlugin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800000000000000000000002 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				700000000000000000000001 /* Sources */,
+				300000000000000000000001 /* Frameworks */,
+				700000000000000000000002 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = DJMemoryVirtualDJPlugin;
+			productName = DJMemoryVirtualDJPlugin;
+			productReference = 200000000000000000000009 /* DJMemoryVirtualDJPlugin.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		600000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {500000000000000000000001 = {CreatedOnToolsVersion = 26.6;};};
+			};
+			buildConfigurationList = 800000000000000000000001 /* Build configuration list for PBXProject */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = 400000000000000000000001;
+			productRefGroup = 400000000000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (500000000000000000000001 /* DJMemoryVirtualDJPlugin */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		700000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		700000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000001 /* DJMemoryVirtualDJPlugin.cpp in Sources */,
+				100000000000000000000002 /* JSONLWriter.cpp in Sources */,
+				100000000000000000000003 /* VDJSDKAdapter.cpp in Sources */,
+				100000000000000000000004 /* VDJDeckPoller.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		900000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		900000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		900000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)",);
+				HEADER_SEARCH_PATHS = "/Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003";
+				INFOPLIST_FILE = Sources/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.djmemory.virtualdj.plugin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+		};
+			name = Debug;
+		};
+		900000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_HARDENED_RUNTIME = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				HEADER_SEARCH_PATHS = "/Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003";
+				INFOPLIST_FILE = Sources/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.djmemory.virtualdj.plugin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		800000000000000000000001 /* Build configuration list for PBXProject */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (900000000000000000000001 /* Debug */, 900000000000000000000002 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000002 /* Build configuration list for PBXNativeTarget */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (900000000000000000000003 /* Debug */, 900000000000000000000004 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 600000000000000000000001 /* Project object */;
+}

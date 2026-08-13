@@ -2,7 +2,7 @@
 
 Repo: `/Users/robcmartin/Documents/Codex/2026-08-06/i-wan/SetCatcher`
 Remote: `origin` → `https://github.com/acknowledgements-sfc/DJMemory.git`
-Branch: **`main`**, **not pushed**.
+Branch: **`main`**, fleet commits pushed through **`654e68b`**.
 
 Read `AGENTS.md` first. This file is the fleet leave-off, not the UI spec
 (`HANDOFF.md` / `CURSOR-HANDOFF.md`).
@@ -11,9 +11,10 @@ Read `AGENTS.md` first. This file is the fleet leave-off, not the UI spec
 
 ## Where we stopped
 
-Four local commits landed on `main` after a Claude Code fleet built them in one
+Four commits landed on `main` after a Claude Code fleet built them in one
 working tree and hit a session limit mid-commit. Re-verified **144 tests, 0
-failures** before committing. **Do not re-do these commits.**
+failures** before committing. They are on `origin/main`. **Do not re-do these
+commits.**
 
 | Commit | Message |
 |---|---|
@@ -26,8 +27,7 @@ failures** before committing. **Do not re-do these commits.**
 only the `prerollSeconds: startHold + 0.5` hunk; M12 got the history-watcher
 rest. Do not squash.
 
-Nothing from this fleet is on `origin` unless someone pushed after this file
-was written. Confirm with `git status -sb` / `git log origin/main..HEAD`.
+The fleet sequence through docs fix `654e68b` was pushed on 2026-08-12.
 
 ---
 
@@ -62,11 +62,24 @@ title)` de-dup; truncated final line skipped; unknown major `v` throws
 
 ## What is not done (next work)
 
-**M14 Artifact A — not started.** C++ Mac `.bundle` that appends JSONL into
-`~/Documents/VirtualDJ/DJMemoryDrop/set-<date>-<session>.jsonl`. Blocked on
-verifying the VirtualDJ SDK (spec §3): plugin category, getter verbs, on-air /
-crossfader signal, off-audio-thread flush. **No private APIs.** Separate
-signing/notarization; not bundled into DJMemory.app.
+**M14 Artifact A — Xcode scaffold builds; live validation pending.** The SDK
+headers are at `/Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003`. Open
+`docs/virtualdj-plugin-scaffold/DJMemoryVirtualDJPlugin.xcodeproj`. Its native
+C++ bundle target derives from `IVdjPluginStartStop8`, exports
+`DllGetClassObject`, polls deck metadata/state, and appends JSONL into
+`~/Documents/VirtualDJ/DJMemoryDrop/set-<date>-<session>.jsonl`.
+
+The SDK API surface and universal arm64/x86_64 build are verified. The exact
+VDJScript getter strings, worker-thread query safety, and on-air semantics still
+need a live VirtualDJ test. **No private APIs.** Separate signing/notarization;
+not bundled into DJMemory.app.
+
+Live probe on 2026-08-13: `/Applications/VirtualDJ.app` is the sandboxed arm64
+build and keeps plugins under its container's `PluginsMacArm` tree. An ad-hoc
+signed bundle was installed in `PluginsMacArm/AutoStart`, but the current
+VirtualDJ license session did not load the general/basic plugin. VirtualDJ's
+plugin guidance notes this category can require a Pro-capable license. Resume
+with a Pro session before changing getter or output-path assumptions.
 
 Do not flip M14 to Supported in `docs/integration-status.md` until a real mix
 archives and matches.
@@ -74,7 +87,8 @@ archives and matches.
 Open (spec §9): on-air signal vs inferred play; recue window; `startTime` =
 wall-clock `ts` vs `elapsed`; multi-session files.
 
-If SDK headers are not on disk, stop and say so. Do not invent SDK APIs.
+Do not add SDK callbacks or getter strings from memory. Keep candidates isolated
+in `VDJSDKAdapter.cpp` and validate them against VirtualDJ.
 
 ---
 
@@ -92,9 +106,10 @@ Read AGENTS.md, CONTEXT.md, and HANDOFF-CODEX.md in
 /Users/robcmartin/Documents/Codex/2026-08-06/i-wan/SetCatcher.
 
 Fleet work is already committed locally on main (ca4e57f, 845fc47, 99c0d63,
-17ae83c). Do not re-implement or re-commit it. Not pushed unless
-git status says otherwise.
+17ae83c). Do not re-implement or re-commit it. The sequence through 654e68b is
+on origin/main.
 
-Next: M14 Artifact A (C++ VirtualDJ plugin) only if the user asks and SDK
-headers are on disk — see docs/m14-vdj-plugin-spec.md §3. Otherwise stop.
+Next: live-test M14 Artifact A in VirtualDJ — see
+docs/m14-vdj-plugin-spec.md §3 and docs/virtualdj-plugin-scaffold/README.md.
+Keep M14 Research until JSONL imports and matches a real played set.
 ```

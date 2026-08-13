@@ -1,9 +1,9 @@
 # M14 — VirtualDJ Native Plugin Spec
 
-Status: **Research** (M14). This document specifies the design so the C++ plugin
-(Artifact A) and the DJMemory-side ingest (Artifact B) can be built against a
-fixed contract. No code ships from this document; SDK-specific claims marked
-_(verify)_ must be confirmed against a real VirtualDJ install before build.
+Status: **Research** (M14). Artifact B is implemented and Artifact A now has a
+buildable Xcode scaffold. The fixed contract is unchanged. SDK query behavior
+marked _(live verify)_ must be confirmed in VirtualDJ before support status can
+change.
 
 Related: [virtualdj-plugin-decision.md](virtualdj-plugin-decision.md),
 [integration-status.md](integration-status.md),
@@ -40,28 +40,46 @@ The contract between them is the **JSONL schema (§5)** and the **drop-folder
 location + file naming (§6)**. Build B first against fixtures; A can be
 developed and validated independently once the schema is frozen.
 
-## 3. SDK surface _(verify against installed SDK)_
+## 3. SDK surface
+
+Headers are present at
+`/Users/robcmartin/Downloads/VirtualDJ8_SDK_20211003`. The Artifact A build
+surface is
+`virtualdj-plugin-scaffold/DJMemoryVirtualDJPlugin.xcodeproj`.
 
 - VirtualDJ ships a C++ plugin SDK; Mac plugins build as a `.bundle`
   (confirmed in research.md). Bundle identifier space is the plugin's own, not
   `com.atomixproductions.virtualdj`.
 - The plugin runs **in-process inside VirtualDJ**, so it inherits VirtualDJ's
-  own file-access rights, not DJMemory's sandbox. Writing to
-  `~/Documents/VirtualDJ/…` is within VirtualDJ's normal working area.
-- Candidate plugin category: a non-DSP "other"/automix-style plugin that can
-  poll deck state via the SDK's info query interface (e.g. artist / title /
-  elapsed-time getters) and receive load/play notifications. The exact category
-  name, entry-point struct, and getter verbs are **to verify** — do not hard-code
-  them from memory.
+  file-access rights, not DJMemory's sandbox. The intended drop path remains
+  `~/Documents/VirtualDJ/…`; access from the sandboxed 2026 VirtualDJ build is
+  a live-validation item.
+- The supplied `vdjPlugin8.h` confirms `IVdjPluginStartStop8`, `OnLoad`,
+  `OnGetPluginInfo`, `OnStart`, `OnStop`, `GetInfo`, `GetStringInfo`, and the
+  exported `DllGetClassObject` entry point. Artifact A uses this non-DSP base
+  and does not depend on the audio/video plugin headers.
+- Candidate VDJScript getter strings are centralized in `VDJSDKAdapter.cpp`:
+  `deck N get_artist`, `deck N get_title`, `deck N play`, and
+  `deck N get_time elapsed`. Their behavior is _(live verify)_ and must not be
+  treated as confirmed merely because the bundle compiles.
 - Constraint: **no private APIs.** Only documented SDK getters/notifications.
 
-**Verification tasks before Artifact A build:**
-1. Locate the installed SDK headers and confirm the plugin category that exposes
-   deck metadata + load/play callbacks.
-2. Confirm the getter verbs for artist, title, deck, elapsed/remaining time, and
-   master/on-air deck.
-3. Confirm the plugin's real working directory and file-write latency during a
-   live mix (no blocking the audio thread — buffer and flush off-thread).
+**Verification state:**
+1. Done: SDK headers found; `IVdjPluginStartStop8` lifecycle and query wrappers
+   compile in an ad-hoc signed universal Mac bundle.
+2. Pending live test: getter strings, elapsed units, and the strongest available
+   master/on-air signal.
+3. Pending live test: VirtualDJ load/install location, worker-thread query
+   safety, and drop-folder write latency during a mix. JSONL writes occur on the
+   poller worker, not an audio callback.
+
+Live probe, 2026-08-13: the installed sandboxed arm64 VirtualDJ keeps its active
+plugin tree in its app container under `PluginsMacArm`, rather than the public
+Documents path in the developer guide. The bundle was installed and validated
+in `PluginsMacArm/AutoStart`, but the current VirtualDJ license session did not
+load the general/basic plugin. VirtualDJ guidance identifies Pro licensing as a
+possible requirement for this plugin class. Repeat with a Pro-capable session
+before changing the SDK adapter or JSONL drop contract.
 
 ## 4. Event model
 
@@ -174,7 +192,8 @@ recommended first build increment after this spec.
 2. **Artifact B** (done) — `.jsonl` extension + `JSONLTracklistParser` + unit tests.
    In `Sources/DJMemoryCore/VirtualDJPluginEvent.swift`; drop folder registered on
    VirtualDJ `defaultHistoryPaths`.
-3. **Artifact A** (not started) — C++ plugin scaffold that emits the frozen schema;
-   validate end-to-end against a live VirtualDJ. Blocked on spec §3 SDK verify.
+3. **Artifact A** (scaffold built) — native Xcode C++ `.bundle` emits the frozen
+   schema; getter semantics and end-to-end behavior still require live VirtualDJ
+   validation.
 4. Flip M14 from Research → Supported in integration-status.md once a real mix
    round-trips into an archived, matched set.
