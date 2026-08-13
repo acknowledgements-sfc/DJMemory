@@ -130,16 +130,12 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
 
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
         let url = stagingDirectory.appendingPathComponent("app-audio-\(UUID().uuidString).wav")
-        guard let writeFormat = CaptureAudioFormat.writeFormat(),
-              let processingFormat = CaptureAudioFormat.processingFormat()
-        else {
+        guard let processingFormat = CaptureAudioFormat.processingFormat() else {
             throw AppAudioCaptureError.engineFailed("Could not create 24-bit / 48 kHz capture format.")
         }
-        guard let converter = CaptureAudioFormat.makeConverter(from: processingFormat, to: writeFormat) else {
-            throw AppAudioCaptureError.engineFailed("Could not create 24-bit / 48 kHz audio converter.")
-        }
+        let newAudioFile: AVAudioFile
         do {
-            audioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
+            newAudioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
         } catch {
             let nsError = error as NSError
             if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) {
@@ -147,6 +143,14 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             }
             throw AppAudioCaptureError.engineFailed(error.localizedDescription)
         }
+        // AVAudioFile.write(from:) requires the buffer format to match the file's own
+        // processingFormat (Float32 deinterleaved) — it packs down to the on-disk `settings`
+        // bit depth internally. Convert to that, not to a standalone 24-bit format.
+        let writeFormat = newAudioFile.processingFormat
+        guard let converter = CaptureAudioFormat.makeConverter(from: processingFormat, to: writeFormat) else {
+            throw AppAudioCaptureError.engineFailed("Could not create 24-bit / 48 kHz audio converter.")
+        }
+        audioFile = newAudioFile
         self.writeFormat = writeFormat
         self.processingFormat = processingFormat
         self.converter = converter

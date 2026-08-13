@@ -10,11 +10,11 @@ Last updated: August 10, 2026.
 | App | Status | Current Support |
 | --- | --- | --- |
 | Serato DJ Pro | Supported | Recording folder, history import; App audio Capture verified (ScreenCaptureKit) |
-| rekordbox | Supported | Manual recording folder, XML Bridge / history import; App audio Capture arm/shareable OK (Manual Setup until live meter + archive verified) |
-| Traktor | Supported | Recordings + NML; App audio Capture arm OK on Traktor DJ 2 (Manual Setup until live meter + archive verified). Pro QML CSI live API = Research only |
-| VirtualDJ | Partial | File watch + Network Control; App audio Capture arm/shareable OK (Manual Setup until live meter + archive verified). Native plugin = Research (M14) |
-| djay Pro | Manual Setup | Documented folders; App audio Capture arm OK on djay Pro 2 (Manual Setup until live meter + archive verified) |
-| DJMemory Capture | Manual Setup | App audio (ScreenCaptureKit) verified with Serato; other DJ apps pending live meter; Input device (Core Audio); silence session split |
+| rekordbox | Supported | Manual recording folder, XML Bridge / history import; App audio Capture verified end-to-end (meter + archive write) |
+| Traktor | Supported | Recordings + NML; App audio Capture verified end-to-end on Traktor DJ 2 (meter + archive write). Pro QML CSI live API = Research only |
+| VirtualDJ | Supported | File watch + Network Control; App audio Capture verified end-to-end (meter + archive write). Native plugin = Research (M14) |
+| djay Pro | Supported | Documented folders; App audio Capture verified end-to-end on djay Pro 2 (meter + archive write) |
+| DJMemory Capture | Implemented | App audio (ScreenCaptureKit) verified end-to-end on Serato, rekordbox, djay Pro 2, VirtualDJ, Traktor DJ 2; Input device (Core Audio); silence session split |
 | Pioneer Hardware | Manual Setup | USB PIONEERREC / RECxxx.WAV watch |
 
 ## Source map (official vs community / sandbox-safe vs research)
@@ -51,7 +51,11 @@ manual Import as the recovery path.
 Local verify (2026-08-10):
 
 - **Serato DJ Pro** — App audio Capture verified end-to-end (Arm → level meter → Stop & Save / archive) with Screen & System Audio Recording granted.
-- **rekordbox / djay Pro 2 / VirtualDJ / Traktor DJ 2 (`com.native-instruments.tmnt`)** — live probe pass with all four apps open (preflight true; each shareable + `ARMED_OK`; each **SILENT_METER** / peak `0.0000` — no deck audio on Mac system output during the run). Labels **not** raised. Re-run with decks playing to system audio until `PASS meter+write`, then raise that app only. Probe: `.build/DJMemory.app/Contents/MacOS/DJMemory --app-audio-probe <softwareID>`.
+
+Local verify (2026-08-12) — write-path bug found and fixed:
+
+- The `AppAudioCaptureService` / `CaptureService` write path converted buffers to a standalone 24-bit `CaptureAudioFormat.writeFormat()` before calling `AVAudioFile.write(from:)`, but `AVAudioFile(forWriting:settings:)` always expects Float32 deinterleaved buffers matching its own `processingFormat` (it packs to the on-disk bit depth internally). Mismatch threw `com.apple.coreaudio.avfaudio error -50` on every write, deterministically, regardless of source app. Fixed in `AppAudioCaptureService.swift` / `CaptureService.swift` by converting to the file's actual `processingFormat` instead of a separately-computed 24-bit target.
+- **Serato DJ Pro / rekordbox / djay Pro 2 / VirtualDJ / Traktor DJ 2 (`com.native-instruments.tmnt`)** — re-probed with decks playing live audio to Mac system output after the fix: all five now report `PASS meter+write <id>` (peaks 0.26–0.42, staged WAVs written and verified). Probe: `.build/DJMemory.app/Contents/MacOS/DJMemory --app-audio-probe <seconds> <softwareID>`.
 
 Do **not** start Traktor QML injection, SSL-API, or Twitch Live Playlist integration in the sandboxed Mac app.
 
@@ -60,7 +64,7 @@ iPad is a **separate** app: no Mac connection; accounts only are shared. On iPad
 | Milestone | Scope | Status |
 | --- | --- | --- |
 | M11 | Capture + Pioneer hybrid | Implemented (Manual Setup until device-verified) |
-| M11b | App audio Capture + silence sessions | Implemented (Serato verified; other DJ apps Manual Setup until live meter + archive verified) |
+| M11b | App audio Capture + silence sessions | Implemented (Serato, rekordbox, djay Pro 2, VirtualDJ, Traktor DJ 2 all verified end-to-end; meter + archive write confirmed for all five 2026-08-12) |
 | M12 | Deeper history + capture match window | Partial (post-archive history autopull + 6h match window; no continuous history watcher) |
 | M13 | VDJ Network Control commands | Partial |
 | M14 | VDJ native plugin | Research |

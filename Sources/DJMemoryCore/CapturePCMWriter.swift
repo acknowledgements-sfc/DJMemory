@@ -36,7 +36,9 @@ public enum CapturePCMWriter {
             try audioFile.write(from: converted)
             return nil
         } catch {
-            return "could not write audio: \(error.localizedDescription)"
+            let nsError = error as NSError
+            return "could not write audio: \(error.localizedDescription) [\(nsError.domain)#\(nsError.code)] "
+                + "buffer=\(converted.format) file=\(audioFile.processingFormat)"
         }
     }
 }

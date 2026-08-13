@@ -77,23 +77,25 @@ public final class CaptureService: @unchecked Sendable {
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw CaptureServiceError.engineFailed("Input device has no usable audio format.")
         }
-        guard let destinationFormat = CaptureAudioFormat.writeFormat() else {
-            throw CaptureServiceError.engineFailed("Could not create 24-bit / 48 kHz capture format.")
+        let newAudioFile: AVAudioFile
+        do {
+            newAudioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) { throw CaptureServiceError.diskFull }
+            throw CaptureServiceError.engineFailed(error.localizedDescription)
         }
+        // AVAudioFile.write(from:) requires the buffer format to match the file's own
+        // processingFormat (Float32 deinterleaved) — it packs down to the on-disk `settings`
+        // bit depth internally. Convert to that, not to a standalone 24-bit format.
+        let destinationFormat = newAudioFile.processingFormat
         guard let audioConverter = CaptureAudioFormat.makeConverter(from: inputFormat, to: destinationFormat) else {
             throw CaptureServiceError.engineFailed(
                 "Could not convert \(Int(inputFormat.sampleRate)) Hz input to 24-bit / 48 kHz. Choose another device, or use App audio Capture / folder Protection."
             )
         }
 
-        do {
-            audioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
-        } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) { throw CaptureServiceError.diskFull }
-            throw CaptureServiceError.engineFailed(error.localizedDescription)
-        }
-
+        audioFile = newAudioFile
         stagingURL = url
         self.writeFormat = destinationFormat
         self.converter = audioConverter
