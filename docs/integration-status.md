@@ -1,6 +1,6 @@
 # DJMemory Integration Status
 
-Last updated: August 10, 2026.
+Last updated: August 12, 2026.
 
 ## Status Labels
 - Supported / Partial / Manual Setup / Research — honest labels; never round Partial up to Supported.
@@ -45,8 +45,13 @@ work when the mix never hits Mac system audio (exclusive interface) — use Inpu
 24-bit / 48 kHz; auto-selects Pioneer/DJM while armed) or folder Protection.
 
 After each archive (Capture or folder scan), DJMemory **autopulls** a nearby local history export from
-known history folders when available, stamps track dates from the set, and matches. Soft-fail leaves
-manual Import as the recovery path.
+known history folders when available, stamps track dates from the set, and matches. Because many DJ
+apps only flush their history export when the set ends — often *after* the recording archives — DJMemory
+also runs a **continuous history watcher** (M12): FSEvents on the granted history folders, a backstop
+poll on the scan interval, and a launch catch-up sweep. Any late-written or mid-set-appended export
+within the match window of a recent archive is auto-ingested (idempotently) and attached by the live
+matcher; a closer export upgrades an earlier auto-match, while a user's manual pin is never overridden.
+Soft-fail leaves manual Import as the recovery path.
 
 Local verify (2026-08-10):
 
@@ -65,7 +70,7 @@ iPad is a **separate** app: no Mac connection; accounts only are shared. On iPad
 | --- | --- | --- |
 | M11 | Capture + Pioneer hybrid | Implemented (Manual Setup until device-verified) |
 | M11b | App audio Capture + silence sessions | Implemented (Serato, rekordbox, djay Pro 2, VirtualDJ, Traktor DJ 2 all verified end-to-end; meter + archive write confirmed for all five 2026-08-12) |
-| M12 | Deeper history + capture match window | Partial (post-archive history autopull + 6h match window; no continuous history watcher) |
+| M12 | Deeper history + capture match window | Implemented (post-archive autopull + configurable 6h match window + continuous history watcher: FSEvents on history folders, backstop poll, and launch catch-up sweep; late/appended exports auto-ingest and match. Hardware Capture/Pioneer sets match the nearest matchable export from any DJ app within the window; auto-matches upgrade to a closer export while user pins stay sacred) |
 | M13 | VDJ Network Control commands | Partial |
 | M14 | VDJ native plugin | Research |
 | M15 | Opt-in cloud sync settings | Settings flags; off by default |

@@ -27,6 +27,23 @@ public struct FolderScanRequest: Equatable, Sendable {
                 )
             }
     }
+
+    /// Build watch requests from user-granted history folders.
+    /// Used to keep imported tracklists fresh as late history exports land.
+    public static func historyRequests(
+        from folderAccesses: [FolderAccess],
+        resolve: (FolderAccess) -> URL
+    ) -> [FolderScanRequest] {
+        folderAccesses
+            .filter { $0.kind == .history }
+            .map { access in
+                FolderScanRequest(
+                    appID: access.appID,
+                    folderURL: resolve(access),
+                    bookmarkData: access.bookmarkData
+                )
+            }
+    }
 }
 
 public struct FolderScanResult: Equatable, Sendable {

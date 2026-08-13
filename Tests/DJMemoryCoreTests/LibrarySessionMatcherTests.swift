@@ -74,6 +74,58 @@ final class LibrarySessionMatcherTests: XCTestCase {
         XCTAssertNil(summaries.first?.matchedTracklist)
     }
 
+    func testHardwareCaptureMatchesAnyMatchableAppWithinWindow() {
+        let archive = ArchiveMetadata(
+            session: RecordingSession(
+                sourceAppID: SupportedDJSoftware.captureAppID,
+                detectedAt: Date(timeIntervalSince1970: 1000),
+                sourceURL: URL(fileURLWithPath: "/tmp/capture.wav")
+            ),
+            originalFilename: "capture.wav"
+        )
+        // A Serato export (not rekordbox) played through hardware Capture.
+        let serato = ImportedTracklist(
+            appID: "serato",
+            sourceURL: URL(fileURLWithPath: "/tmp/serato.csv"),
+            tracks: [TrackPlay(title: "T", artist: "A", startTime: nil, source: "serato.csv", confidence: 0.9)],
+            importedAt: Date(timeIntervalSince1970: 1100)
+        )
+
+        let summaries = LibrarySessionMatcher().summaries(archives: [archive], importedTracklists: [serato])
+
+        XCTAssertEqual(summaries.first?.matchedTracklist?.sourceURL.lastPathComponent, "serato.csv")
+    }
+
+    func testHardwareCaptureUpgradesToCloserExport() {
+        let archive = ArchiveMetadata(
+            session: RecordingSession(
+                sourceAppID: SupportedDJSoftware.captureAppID,
+                detectedAt: Date(timeIntervalSince1970: 1000),
+                sourceURL: URL(fileURLWithPath: "/tmp/capture.wav")
+            ),
+            originalFilename: "capture.wav"
+        )
+        let farther = ImportedTracklist(
+            appID: "serato",
+            sourceURL: URL(fileURLWithPath: "/tmp/early.csv"),
+            tracks: [TrackPlay(title: "T", artist: "A", startTime: nil, source: "early.csv", confidence: 0.9)],
+            importedAt: Date(timeIntervalSince1970: 500)
+        )
+        let closer = ImportedTracklist(
+            appID: "traktor",
+            sourceURL: URL(fileURLWithPath: "/tmp/late.nml"),
+            tracks: [TrackPlay(title: "T", artist: "A", startTime: nil, source: "late.nml", confidence: 0.9)],
+            importedAt: Date(timeIntervalSince1970: 1050)
+        )
+
+        let summaries = LibrarySessionMatcher().summaries(
+            archives: [archive],
+            importedTracklists: [farther, closer]
+        )
+
+        XCTAssertEqual(summaries.first?.matchedTracklist?.sourceURL.lastPathComponent, "late.nml")
+    }
+
     func testManualTracklistContextOverridesNearestAutomaticMatch() {
         let archive = ArchiveMetadata(
             session: RecordingSession(

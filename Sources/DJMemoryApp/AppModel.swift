@@ -128,6 +128,9 @@ final class AppModel: ObservableObject {
     private let profileStore = DJProfileStore()
     private let notificationService = LocalNotificationService()
     private let folderChangeMonitor = FolderChangeMonitor()
+    /// Watches history-export folders so late-written exports still auto-attach.
+    private let historyChangeMonitor = FolderChangeMonitor()
+    private var historyIngestTask: Task<Void, Never>?
     let captureService = CaptureService()
     let appAudioCaptureService = AppAudioCaptureService()
     private var captureSession = CaptureSessionCoordinator()
@@ -156,6 +159,9 @@ final class AppModel: ObservableObject {
             }
         }
         startCapturePolling()
+        // Launch catch-up: heal any set whose history export landed while the
+        // app was closed, before the user ever looks at the library.
+        ingestHistoryNow()
     }
 
     deinit {
@@ -165,7 +171,9 @@ final class AppModel: ObservableObject {
         appAudioPollTask?.cancel()
         captureTargetPollTask?.cancel()
         captureInputPollTask?.cancel()
+        historyIngestTask?.cancel()
         folderChangeMonitor.stop()
+        historyChangeMonitor.stop()
     }
 
     var protectedAdapterCount: Int {
@@ -266,6 +274,7 @@ final class AppModel: ObservableObject {
         }
 
         restartFolderChangeMonitoring()
+        restartHistoryMonitoring()
     }
 
     /// Configured (user-granted) recordings folders plus probe-discovered defaults for setup hints.
@@ -576,6 +585,10 @@ final class AppModel: ObservableObject {
                 for session in archived {
                     autopullTracklist(for: session)
                 }
+                // Backstop: every periodic scan also re-sweeps history folders so
+                // exports that FSEvents missed (machine asleep, coalesced events,
+                // network volumes) still get ingested and matched.
+                ingestHistoryNow()
             }
         }
     }
@@ -949,12 +962,15 @@ final class AppModel: ObservableObject {
             isFolderChangeScanPending = false
             nextScanDate = nil
             folderChangeMonitor.stop()
+            historyChangeMonitor.stop()
+            historyIngestTask?.cancel()
             return
         }
 
         let intervalSeconds = settings.scanIntervalSeconds
         scheduleNextScanIfNeeded()
         restartFolderChangeMonitoring()
+        restartHistoryMonitoring()
         scanTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(intervalSeconds))
@@ -991,6 +1007,73 @@ final class AppModel: ObservableObject {
                 self.isFolderChangeScanPending = false
                 self.scanNow()
             }
+        }
+    }
+
+    private func restartHistoryMonitoring() {
+        guard settings.automaticScanningEnabled else {
+            historyChangeMonitor.stop()
+            return
+        }
+
+        historyChangeMonitor.start(requests: historyRequests()) { [weak self] in
+            Task { @MainActor in
+                self?.scheduleHistoryIngest()
+            }
+        }
+    }
+
+    /// Debounce a burst of history-folder FS events into a single ingest sweep.
+    private func scheduleHistoryIngest() {
+        guard settings.automaticScanningEnabled else { return }
+
+        historyIngestTask?.cancel()
+        historyIngestTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            await MainActor.run {
+                guard let self, !Task.isCancelled else { return }
+                self.ingestHistoryNow()
+            }
+        }
+    }
+
+    private func historyRequests() -> [FolderScanRequest] {
+        FolderScanRequest.historyRequests(from: folderAccesses) { [folderAccessStore] access in
+            folderAccessStore.resolve(access)
+        }
+    }
+
+    /// App IDs whose history folders are worth sweeping: those the user granted,
+    /// plus any app with documented default history paths.
+    private func historySweepAppIDs() -> [String] {
+        var appIDs = Set(folderAccesses.filter { $0.kind == .history }.map(\.appID))
+        for software in SupportedDJSoftware.all where !software.defaultHistoryPaths.isEmpty {
+            appIDs.insert(software.id)
+        }
+        return Array(appIDs)
+    }
+
+    /// Ingest any fresh in-window history export and re-match. Idempotent and
+    /// safe to call repeatedly — FSEvents, the backstop poll, and the launch
+    /// catch-up sweep all funnel here. Runs synchronously on the main actor,
+    /// mirroring `autopullTracklist`; history exports are small text files.
+    func ingestHistoryNow() {
+        guard settings.automaticScanningEnabled else { return }
+        let appIDs = historySweepAppIDs()
+        guard !appIDs.isEmpty, !sessions.isEmpty else { return }
+
+        let references = sessions.map { HistoryAutoIngest.ArchiveReference(date: $0.detectedAt) }
+        let result = HistoryAutoIngest().sweep(
+            historyAppIDs: appIDs,
+            historyAccesses: folderAccesses.filter { $0.kind == .history },
+            folderAccessStore: folderAccessStore,
+            importedTracklistStore: importedTracklistStore,
+            activityLogStore: activityLogStore,
+            references: references,
+            existing: allImportedTracklists
+        )
+        if !result.isEmpty {
+            refresh()
         }
     }
 

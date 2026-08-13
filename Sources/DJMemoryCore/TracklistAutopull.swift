@@ -160,32 +160,10 @@ public struct TracklistAutopull {
             return .notFound
         }
 
-        var tracklistsForMatch = importedTracklists
-        if !tracklistsForMatch.contains(where: { $0.id == imported.id }) {
-            tracklistsForMatch.append(imported)
-        }
-
-        let summaries = LibrarySessionMatcher().summaries(
-            archives: archives,
-            importedTracklists: tracklistsForMatch,
-            setContexts: setContexts
-        )
-        if let summary = summaries.first(where: { $0.id == session.id }),
-           summary.matchedTracklist?.id != imported.id
-        {
-            do {
-                var context = try setContextStore.context(for: session.id)
-                context.manualTracklistID = imported.id
-                try setContextStore.save(context)
-            } catch {
-                try? activityLogStore.append(ActivityEvent(
-                    kind: .error,
-                    message: "Tracklist attachment failed",
-                    detail: error.localizedDescription
-                ))
-            }
-        }
-
+        // Attachment is owned by LibrarySessionMatcher (live, time-nearest, and
+        // upgradeable). We deliberately do NOT pin `manualTracklistID` here: that
+        // field means "the user chose this" and must stay sacred so a later,
+        // closer export can upgrade an auto-match while never overriding a human.
         return .attached(imported)
     }
 }

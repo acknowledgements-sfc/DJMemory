@@ -68,9 +68,14 @@ public struct LibrarySessionMatcher {
 
         let candidates: [ImportedTracklist]
         if Self.hardwareCaptureAppIDs.contains(archive.sourceAppID) {
+            // A hardware Capture / Pioneer recording carries no app identity of
+            // its own — its tracklist can be a history export from *any* DJ app
+            // running at the time. Match the nearest matchable export inside the
+            // window rather than restricting to a fixed app list, so a late
+            // Serato/Traktor/VirtualDJ export can attach and a closer export can
+            // upgrade an earlier auto-match.
             candidates = importedTracklists.filter { tracklist in
                 tracklist.kind.isMatchableToRecording
-                    && Self.hardwareRelatedTracklistAppIDs.contains(tracklist.appID)
                     && abs(tracklist.importedAt.timeIntervalSince(archive.detectedAt)) <= Self.captureMatchWindowSeconds
             }
         } else {
