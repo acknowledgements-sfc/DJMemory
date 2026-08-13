@@ -54,16 +54,18 @@ struct DJMemoryApplication: App {
 
     init() {
         // Optional Account auth only — local archive/scan/protection never depend on Clerk.
-        Clerk.configure(
-            publishableKey: "pk_test_Z2xvcmlvdXMtbG9uZ2hvcm4tMzYuY2xlcmsuYWNjb3VudHMuZGV2JA",
-            options: .init(
-                keychainConfig: .init(service: Self.appBundleID),
-                redirectConfig: .init(
-                    redirectUrl: Self.oauthCallbackURL,
-                    callbackUrlScheme: Self.appBundleID
+        if let publishableKey = DJMemoryAccountConfiguration.clerkPublishableKey {
+            Clerk.configure(
+                publishableKey: publishableKey,
+                options: .init(
+                    keychainConfig: .init(service: Self.appBundleID),
+                    redirectConfig: .init(
+                        redirectUrl: Self.oauthCallbackURL,
+                        callbackUrlScheme: Self.appBundleID
+                    )
                 )
             )
-        )
+        }
     }
 
     var body: some Scene {
