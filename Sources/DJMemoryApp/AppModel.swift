@@ -1467,7 +1467,10 @@ extension AppModel {
             do {
                 try await appAudioCaptureService.startMonitoring(
                     bundleIdentifier: target.matchedBundleIdentifier,
-                    displayName: target.software.displayName
+                    displayName: target.software.displayName,
+                    // Buffer at least the start hold (plus margin) so takes begin at the true first
+                    // signal, not after the silence session's start-hold delay.
+                    prerollSeconds: settings.silenceSessionConfig.startHoldSeconds + 0.5
                 )
                 let tick = captureSession.prepareWatching(
                     config: settings.silenceSessionConfig,

@@ -37,10 +37,19 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
     private var stream: SCStream?
     private var audioFile: AVAudioFile?
     private var stagingURL: URL?
+    /// Canonical 24-bit / 48 kHz write target; also the format the pre-roll ring is stored in.
     private var writeFormat: AVAudioFormat?
-    private var processingFormat: AVAudioFormat?
+    /// Adapted Float32 source format of the current ScreenCaptureKit stream.
+    private var sourceFormat: AVAudioFormat?
     private var converter: AVAudioConverter?
     private var lastFormatMismatchDetail: String?
+
+    /// Ring of already-converted `writeFormat` buffers captured while watching, flushed into the
+    /// file on `beginRecordingFile` so a take starts at the true first signal rather than ~half a
+    /// second in (after the silence-session start hold). Only mutated on `sampleHandlerQueue`.
+    private var prerollBuffers: [AVAudioPCMBuffer] = []
+    private var prerollFrames: AVAudioFrameCount = 0
+    private var prerollFrameBudget: AVAudioFrameCount = 0
 
     public init(stagingDirectory: URL = CaptureService.defaultStagingDirectory(), fileManager: FileManager = .default) {
         self.stagingDirectory = stagingDirectory
@@ -63,7 +72,11 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         return DJAppProcessMatcher.matchRunning(bundleIdentifiers: bundleIDs)
     }
 
-    public func startMonitoring(bundleIdentifier: String, displayName: String) async throws {
+    public func startMonitoring(
+        bundleIdentifier: String,
+        displayName: String,
+        prerollSeconds: TimeInterval = 1.0
+    ) async throws {
         guard !isMonitoring else { throw AppAudioCaptureError.alreadyMonitoring }
         if !Self.screenCapturePermissionGranted() {
             let granted = Self.requestScreenCapturePermission()
@@ -106,6 +119,16 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         targetDisplayName = displayName
         isMonitoring = true
         lastFormatMismatchDetail = nil
+        // Canonical write target; the pre-roll ring stores buffers already converted to this format
+        // so a take can begin with the audio that played during the silence-session start hold.
+        writeFormat = CaptureAudioFormat.processingFormat()
+        sourceFormat = nil
+        converter = nil
+        sampleHandlerQueue.sync {
+            prerollBuffers.removeAll()
+            prerollFrames = 0
+            prerollFrameBudget = AVAudioFrameCount(max(0, prerollSeconds) * CaptureAudioFormat.sampleRate)
+        }
         setInputLevel(0)
     }
 
@@ -121,6 +144,13 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         isMonitoring = false
         targetBundleIdentifier = ""
         targetDisplayName = ""
+        writeFormat = nil
+        sourceFormat = nil
+        converter = nil
+        sampleHandlerQueue.sync {
+            prerollBuffers.removeAll()
+            prerollFrames = 0
+        }
         setInputLevel(0)
     }
 
@@ -130,9 +160,6 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
 
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
         let url = stagingDirectory.appendingPathComponent("app-audio-\(UUID().uuidString).wav")
-        guard let processingFormat = CaptureAudioFormat.processingFormat() else {
-            throw AppAudioCaptureError.engineFailed("Could not create 24-bit / 48 kHz capture format.")
-        }
         let newAudioFile: AVAudioFile
         do {
             newAudioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
@@ -145,28 +172,45 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         }
         // AVAudioFile.write(from:) requires the buffer format to match the file's own
         // processingFormat (Float32 deinterleaved) — it packs down to the on-disk `settings`
-        // bit depth internally. Convert to that, not to a standalone 24-bit format.
-        let writeFormat = newAudioFile.processingFormat
-        guard let converter = CaptureAudioFormat.makeConverter(from: processingFormat, to: writeFormat) else {
-            throw AppAudioCaptureError.engineFailed("Could not create 24-bit / 48 kHz audio converter.")
+        // bit depth internally. The pre-roll ring and stream converter already target this format.
+        let fileFormat = newAudioFile.processingFormat
+
+        // Flush the pre-roll and flip to writing atomically on the sample-handler queue so no live
+        // buffer is written before the buffered start, and no callback races the file swap.
+        sampleHandlerQueue.sync {
+            var flushedFrames: AVAudioFrameCount = 0
+            if let writeFormat, fileFormat.isEqual(writeFormat) {
+                for buffer in prerollBuffers {
+                    if AppAudioCaptureService.writeSucceeded(buffer, to: newAudioFile) {
+                        flushedFrames += buffer.frameLength
+                    }
+                }
+            }
+            prerollBuffers.removeAll()
+            prerollFrames = 0
+            audioFile = newAudioFile
+            // Backdate the start by the flushed pre-roll so the archive timestamp lands on the
+            // true first signal rather than the moment the start hold elapsed.
+            let prerollDuration = Double(flushedFrames) / CaptureAudioFormat.sampleRate
+            startedAt = Date().addingTimeInterval(-prerollDuration)
+            isWriting = true
         }
-        audioFile = newAudioFile
-        self.writeFormat = writeFormat
-        self.processingFormat = processingFormat
-        self.converter = converter
         stagingURL = url
-        startedAt = Date()
-        isWriting = true
         lastFormatMismatchDetail = nil
+    }
+
+    private static func writeSucceeded(_ buffer: AVAudioPCMBuffer, to audioFile: AVAudioFile) -> Bool {
+        CapturePCMWriter.write(buffer: buffer, to: audioFile) == nil
     }
 
     public func endRecordingFile(discard: Bool = false) throws -> CaptureResult? {
         guard isWriting else { throw AppAudioCaptureError.notWriting }
-        audioFile = nil
-        writeFormat = nil
-        processingFormat = nil
-        converter = nil
-        isWriting = false
+        // Stop writing on the sample-handler queue so no in-flight callback writes to a closed file.
+        // Keep `writeFormat`/`converter` so metering and the pre-roll ring keep running while armed.
+        sampleHandlerQueue.sync {
+            audioFile = nil
+            isWriting = false
+        }
         let endedAt = Date()
         let started = startedAt ?? endedAt
         startedAt = nil
@@ -294,7 +338,9 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             setInputLevel(min(1, rms * 4))
         }
 
-        guard isWriting, let audioFile, let writeFormat, let processingFormat, self.converter != nil else { return }
+        // Convert every buffer while monitoring — not only while writing — so the pre-roll ring
+        // always holds the most recent audio ready to prepend to the next take.
+        guard let writeFormat else { return }
 
         let frameLength = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
         guard frameLength > 0 else { return }
@@ -307,29 +353,31 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
         // Rebuild converter when ScreenCaptureKit delivers a different rate/channel layout.
         let sourceRate = asbd.mSampleRate
         let sourceChannelCount = AVAudioChannelCount(max(1, sourceChannels))
-        if abs(sourceRate - processingFormat.sampleRate) > 0.5 || sourceChannelCount != processingFormat.channelCount {
-            guard let adaptedProcessing = AVAudioFormat(
+        if sourceFormat == nil
+            || abs(sourceRate - (sourceFormat?.sampleRate ?? 0)) > 0.5
+            || sourceChannelCount != sourceFormat?.channelCount {
+            guard let adaptedSource = AVAudioFormat(
                 commonFormat: .pcmFormatFloat32,
                 sampleRate: sourceRate,
                 channels: sourceChannelCount,
                 interleaved: false
             ),
-                let adaptedConverter = CaptureAudioFormat.makeConverter(from: adaptedProcessing, to: writeFormat)
+                let adaptedConverter = CaptureAudioFormat.makeConverter(from: adaptedSource, to: writeFormat)
             else {
                 lastFormatMismatchDetail = "App audio Capture received an unsupported buffer format (\(Int(sourceRate)) Hz, \(sourceChannels) ch). Arm again, or use Input device Capture."
                 return
             }
-            self.processingFormat = adaptedProcessing
+            self.sourceFormat = adaptedSource
             self.converter = adaptedConverter
         }
 
-        guard let activeProcessing = self.processingFormat,
+        guard let activeSource = self.sourceFormat,
               let activeConverter = self.converter,
-              let pcm = AVAudioPCMBuffer(pcmFormat: activeProcessing, frameCapacity: frameLength)
+              let pcm = AVAudioPCMBuffer(pcmFormat: activeSource, frameCapacity: frameLength)
         else { return }
         pcm.frameLength = frameLength
 
-        let channelCount = Int(activeProcessing.channelCount)
+        let channelCount = Int(activeSource.channelCount)
         guard let floatChannels = pcm.floatChannelData else { return }
 
         if isInterleaved, ablPointer.count >= 1, let src = ablPointer[0].mData {
@@ -349,15 +397,37 @@ public final class AppAudioCaptureService: NSObject, @unchecked Sendable {
             }
         }
 
-        if let detail = CapturePCMWriter.convertAndWrite(
-            buffer: pcm,
-            converter: activeConverter,
-            writeFormat: writeFormat,
-            audioFile: audioFile
-        ) {
+        let conversion = CapturePCMWriter.convert(buffer: pcm, converter: activeConverter, writeFormat: writeFormat)
+        if let detail = conversion.error {
             lastFormatMismatchDetail = "App audio Capture \(detail)"
+            return
+        }
+        guard let converted = conversion.buffer else {
+            lastFormatMismatchDetail = "App audio Capture could not convert to 24-bit / 48 kHz."
+            return
+        }
+
+        if isWriting, let audioFile {
+            if let detail = CapturePCMWriter.write(buffer: converted, to: audioFile) {
+                lastFormatMismatchDetail = "App audio Capture \(detail)"
+            } else {
+                lastFormatMismatchDetail = nil
+            }
         } else {
+            appendPreroll(converted)
             lastFormatMismatchDetail = nil
+        }
+    }
+
+    /// Appends a converted buffer to the pre-roll ring and trims it to the frame budget.
+    /// Must run on `sampleHandlerQueue`.
+    private func appendPreroll(_ buffer: AVAudioPCMBuffer) {
+        guard prerollFrameBudget > 0 else { return }
+        prerollBuffers.append(buffer)
+        prerollFrames += buffer.frameLength
+        while prerollFrames > prerollFrameBudget, prerollBuffers.count > 1 {
+            let removed = prerollBuffers.removeFirst()
+            prerollFrames -= min(prerollFrames, removed.frameLength)
         }
     }
 }
@@ -370,10 +440,12 @@ extension AppAudioCaptureService: SCStreamDelegate {
         isWriting = false
         audioFile = nil
         writeFormat = nil
-        processingFormat = nil
+        sourceFormat = nil
         converter = nil
         stagingURL = nil
         startedAt = nil
+        prerollBuffers.removeAll()
+        prerollFrames = 0
         setInputLevel(0)
         guard wasMonitoring || wasWriting else { return }
         let captureError = AppAudioCaptureError.streamStopped(error.localizedDescription)

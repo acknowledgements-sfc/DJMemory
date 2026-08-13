@@ -11,10 +11,23 @@ public enum CapturePCMWriter {
         writeFormat: AVAudioFormat,
         audioFile: AVAudioFile
     ) -> String? {
+        let result = convert(buffer: buffer, converter: converter, writeFormat: writeFormat)
+        if let detail = result.error { return detail }
+        guard let converted = result.buffer else { return "could not convert to 24-bit / 48 kHz." }
+        return write(buffer: converted, to: audioFile)
+    }
+
+    /// Converts `buffer` through `converter` into a freshly-allocated `writeFormat` buffer.
+    /// - Returns: The converted buffer on success, or an error detail (without a "Capture" prefix).
+    public static func convert(
+        buffer: AVAudioPCMBuffer,
+        converter: AVAudioConverter,
+        writeFormat: AVAudioFormat
+    ) -> (buffer: AVAudioPCMBuffer?, error: String?) {
         let ratio = writeFormat.sampleRate / buffer.format.sampleRate
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 32
         guard let converted = AVAudioPCMBuffer(pcmFormat: writeFormat, frameCapacity: max(capacity, 1)) else {
-            return "could not allocate a 24-bit / 48 kHz buffer."
+            return (nil, "could not allocate a 24-bit / 48 kHz buffer.")
         }
 
         var error: NSError?
@@ -30,15 +43,21 @@ public enum CapturePCMWriter {
         }
         let status = converter.convert(to: converted, error: &error, withInputFrom: inputBlock)
         if status == .error || converted.frameLength == 0 {
-            return "could not convert to 24-bit / 48 kHz: \(error?.localizedDescription ?? "unknown error")."
+            return (nil, "could not convert to 24-bit / 48 kHz: \(error?.localizedDescription ?? "unknown error").")
         }
+        return (converted, nil)
+    }
+
+    /// Writes an already-converted `writeFormat` buffer to `audioFile`.
+    /// - Returns: An error detail (without a "Capture" prefix), or `nil` on success.
+    public static func write(buffer: AVAudioPCMBuffer, to audioFile: AVAudioFile) -> String? {
         do {
-            try audioFile.write(from: converted)
+            try audioFile.write(from: buffer)
             return nil
         } catch {
             let nsError = error as NSError
             return "could not write audio: \(error.localizedDescription) [\(nsError.domain)#\(nsError.code)] "
-                + "buffer=\(converted.format) file=\(audioFile.processingFormat)"
+                + "buffer=\(buffer.format) file=\(audioFile.processingFormat)"
         }
     }
 }
