@@ -1,12 +1,12 @@
 import ClerkKit
 import ClerkKitUI
+import DJMemoryCore
 import SwiftUI
 
 struct CompanionSettingsView: View {
     @Bindable var model: CompanionModel
-    @Environment(Clerk.self) private var clerk
+    let isAccountAuthEnabled: Bool
     @Environment(\.openURL) private var openURL
-    @State private var authPresented = false
 
     var body: some View {
         NavigationStack {
@@ -18,29 +18,13 @@ struct CompanionSettingsView: View {
                 }
 
                 Section("Account") {
-                    Text("Sign in for your DJMemory account. Accounts are the only thing shared with the Mac app — this iPad does not connect to a Mac for Capture or archives. Local import still works offline.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-
-                    UserButton(signedOutContent: {
-                        Button("Sign in") { authPresented = true }
-                            .accessibilityIdentifier("ipad.settings.signIn")
-                    })
-
-                    if clerk.user != nil {
-                        if let summary = model.accountLicenseSummary {
-                            LabeledContent("License", value: summary)
-                                .accessibilityIdentifier("ipad.settings.accountLicense")
-                        }
-                        if let message = model.accountSyncMessage {
-                            Text(message)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        Button("Refresh Account") {
-                            Task { await sync() }
-                        }
-                        .accessibilityIdentifier("ipad.settings.refreshAccount")
+                    if isAccountAuthEnabled {
+                        CompanionAccountAuthSection(model: model)
+                    } else {
+                        Text("Account sign-in is not configured for this build. Local library and import still work offline.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("ipad.settings.accountOffline")
                     }
 
                     Button("Open Account in Browser") {
@@ -59,20 +43,55 @@ struct CompanionSettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .sheet(isPresented: $authPresented) {
-                AuthView()
-            }
-            .onChange(of: clerk.user?.id) { _, userID in
-                if userID != nil {
-                    authPresented = false
-                    Task { await sync() }
-                } else {
-                    Task { await model.syncAccount(bearerToken: nil) }
+        }
+    }
+}
+
+private struct CompanionAccountAuthSection: View {
+    @Bindable var model: CompanionModel
+    @Environment(Clerk.self) private var clerk
+    @State private var authPresented = false
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("Sign in for your DJMemory account. Accounts are the only thing shared with the Mac app — this iPad does not connect to a Mac for Capture or archives. Local import still works offline.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            UserButton(signedOutContent: {
+                Button("Sign in") { authPresented = true }
+                    .accessibilityIdentifier("ipad.settings.signIn")
+            })
+
+            if clerk.user != nil {
+                if let summary = model.accountLicenseSummary {
+                    LabeledContent("License", value: summary)
+                        .accessibilityIdentifier("ipad.settings.accountLicense")
                 }
+                if let message = model.accountSyncMessage {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Refresh Account") {
+                    Task { await sync() }
+                }
+                .accessibilityIdentifier("ipad.settings.refreshAccount")
             }
-            .task(id: clerk.user?.id) {
-                if clerk.user != nil { await sync() }
+        }
+        .sheet(isPresented: $authPresented) {
+            AuthView()
+        }
+        .onChange(of: clerk.user?.id) { _, userID in
+            if userID != nil {
+                authPresented = false
+                Task { await sync() }
+            } else {
+                Task { await model.syncAccount(bearerToken: nil) }
             }
+        }
+        .task(id: clerk.user?.id) {
+            if clerk.user != nil { await sync() }
         }
     }
 

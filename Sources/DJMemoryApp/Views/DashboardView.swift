@@ -3,6 +3,11 @@ import DJMemoryCore
 
 struct DashboardView: View {
     @EnvironmentObject private var model: AppModel
+    let isAccountAuthEnabled: Bool
+
+    init(isAccountAuthEnabled: Bool = false) {
+        self.isAccountAuthEnabled = isAccountAuthEnabled
+    }
 
     var body: some View {
         ScrollView {
@@ -21,7 +26,7 @@ struct DashboardView: View {
                 case .activity:
                     ActivityLogView()
                 case .settings:
-                    SettingsView()
+                    SettingsView(isAccountAuthEnabled: isAccountAuthEnabled)
                 case .app:
                     AdapterDetailView()
                 case .recovery(let appID):

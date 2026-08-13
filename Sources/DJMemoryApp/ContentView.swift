@@ -4,13 +4,17 @@ import DJMemoryCore
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
-    @Environment(Clerk.self) private var clerk
+    private let isAccountAuthEnabled: Bool
+
+    init(isAccountAuthEnabled: Bool = false) {
+        self.isAccountAuthEnabled = isAccountAuthEnabled
+    }
 
     var body: some View {
         NavigationSplitView {
             SidebarView()
         } detail: {
-            DashboardView()
+            DashboardView(isAccountAuthEnabled: isAccountAuthEnabled)
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -35,11 +39,9 @@ struct ContentView: View {
             }
         }
         .onOpenURL { url in
-            Task {
-                do {
-                    try await clerk.handle(url)
-                } catch {
-                    // Deep-link auth failures must not block local protection.
+            if isAccountAuthEnabled {
+                Task {
+                    await handleAccountURL(url)
                 }
             }
         }
@@ -55,6 +57,14 @@ struct ContentView: View {
         ) {
             OnboardingView()
                 .environmentObject(model)
+        }
+    }
+
+    private func handleAccountURL(_ url: URL) async {
+        do {
+            try await Clerk.shared.handle(url)
+        } catch {
+            // Deep-link auth failures must not block local protection.
         }
     }
 }

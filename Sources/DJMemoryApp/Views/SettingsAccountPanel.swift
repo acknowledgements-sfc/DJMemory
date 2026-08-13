@@ -5,9 +5,8 @@ import SwiftUI
 /// Optional Clerk account controls for Settings. Local protection never depends on sign-in.
 struct SettingsAccountPanel: View {
     @EnvironmentObject private var model: AppModel
-    @Environment(Clerk.self) private var clerk
+    let isAccountAuthEnabled: Bool
     @Environment(\.openURL) private var openURL
-    @State private var authIsPresented = false
 
     var body: some View {
         Panel(title: "Account", padding: 14) {
@@ -24,49 +23,14 @@ struct SettingsAccountPanel: View {
                     .font(.system(size: DJToken.TypeSize.body))
                     .foregroundStyle(DJToken.mutedForeground)
 
-                UserButton(signedOutContent: {
-                    Button {
-                        authIsPresented = true
-                    } label: {
-                        Label("Sign in", systemImage: "person.crop.circle.badge.checkmark")
-                    }
-                    .buttonStyle(DJSecondaryButtonStyle())
-                    .accessibilityIdentifier("settings.signIn")
-                })
-                .padding(.top, 6)
-
-                if clerk.user != nil {
-                    if let summary = model.accountLicenseSummary {
-                        KeyValueRow(key: "License", value: summary)
-                            .accessibilityIdentifier("settings.accountLicense")
-                    }
-                    if let message = model.accountSyncMessage {
-                        Text(message)
-                            .font(.system(size: DJToken.TypeSize.body))
-                            .foregroundStyle(DJToken.mutedForeground)
-                            .accessibilityIdentifier("settings.accountSyncMessage")
-                    }
-
-                    Button {
-                        Task { await syncAccount() }
-                    } label: {
-                        Label(
-                            model.isAccountSyncing ? "Syncing…" : "Refresh Account",
-                            systemImage: "arrow.triangle.2.circlepath"
-                        )
-                    }
-                    .buttonStyle(DJSecondaryButtonStyle())
-                    .disabled(model.isAccountSyncing)
-                    .accessibilityIdentifier("settings.refreshAccount")
-
-                    Button {
-                        Task { await uploadDiagnostics() }
-                    } label: {
-                        Label("Upload Diagnostics Metadata", systemImage: "arrow.up.doc")
-                    }
-                    .buttonStyle(DJGhostButtonStyle())
-                    .disabled(model.isAccountSyncing)
-                    .accessibilityIdentifier("settings.uploadDiagnostics")
+                if isAccountAuthEnabled {
+                    SettingsAccountAuthControls()
+                        .padding(.top, 6)
+                } else {
+                    Text("Account sign-in is not configured for this build. Local protection, archive, scan, import, and diagnostics still work offline.")
+                        .font(.system(size: DJToken.TypeSize.body))
+                        .foregroundStyle(DJToken.mutedForeground)
+                        .accessibilityIdentifier("settings.accountOffline")
                 }
 
                 Button {
@@ -86,6 +50,60 @@ struct SettingsAccountPanel: View {
                 }
                 .buttonStyle(DJGhostButtonStyle())
                 .accessibilityIdentifier("settings.openAccount")
+            }
+        }
+    }
+}
+
+private struct SettingsAccountAuthControls: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(Clerk.self) private var clerk
+    @State private var authIsPresented = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            UserButton(signedOutContent: {
+                Button {
+                    authIsPresented = true
+                } label: {
+                    Label("Sign in", systemImage: "person.crop.circle.badge.checkmark")
+                }
+                .buttonStyle(DJSecondaryButtonStyle())
+                .accessibilityIdentifier("settings.signIn")
+            })
+
+            if clerk.user != nil {
+                if let summary = model.accountLicenseSummary {
+                    KeyValueRow(key: "License", value: summary)
+                        .accessibilityIdentifier("settings.accountLicense")
+                }
+                if let message = model.accountSyncMessage {
+                    Text(message)
+                        .font(.system(size: DJToken.TypeSize.body))
+                        .foregroundStyle(DJToken.mutedForeground)
+                        .accessibilityIdentifier("settings.accountSyncMessage")
+                }
+
+                Button {
+                    Task { await syncAccount() }
+                } label: {
+                    Label(
+                        model.isAccountSyncing ? "Syncing…" : "Refresh Account",
+                        systemImage: "arrow.triangle.2.circlepath"
+                    )
+                }
+                .buttonStyle(DJSecondaryButtonStyle())
+                .disabled(model.isAccountSyncing)
+                .accessibilityIdentifier("settings.refreshAccount")
+
+                Button {
+                    Task { await uploadDiagnostics() }
+                } label: {
+                    Label("Upload Diagnostics Metadata", systemImage: "arrow.up.doc")
+                }
+                .buttonStyle(DJGhostButtonStyle())
+                .disabled(model.isAccountSyncing)
+                .accessibilityIdentifier("settings.uploadDiagnostics")
             }
         }
         .sheet(isPresented: $authIsPresented) {
@@ -130,7 +148,7 @@ struct SettingsAccountPanel: View {
 }
 
 #Preview("Signed out") {
-    SettingsAccountPanel()
+    SettingsAccountPanel(isAccountAuthEnabled: true)
         .environmentObject(AppModel())
         .environment(Clerk.preview { preview in
             preview.isSignedIn = false
@@ -140,9 +158,16 @@ struct SettingsAccountPanel: View {
 }
 
 #Preview("Signed in") {
-    SettingsAccountPanel()
+    SettingsAccountPanel(isAccountAuthEnabled: true)
         .environmentObject(AppModel())
         .environment(Clerk.preview())
+        .padding()
+        .frame(width: 420)
+}
+
+#Preview("Offline") {
+    SettingsAccountPanel(isAccountAuthEnabled: false)
+        .environmentObject(AppModel())
         .padding()
         .frame(width: 420)
 }

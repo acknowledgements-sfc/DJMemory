@@ -2,9 +2,11 @@ import SwiftUI
 
 public struct CompanionRootView: View {
     @Bindable public var model: CompanionModel
+    private let isAccountAuthEnabled: Bool
 
-    public init(model: CompanionModel) {
+    public init(model: CompanionModel, isAccountAuthEnabled: Bool = false) {
         self.model = model
+        self.isAccountAuthEnabled = isAccountAuthEnabled
     }
 
     public var body: some View {
@@ -38,7 +40,7 @@ public struct CompanionRootView: View {
             case .capture:
                 CompanionCaptureView(model: model)
             case .settings:
-                CompanionSettingsView(model: model)
+                CompanionSettingsView(model: model, isAccountAuthEnabled: isAccountAuthEnabled)
             }
         }
     }

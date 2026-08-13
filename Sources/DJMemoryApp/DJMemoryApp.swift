@@ -51,10 +51,12 @@ struct DJMemoryApplication: App {
     /// Stable identity for OAuth redirects / keychain. `swift run` has no Info.plist bundle id.
     private static let appBundleID = "app.djmemory.DJMemory"
     private static let oauthCallbackURL = "\(appBundleID)://callback"
+    private static let clerkPublishableKey = DJMemoryAccountConfiguration.clerkPublishableKey
+    private static var isAccountAuthEnabled: Bool { clerkPublishableKey != nil }
 
     init() {
         // Optional Account auth only — local archive/scan/protection never depend on Clerk.
-        if let publishableKey = DJMemoryAccountConfiguration.clerkPublishableKey {
+        if let publishableKey = Self.clerkPublishableKey {
             Clerk.configure(
                 publishableKey: publishableKey,
                 options: .init(
@@ -70,11 +72,7 @@ struct DJMemoryApplication: App {
 
     var body: some Scene {
         WindowGroup("DJMemory") {
-            ContentView()
-                .environmentObject(model)
-                // Prefetch reads @Environment(Clerk.self) — must be inside .environment(Clerk.shared).
-                .prefetchClerkImages()
-                .environment(Clerk.shared)
+            rootView
                 .frame(minWidth: 980, minHeight: 640)
         }
         .commands {
@@ -82,11 +80,35 @@ struct DJMemoryApplication: App {
         }
 
         MenuBarExtra {
+            menuBarView
+        } label: {
+            Image(systemName: model.protectionSymbolName)
+        }
+    }
+
+    @ViewBuilder
+    private var rootView: some View {
+        if Self.isAccountAuthEnabled {
+            ContentView(isAccountAuthEnabled: true)
+                .environmentObject(model)
+                // Prefetch reads @Environment(Clerk.self) — must be inside .environment(Clerk.shared).
+                .prefetchClerkImages()
+                .environment(Clerk.shared)
+        } else {
+            ContentView(isAccountAuthEnabled: false)
+                .environmentObject(model)
+        }
+    }
+
+    @ViewBuilder
+    private var menuBarView: some View {
+        if Self.isAccountAuthEnabled {
             MenuBarStatusView()
                 .environmentObject(model)
                 .environment(Clerk.shared)
-        } label: {
-            Image(systemName: model.protectionSymbolName)
+        } else {
+            MenuBarStatusView()
+                .environmentObject(model)
         }
     }
 }

@@ -3,6 +3,7 @@ import DJMemoryCore
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    let isAccountAuthEnabled: Bool
 
     private let intervalOptions = [30, 60, 120, 300]
 
@@ -18,7 +19,7 @@ struct SettingsView: View {
             archivePanel
             cloudSyncPanel
             currentStatePanel
-            SettingsAccountPanel()
+            SettingsAccountPanel(isAccountAuthEnabled: isAccountAuthEnabled)
         }
     }
 

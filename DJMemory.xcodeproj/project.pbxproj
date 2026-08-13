@@ -44,9 +44,9 @@
 		1B6A37202D07E272F089127C /* DJMemoryCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJMemoryCompanionApp.swift; sourceTree = "<group>"; };
 		5F2D607DE7F6991197AD6253 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		627B0818AC4003E57E7EDAF9 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
-		8A1C9E1CAC02B53A13E4178B /* DJMemoryShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DJMemoryShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A1C9E1CAC02B53A13E4178B /* DJMemoryShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DJMemoryShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3ED537E6898B07F8B474113 /* SetCatcher */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SetCatcher; path = .; sourceTree = SOURCE_ROOT; };
-		B564A11D168AD897544A0244 /* DJMemoryiPad.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DJMemoryiPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B564A11D168AD897544A0244 /* DJMemory.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DJMemory.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,7 +74,7 @@
 		290BE1BADF2F933BCBB07D6C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B564A11D168AD897544A0244 /* DJMemoryiPad.app */,
+				B564A11D168AD897544A0244 /* DJMemory.app */,
 				8A1C9E1CAC02B53A13E4178B /* DJMemoryShareExtension.appex */,
 			);
 			name = Products;
@@ -145,7 +145,7 @@
 				57F1CE4FBAE86586494EBA84 /* DJMemoryCore */,
 			);
 			productName = DJMemoryiPad;
-			productReference = B564A11D168AD897544A0244 /* DJMemoryiPad.app */;
+			productReference = B564A11D168AD897544A0244 /* DJMemory.app */;
 			productType = "com.apple.product-type.application";
 		};
 		3FE1469E8342BBD42F9ECD15 /* DJMemoryShareExtension */ = {
@@ -176,8 +176,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 43D85D944D56A226334B3C23 /* Build configuration list for PBXProject "DJMemory" */;
 			developmentRegion = en;
@@ -234,6 +232,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/DJMemoryShareExtension/DJMemoryShareExtension.entitlements;
+				DEVELOPMENT_TEAM = 3JYK7Q92SF;
 				INFOPLIST_FILE = Apps/DJMemoryShareExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -251,6 +250,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/DJMemoryShareExtension/DJMemoryShareExtension.entitlements;
+				DEVELOPMENT_TEAM = 3JYK7Q92SF;
 				INFOPLIST_FILE = Apps/DJMemoryShareExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -391,7 +391,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJMemoryCompanion/DJMemoryCompanion.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 3JYK7Q92SF;
 				INFOPLIST_FILE = Apps/DJMemoryCompanion/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -410,7 +412,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJMemoryCompanion/DJMemoryCompanion.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 3JYK7Q92SF;
 				INFOPLIST_FILE = Apps/DJMemoryCompanion/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

@@ -11,10 +11,12 @@ struct DJMemoryCompanionApp: App {
     /// Stable identity for OAuth redirects / keychain. Matches Info.plist + Clerk Native Application.
     private static let appBundleID = "app.djmemory.DJMemory.iPad"
     private static let oauthCallbackURL = "\(appBundleID)://callback"
+    private static let clerkPublishableKey = DJMemoryAccountConfiguration.clerkPublishableKey
+    private static var isAccountAuthEnabled: Bool { clerkPublishableKey != nil }
 
     init() {
         // Optional Account auth only — local library/import never depend on Clerk.
-        if let publishableKey = DJMemoryAccountConfiguration.clerkPublishableKey {
+        if let publishableKey = Self.clerkPublishableKey {
             Clerk.configure(
                 publishableKey: publishableKey,
                 options: .init(
@@ -30,7 +32,14 @@ struct DJMemoryCompanionApp: App {
 
     var body: some Scene {
         WindowGroup {
-            CompanionRootView(model: model)
+            rootView
+        }
+    }
+
+    @ViewBuilder
+    private var rootView: some View {
+        if Self.isAccountAuthEnabled {
+            CompanionRootView(model: model, isAccountAuthEnabled: true)
                 .environment(Clerk.shared)
                 .prefetchClerkImages()
                 .onAppear {
@@ -45,6 +54,14 @@ struct DJMemoryCompanionApp: App {
                         }
                         CompanionInbox.drain(into: model)
                     }
+                }
+        } else {
+            CompanionRootView(model: model, isAccountAuthEnabled: false)
+                .onAppear {
+                    CompanionInbox.drain(into: model)
+                }
+                .onOpenURL { _ in
+                    CompanionInbox.drain(into: model)
                 }
         }
     }
