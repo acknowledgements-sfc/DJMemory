@@ -20,7 +20,7 @@ failures** before committing. **Do not re-do these commits.**
 | `ca4e57f` | Buffer app-audio pre-roll so Capture takes start at first signal. |
 | `845fc47` | Watch history folders so late exports still match archived sets. |
 | `99c0d63` | Ingest VirtualDJ plugin JSONL drop files as ImportedTracklists. |
-| `cb2cf1f` | Specify the VirtualDJ plugin JSONL contract and record fleet leave-off. |
+| `17ae83c` | Specify the VirtualDJ plugin JSONL contract and record fleet leave-off. |
 
 `AppModel.swift` was split across the first two commits on purpose: M11b got
 only the `prerollSeconds: startHold + 0.5` hunk; M12 got the history-watcher
@@ -92,7 +92,7 @@ Read AGENTS.md, CONTEXT.md, and HANDOFF-CODEX.md in
 /Users/robcmartin/Documents/Codex/2026-08-06/i-wan/SetCatcher.
 
 Fleet work is already committed locally on main (ca4e57f, 845fc47, 99c0d63,
-plus the docs commit). Do not re-implement or re-commit it. Not pushed unless
+17ae83c). Do not re-implement or re-commit it. Not pushed unless
 git status says otherwise.
 
 Next: M14 Artifact A (C++ VirtualDJ plugin) only if the user asks and SDK
