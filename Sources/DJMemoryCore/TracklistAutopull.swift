@@ -65,7 +65,8 @@ public struct TracklistAutopull {
         setContextStore: SetContextStore,
         archives: [ArchiveMetadata],
         importedTracklists: [ImportedTracklist],
-        setContexts: [SetContext]
+        setContexts: [SetContext],
+        historyMatchWindowSeconds: TimeInterval = LibrarySessionMatcher.captureMatchWindowSeconds
     ) throws -> TracklistAutopullResult {
         guard !historyAppIDs.isEmpty else {
             try? activityLogStore.append(ActivityEvent(
@@ -109,7 +110,11 @@ public struct TracklistAutopull {
                 bookmarkedHistoryURLs: bookmarked,
                 pathResolver: resolver
             )
-            guard let candidate = ingest.bestCandidate(in: directories, near: referenceDate) else {
+            guard let candidate = ingest.bestCandidate(
+                in: directories,
+                near: referenceDate,
+                windowSeconds: historyMatchWindowSeconds
+            ) else {
                 continue
             }
 
