@@ -82,11 +82,16 @@ npm run dev
 
 ### 4. Vercel
 
-From repo root (or `admin/` with Root Directory = `admin`):
+**Required:** Project Settings → General → **Root Directory** = `admin` (project `djmemory-admin`). Git integration clones the whole Swift repo; without this, `next build` runs at the repo root and fails with “Couldn't find any `pages` or `app` directory.”
+
+[`admin/vercel.json`](../admin/vercel.json) sets `ignoreCommand` so pushes that do not touch `admin/` skip the web build.
+
+CLI deploy (fallback when you are not relying on Git auto-deploy) still runs from `admin/`:
 
 ```sh
 cd admin
 npx vercel link   # team: acknowledgements-sfc's projects; project djmemory-admin
+# confirm: npx vercel project inspect djmemory-admin → Root Directory admin
 npx vercel env add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY production
 npx vercel env add CLERK_SECRET_KEY production
 npx vercel env add NEXT_PUBLIC_CLERK_SIGN_IN_URL production   # /sign-in
@@ -95,6 +100,8 @@ npx vercel env add SUPABASE_SERVICE_ROLE_KEY production
 npx vercel env add NEXT_PUBLIC_ACCOUNT_URL production         # https://beatrevival.com
 npx vercel --prod
 ```
+
+Do not leave Root Directory unset and rely on CLI-only deploys — every `main` push will still trigger a broken Git build.
 
 Domains already attached to `djmemory-admin`: `beatrevival.com`, `www.beatrevival.com`.
 
