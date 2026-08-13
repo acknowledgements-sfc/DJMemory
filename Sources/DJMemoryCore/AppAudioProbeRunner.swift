@@ -56,13 +56,32 @@ public enum AppAudioProbeRunner {
                 }
                 print(String(format: "peak: %.4f", peak))
                 if peak > 0.01 {
+                    let recordingStartedAt = Date()
                     try service.beginRecordingFile()
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                     if let result = try service.endRecordingFile(discard: false) {
                         let size = (try? FileManager.default.attributesOfItem(atPath: result.stagingURL.path)[.size] as? NSNumber)?.intValue ?? 0
                         print("staging: \(result.stagingURL.path) bytes=\(size)")
-                        print("PASS meter+write \(chosen.software.id)")
-                        try? FileManager.default.removeItem(at: result.stagingURL)
+                        let session = try ArchiveService().ingestCapture(
+                            stagingURL: result.stagingURL,
+                            deviceID: chosen.matchedBundleIdentifier,
+                            deviceName: "\(chosen.software.displayName) App Audio",
+                            startedAt: recordingStartedAt,
+                            sourceAppID: chosen.software.id
+                        )
+                        guard let archiveURL = session.archiveURL else {
+                            print("ERROR: archive session missing archive URL \(session.id.uuidString)")
+                            return
+                        }
+                        print("archive: \(archiveURL.path)")
+                        print("metadata: \(ArchiveService().metadataURL(for: archiveURL).path)")
+                        let archivedIDs = try SessionLibrary().archivedMetadata().map(\.id)
+                        if archivedIDs.contains(session.id) {
+                            print("library: found \(session.id.uuidString)")
+                        } else {
+                            print("library: missing \(session.id.uuidString)")
+                        }
+                        print("PASS meter+archive \(chosen.software.id)")
                     }
                 } else {
                     print("SILENT_METER — play audio through system output, or use Input device Capture if the mix is hardware-only.")

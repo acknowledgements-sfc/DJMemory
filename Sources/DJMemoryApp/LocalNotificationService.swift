@@ -43,11 +43,11 @@ struct LocalNotificationService {
         center.add(request)
     }
 
-    static func captureStartedBody(displayName: String, at date: Date = Date(), calendar: Calendar = .current) -> String {
+    static func captureStartedBody(displayName _: String, at date: Date = Date(), calendar: Calendar = .current) -> String {
         let components = calendar.dateComponents([.hour, .minute], from: date)
         let hour = components.hour ?? 0
         let minute = components.minute ?? 0
-        return String(format: "Recording started - %02d:%02d from %@", hour, minute, displayName)
+        return String(format: "Recording started - %02d:%02d", hour, minute)
     }
 
     func notifyCaptureStarted(displayName: String, at date: Date = Date()) {

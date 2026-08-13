@@ -16,6 +16,9 @@ Current passing baseline (2026-08-13):
 - `codesign --verify --deep --strict .build/DJMemory.app`: passes.
 - `bash scripts/smoke-app.sh`: packaged app launches, verifies code signature, performs best-effort window detection, and quits cleanly.
 - App audio backend probe: VirtualDJ target armed with default `Process Audio Tap`; forced `DJMEMORY_FORCE_SCK_APP_AUDIO=1` armed with `ScreenCaptureKit`. Meter was silent, so live audio archive verification is still pending.
+- App audio probe update (2026-08-13): `swift run djmemory app-audio-probe` now archives successful metered captures and checks that the new sidecar is visible to `SessionLibrary`. Serato and rekordbox probe attempts at 08:24 had Screen & System Audio Recording preflight `true`, but no shareable DJ app targets were running, so live Process Audio Tap and forced ScreenCaptureKit meter/archive verification remain pending.
+- Capture-start notification format verified by `LocalNotificationServiceTests`: body is `Recording started - HH:MM`.
+- Menu-bar status view now exposes accessibility identifiers for headline/status, last scan, next scan, commands, and archive path (`menuBar.*`) for live-session smoke coverage.
 - `bash scripts/package-beta.sh`: creates a commit-named `.build/distribution/DJMemory-0.1.0-<commit>.zip` + JSON manifest with matching SHA-256; rerun after the final commit for the handoff artifact.
 - `swift run djmemory diagnostics <path>`: writes metadata-only report (counts, paths, activity messages; no track titles/artists).
 - Signing: ad-hoc sandboxed local beta. Notarization: not notarized (Developer ID path gated; see `docs/signing-and-notarization.md`).
@@ -36,7 +39,7 @@ Current passing baseline (2026-08-13):
 | Library search / import UI | Partial | Round 2 imported real CSV/XML via Core store path; in-app NSOpenPanel click not driven. |
 | Real Serato recording folder + history | Pass | Round 2 (see below). |
 | Real rekordbox install + XML/history | Pass | Round 2 (see below). Live in-app Rec UI not used; granted `~/Music/rekordbox/Recorded`. |
-| Menu-bar during live recording session | Blocked | Needs live DJ session. |
+| Menu-bar during live recording session | Pending | `menuBar.*` accessibility identifiers added 2026-08-13; needs live recording session to confirm watching/recording/saving/saved transitions. |
 | Clean-user Gatekeeper / notarized open | Blocked | Ad-hoc only until Developer ID + notarization credentials exist. This Mac has Apple Development only — no Developer ID Application. |
 
 ## Round 2 results (2026-08-09)
@@ -115,7 +118,7 @@ Tester: Rob (internal). macOS 26.6 (25G72). DJMemory `0.1.0` / commit `2d0d4f5`.
 - Unreachable-folder recovery flow end-to-end (move/revoke → Attention → re-choose → clear) in the GUI.
 - Next Scan **Soon** label eye-check in the live UI (activity wait path Pass; label not confirmed).
 - In-app tracklist import via NSOpenPanel + library search click-path.
-- Menu-bar behavior during a live recording session.
+- Menu-bar behavior during a live recording session (`menuBar.*` identifiers now available for smoke coverage).
 - Process Audio Tap live meter + archive verification with Serato and rekordbox.
 - Traktor NML on a machine that has one.
 - Notarized Developer ID build path before broad direct-download distribution (Round 4).
