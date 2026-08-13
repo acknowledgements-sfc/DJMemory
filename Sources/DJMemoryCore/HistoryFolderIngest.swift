@@ -2,7 +2,7 @@ import Foundation
 
 public struct HistoryFolderIngest {
     public static let allowedExtensions: Set<String> = [
-        "csv", "tsv", "txt", "xml", "nml", "m3u", "m3u8", "vdjfolder"
+        "csv", "tsv", "txt", "xml", "nml", "m3u", "m3u8", "vdjfolder", "jsonl"
     ]
 
     public struct Candidate: Equatable, Sendable {

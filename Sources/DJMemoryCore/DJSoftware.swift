@@ -100,10 +100,10 @@ public enum SupportedDJSoftware {
             displayName: "VirtualDJ",
             bundleIdentifiers: ["com.atomixproductions.virtualdj"],
             defaultRecordingPaths: ["~/Documents/VirtualDJ"],
-            defaultHistoryPaths: ["~/Documents/VirtualDJ/History"],
+            defaultHistoryPaths: ["~/Documents/VirtualDJ/History", "~/Documents/VirtualDJ/DJMemoryDrop"],
             integrationDepth: .localControl,
             supportStatus: .partial,
-            notes: "Best candidate for deeper integration via SDK/plugin or Network Control."
+            notes: "Best candidate for deeper integration via SDK/plugin or Network Control. Native plugin (M14) writes JSONL events into ~/Documents/VirtualDJ/DJMemoryDrop."
         ),
         DJSoftware(
             id: "traktor",

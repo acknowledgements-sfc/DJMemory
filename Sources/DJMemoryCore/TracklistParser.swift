@@ -2,6 +2,9 @@ import Foundation
 
 public enum TracklistParserError: Error, Equatable {
     case unreadableText
+    /// A JSONL drop file declared a schema major version newer than this build
+    /// understands (M14 plugin contract).
+    case unsupportedVersion(Int)
 }
 
 public protocol TracklistParser {
@@ -242,17 +245,25 @@ public final class TraktorNMLParser: NSObject, TracklistParser, XMLParserDelegat
 public struct VirtualDJHistoryParser: TracklistParser {
     private let delimitedParser: DelimitedTracklistParser
     private let databaseParser: VirtualDJDatabaseParser
+    private let pluginEventParser: JSONLTracklistParser
 
     public init(
         delimitedParser: DelimitedTracklistParser = DelimitedTracklistParser(),
-        databaseParser: VirtualDJDatabaseParser = VirtualDJDatabaseParser()
+        databaseParser: VirtualDJDatabaseParser = VirtualDJDatabaseParser(),
+        pluginEventParser: JSONLTracklistParser = JSONLTracklistParser()
     ) {
         self.delimitedParser = delimitedParser
         self.databaseParser = databaseParser
+        self.pluginEventParser = pluginEventParser
     }
 
     public func parse(data: Data, sourceName: String = "VirtualDJ History") throws -> [TrackPlay] {
         let extensionName = (sourceName as NSString).pathExtension.lowercased()
+
+        // Native plugin drop-folder events (M14, spec §7).
+        if extensionName == "jsonl" {
+            return try pluginEventParser.parse(data: data, sourceName: sourceName)
+        }
 
         if ["xml", "vdjfolder"].contains(extensionName) {
             let databaseTracks = try databaseParser.parse(data: data, sourceName: sourceName)
