@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Beat Revival — DJMemory",
+  title: "DJMemory — Every set, remembered",
   description:
-    "DJMemory automatically archives DJ set recordings on your Mac. Local-first. Join the beta waitlist.",
+    "DJMemory automatically protects completed DJ set recordings on your Mac and leaves the originals untouched. Join the private beta.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_ACCOUNT_URL ?? "https://beatrevival.com"),
 };
 
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-100`}>
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
           {children}
         </body>
       </html>
