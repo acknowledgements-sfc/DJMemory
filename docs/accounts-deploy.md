@@ -123,6 +123,8 @@ Vercel emails when SSL is ready. Optional: point Hover nameservers to `ns1.verce
 
 Default in [`DJMemoryAccountConfiguration`](../Sources/DJMemoryCore/DJMemoryAccountConfiguration.swift) is `https://beatrevival.com`. Override with `DJMEMORY_ACCOUNT_URL` if needed (e.g. still on `https://djmemory-admin.vercel.app` before DNS completes).
 
+Native Clerk sign-in reads `DJMEMORY_CLERK_PUBLISHABLE_KEY` at launch. Leave it unset to keep Account UI inactive in local/offline builds; local protection, archive, scan, import, and diagnostics export still work.
+
 ### 6. Smoke
 
 - `GET /api/health` → `{ ok: true, … }`
