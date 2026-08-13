@@ -36,6 +36,7 @@ Last updated: August 13, 2026.
 - Arm App audio Capture with Serato on macOS 14.2+ and confirm Process Audio Tap records meter + WAV + archive. Probe command: `swift run djmemory app-audio-probe 8 serato`.
 - Arm App audio Capture with rekordbox on macOS 14.2+ and confirm Process Audio Tap records meter + WAV + archive. Probe command: `swift run djmemory app-audio-probe 8 rekordbox`.
 - Run fallback verification with `DJMEMORY_FORCE_SCK_APP_AUDIO=1` and confirm ScreenCaptureKit still records meter + WAV + archive. Probe command: `DJMEMORY_FORCE_SCK_APP_AUDIO=1 swift run djmemory app-audio-probe 8 serato`.
+- Or run `bash scripts/live-app-audio-check.sh` with Serato and rekordbox open and playing through Mac system output; it fails unless Serato Process Audio Tap, rekordbox Process Audio Tap, and forced Serato ScreenCaptureKit each report `PASS meter+archive`.
 - Confirm the capture-start notification says `Recording started - HH:MM`.
 - Import one supported tracklist file.
 - Search archived sets by filename, app, venue, or matched track text.
