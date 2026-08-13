@@ -37,7 +37,9 @@ never depend on it. Do not add further packages without saying why in the PR des
 - `Tests/DJMemoryCoreTests/`
 - `docs/` — `prd.md`, `research.md`, `integration-status.md`,
   `onboarding-accounts-security.md`, `automation-testing-plan.md`, `user-testing-plan.md`,
-  `beta-release-checklist.md`.
+  `beta-release-checklist.md`, `m14-vdj-plugin-spec.md` (VDJ plugin JSONL contract).
+- `HANDOFF-CODEX.md` — current leave-off for the M11b/M12/M14 fleet (what is committed vs next).
+- `CONTEXT.md` — domain glossary. Prefer those names.
 - `packaging/DJMemory.entitlements`
 
 ## Architecture rules

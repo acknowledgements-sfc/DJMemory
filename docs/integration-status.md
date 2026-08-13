@@ -32,7 +32,7 @@ Locked Mac product paths stay **sandbox-safe**. Community live-deck hacks stay *
 | Serato Twitch Now Playing / Live Playlists | Official cloud | **Do not** use as Capture or default tracklist path |
 | SSL-API (Scratch Live binary) | Community | Research only |
 | Traktor Kontrol D2 QML CSI replacement | Community (patches Traktor.app) | Research only; Pro-oriented; not App Store–safe |
-| VirtualDJ native plugin | SDK | Research (M14) |
+| VirtualDJ native plugin | SDK | Research (M14) — ingest implemented; `.bundle` not started |
 
 See `docs/research.md` for per-app depth and links.
 
@@ -72,6 +72,6 @@ iPad is a **separate** app: no Mac connection; accounts only are shared. On iPad
 | M11b | App audio Capture + silence sessions | Implemented (Serato, rekordbox, djay Pro 2, VirtualDJ, Traktor DJ 2 all verified end-to-end; meter + archive write confirmed for all five 2026-08-12) |
 | M12 | Deeper history + capture match window | Implemented (post-archive autopull + configurable 6h match window + continuous history watcher: FSEvents on history folders, backstop poll, and launch catch-up sweep; late/appended exports auto-ingest and match. Hardware Capture/Pioneer sets match the nearest matchable export from any DJ app within the window; auto-matches upgrade to a closer export while user pins stay sacred) |
 | M13 | VDJ Network Control commands | Partial |
-| M14 | VDJ native plugin | Research |
+| M14 | VDJ native plugin | Research (Artifact B JSONL ingest implemented; Artifact A C++ `.bundle` not started — SDK unverified) |
 | M15 | Opt-in cloud sync settings | Settings flags; off by default |
 | M16 | User-initiated publish pack | Local export only |

@@ -28,7 +28,7 @@ DJMemory ships **App Store–sandbox-safe** paths only for Mac Capture/Protectio
 | Serato Twitch “Now Playing” / Live Playlists cloud | **Research only** — cloud + account; not a Capture dependency |
 | SSL-API (Scratch Live binary reader) | **Research only** — not App Store–safe dependency |
 | Traktor Kontrol D2 QML CSI replacement (ErikMinekus et al.) | **Research only** — patches Traktor.app; Pro-oriented; not sandbox-safe |
-| VirtualDJ native plugin | **Research** (M14) — Network Control remains the Partial path |
+| VirtualDJ native plugin | **Research** (M14) — JSONL ingest (Artifact B) is in Core; the C++ `.bundle` (Artifact A) is not started. Network Control remains the Partial live-control path |
 | Process taps / BlackHole | Out of scope while sandbox is on |
 
 ## Integration Depth By Platform
