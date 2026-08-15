@@ -15,7 +15,7 @@ Last updated: August 15, 2026.
 | VirtualDJ | Supported | File watch + Network Control; App audio Capture verified end-to-end (meter + archive write). Native plugin = Research (M14) |
 | djay Pro | Supported | Documented folders; App audio Capture verified end-to-end on djay Pro 2 (meter + archive write) |
 | DJMemory Capture | Implemented | App audio backend selector prefers Process Audio Tap on macOS 14.2+ and falls back to ScreenCaptureKit; ScreenCaptureKit verified end-to-end on Serato, rekordbox, djay Pro 2, VirtualDJ, Traktor DJ 2; Input device (Core Audio); silence session split |
-| Pioneer Hardware | Manual Setup | USB PIONEERREC / RECxxx.WAV watch. Laptop + XDJ-XZ USB Input Capture is implemented (auto-select + unattended silence takes + Library linking) and stays Manual Setup until Phase 1–2 external verification — see `docs/pioneer-hardware-setup.md`. |
+| Pioneer Hardware | Manual Setup | USB PIONEERREC / RECxxx.WAV watch. Laptop + XDJ-XZ USB Input Capture: **dev-bench 15 Aug 2026** saw Core Audio `name` `XDJ-XZ` (manufacturer `AlphaTheta Corporation`, UID `USBAudioDevice:AlphaTheta Corporation:XDJ-XZ (2):1110000`), archived a 24-bit/48 kHz stereo WAV via `ingestCapture`, and grouped overlapping Serato + Capture as one Library session. Later the same day the XZ was still present and HAL bind (`setDeviceID`) is in the rebuilt app. **dev operator; Supported not flipped.** Meter-with-master, unplug, and mic-denied still need an operator, then a non-dev pass. See `docs/pioneer-hardware-setup.md`. |
 
 ## Source map (official vs community / sandbox-safe vs research)
 
@@ -34,6 +34,7 @@ Locked Mac product paths stay **sandbox-safe**. Community live-deck hacks stay *
 | SSL-API (Scratch Live binary) | Community | Research only |
 | Traktor Kontrol D2 QML CSI replacement | Community (patches Traktor.app) | Research only; Pro-oriented; not App Store–safe |
 | VirtualDJ native plugin | SDK | Research (M14) — ingest implemented; `.bundle` scaffold compiles against public SDK, but did not load in VirtualDJ 2026 under tester's current license tier (2026-08-13 live probe) — Pro-tier license retest needed |
+| PRO DJ LINK unofficial clients (`prolink-connect` / `alphatheta-connect` / beat-link) | Community reverse-engineering | **Research only.** Official Certified Bridge = lighting/video, not applicable. 8 Aug 2026 advisory: do not join that network until AlphaTheta’s fix is reviewed |
 
 See `docs/research.md` for per-app depth and links.
 

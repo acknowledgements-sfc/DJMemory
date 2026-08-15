@@ -1,6 +1,6 @@
 # Research Notes
 
-Last checked: August 10, 2026.
+Last checked: August 15, 2026.
 
 ## Competitor: Serauto
 
@@ -28,6 +28,7 @@ DJMemory ships **App Store–sandbox-safe** paths only for Mac Capture/Protectio
 | Serato Twitch “Now Playing” / Live Playlists cloud | **Research only** — cloud + account; not a Capture dependency |
 | SSL-API (Scratch Live binary reader) | **Research only** — not App Store–safe dependency |
 | Traktor Kontrol D2 QML CSI replacement (ErikMinekus et al.) | **Research only** — patches Traktor.app; Pro-oriented; not sandbox-safe |
+| PRO DJ LINK unofficial clients (`prolink-connect`, `alphatheta-connect`, beat-link) | **Research only** — reverse-engineered LAN join, pcap, NFS USB/SD; not sandbox-safe; AlphaTheta 8 Aug 2026 advisory is a hard stop on joining that network |
 | VirtualDJ native plugin | **Research** (M14) — JSONL ingest (Artifact B) is in Core; the C++ `.bundle` (Artifact A) is not started. Network Control remains the Partial live-control path |
 | Process taps / BlackHole | Out of scope while sandbox is on |
 
@@ -73,6 +74,43 @@ MVP / product integration:
 - Read exported XML/history artifacts when available.
 - Detect rekordbox running (`com.pioneerdj.rekordboxdj` / `com.pioneerdj.rekordbox`) and prompt for recording folder.
 - App audio Capture: shareable + arm OK; raise to verified only after live meter + archive PASS.
+
+### PRO DJ LINK (Pioneer/AlphaTheta hardware)
+
+Research labeling only — not a capture or tracklist product path. The laptop + USB dual-route
+(Folder Protection + Input Capture) already covers the XDJ-XZ bench.
+
+Official surfaces:
+
+- [AlphaTheta Certified](https://www.pioneerdj.com/en/landing/alphatheta-certified/) is HID
+  (Serato/Traktor/djay controlling players), DVS, and licensed **PRO DJ LINK Bridge** for
+  lighting/video. DJMemory is none of those. Honest line: we protect what reaches the Mac over USB
+  and folders. Do not say “Pioneer certified” or “PRO DJ LINK compatible.”
+- [AlphaTheta support](https://support.alphatheta.com/en-US) — XZ firmware, rekordbox 6/7, USB/HID,
+  MASTER REC.
+
+Community (research only):
+
+- [prolink-connect](https://github.com/evanpurkhiser/prolink-connect) — virtual CDJ on the LAN;
+  player status and metadata from rekordbox USB/SD. Fails if rekordbox is already running on the same
+  Mac. Device IDs 1–6 steal a CDJ slot.
+- [alphatheta-connect](https://github.com/chrisle/alphatheta-connect) — fork used by Now Playing.
+  All-in-ones need **pcap passive mode** (no normal virtual CDJ). XZ USB1 maps as SD / USB2 as USB;
+  no `mediaSlot` broadcasts; NFS fetch of `export.pdb`. Stagehand mode can remote-control decks. That
+  is live-deck telemetry and control, not set protection.
+- beat-link and similar virtual-CDJ / pcap stacks sit on the same reverse-engineered surface.
+
+Hard stop: [8 Aug 2026 PRO DJ LINK advisory](https://alphatheta.com/en/information/important-notice-security-vulnerability-in-pro-dj-link/).
+Unpatched, a third party on a PRO DJ LINK network may view data on the Mac **or** on USB/SD in a
+CDJ/XDJ. Do not ship, prototype, or bench a PRO DJ LINK joiner until AlphaTheta’s fix is out and
+reviewed.
+
+Why this is not the USB dual-route: USB-B on the XZ is audio and HID to the computer; LINK Ethernet
+is rekordbox library sharing, CDJs on channels 3/4, and lighting/video. Live now-playing from the
+link would only help standalone USB-stick / CDJ booths where the Mac is out of the audio path
+(already Manual Setup / Research). XZ all-in-one pcap/NFS quirks are why even a future official path
+is not Route A/B. Tracklists stay on local history export + match; scraping USB/SD over the link is
+the opposite of that default. `DJMemoryCore` stays platform-SDK-only (no Node/Java protocol stack).
 
 ### djay Pro
 
@@ -150,4 +188,4 @@ The wedge is not "another recorder." It is "never lose a set again":
 - App audio Capture uses **ScreenCaptureKit** (not a virtual cable). Exclusive hardware routing that never hits Mac system audio yields silence — fall back to Input device Capture or folder Protection.
 - App Store review: stay off private APIs, UI automation of other apps, and patched DJ-app bundles.
 - Streaming-service recording restrictions may create policy/legal constraints. Preserve user recordings but avoid bypassing DRM or app limitations.
-- Live-metadata community hacks (Traktor QML, SSL binary, Twitch Live Playlist) conflict with sandbox / local-first defaults — keep as research until product explicitly drops sandbox or opts into cloud.
+- Live-metadata community hacks (Traktor QML, SSL binary, Twitch Live Playlist, PRO DJ LINK unofficial clients) conflict with sandbox / local-first defaults — keep as research until product explicitly drops sandbox or opts into cloud. Do not join a PRO DJ LINK network until AlphaTheta’s 8 Aug 2026 advisory is closed.

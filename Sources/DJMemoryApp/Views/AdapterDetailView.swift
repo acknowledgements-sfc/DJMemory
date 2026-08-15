@@ -80,7 +80,7 @@ struct AdapterDetailView: View {
                     Panel(title: "Supported hardware", padding: 12) {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(SupportedHardware.all) { profile in
-                                Text("\(profile.displayName) — \(profile.needsMixerForMaster ? "needs mixer for master" : profile.hardwareClass == .mixer ? "USB Capture" : "USB MASTER REC")")
+                                Text("\(profile.displayName) — \(profile.adapterListCaption)")
                                     .font(.system(size: DJToken.TypeSize.secondary))
                                     .foregroundStyle(DJToken.mutedForeground)
                             }

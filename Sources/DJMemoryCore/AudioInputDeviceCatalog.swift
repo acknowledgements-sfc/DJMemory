@@ -33,7 +33,27 @@ public enum AudioInputDeviceCatalog {
         devices.first(where: \.isLikelyPioneerDJHardware) ?? devices.first
     }
 
+    /// Core Audio object ID for a device UID, or nil when it is not an input that currently exists.
+    public static func audioDeviceID(forUID uid: String) -> AudioDeviceID? {
+        guard !uid.isEmpty else { return nil }
+        return hardwareDeviceIDs().first { deviceID in
+            inputChannelCount(deviceID) > 0
+                && cfStringProperty(deviceID, kAudioDevicePropertyDeviceUID) == uid
+        }
+    }
+
     private static func coreAudioInputDevices() -> [AudioInputDevice] {
+        hardwareDeviceIDs().compactMap { deviceID in
+            guard inputChannelCount(deviceID) > 0 else { return nil }
+            let uid = cfStringProperty(deviceID, kAudioDevicePropertyDeviceUID)
+            guard !uid.isEmpty else { return nil }
+            let name = cfStringProperty(deviceID, kAudioObjectPropertyName)
+            let manufacturer = cfStringProperty(deviceID, kAudioObjectPropertyManufacturer)
+            return AudioInputDevice(id: uid, name: name, manufacturer: manufacturer)
+        }
+    }
+
+    private static func hardwareDeviceIDs() -> [AudioDeviceID] {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -50,15 +70,7 @@ public enum AudioInputDeviceCatalog {
         guard AudioObjectGetPropertyData(systemObject, &address, 0, nil, &dataSize, &ids) == noErr else {
             return []
         }
-
-        return ids.compactMap { deviceID in
-            guard inputChannelCount(deviceID) > 0 else { return nil }
-            let uid = cfStringProperty(deviceID, kAudioDevicePropertyDeviceUID)
-            guard !uid.isEmpty else { return nil }
-            let name = cfStringProperty(deviceID, kAudioObjectPropertyName)
-            let manufacturer = cfStringProperty(deviceID, kAudioObjectPropertyManufacturer)
-            return AudioInputDevice(id: uid, name: name, manufacturer: manufacturer)
-        }
+        return ids
     }
 
     private static func inputChannelCount(_ deviceID: AudioDeviceID) -> Int {

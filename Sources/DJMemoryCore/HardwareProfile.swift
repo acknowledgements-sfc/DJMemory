@@ -22,6 +22,25 @@ public struct HardwareProfile: Identifiable, Codable, Equatable, Sendable {
         self.usbRecFolderHint = usbRecFolderHint
         self.needsMixerForMaster = needsMixerForMaster
     }
+
+    /// One-line caption for the Pioneer Hardware adapter list.
+    /// XDJ-XZ is laptop + USB Input Capture; MASTER REC is the fallback, not the verified path.
+    public var adapterListCaption: String {
+        if needsMixerForMaster {
+            return "needs mixer for master"
+        }
+        switch hardwareClass {
+        case .mixer:
+            return "USB Capture"
+        case .player:
+            return "needs mixer for master"
+        case .allInOne:
+            if id == "xdj-xz" {
+                return "laptop + USB / Input Capture"
+            }
+            return "USB MASTER REC"
+        }
+    }
 }
 
 public enum SupportedHardware {

@@ -25,4 +25,17 @@ final class HardwareProfileTests: XCTestCase {
         XCTAssertTrue(hint.contains("Input Capture"))
         XCTAssertTrue(hint.contains("PIONEERREC"))
     }
+
+    func testXDJXZAdapterListCaptionIsLaptopUSBNotMasterRec() {
+        XCTAssertEqual(
+            SupportedHardware.profile(id: "xdj-xz")?.adapterListCaption,
+            "laptop + USB / Input Capture"
+        )
+        XCTAssertFalse((SupportedHardware.profile(id: "xdj-xz")?.adapterListCaption ?? "").contains("USB MASTER REC"))
+        XCTAssertEqual(SupportedHardware.profile(id: "xdj-rx2")?.adapterListCaption, "USB MASTER REC")
+        XCTAssertEqual(SupportedHardware.profile(id: "xdj-rx3")?.adapterListCaption, "USB MASTER REC")
+        XCTAssertEqual(SupportedHardware.profile(id: "xdj-az")?.adapterListCaption, "USB MASTER REC")
+        XCTAssertEqual(SupportedHardware.profile(id: "cdj-3000")?.adapterListCaption, "needs mixer for master")
+        XCTAssertEqual(SupportedHardware.profile(id: "djm-v10")?.adapterListCaption, "USB Capture")
+    }
 }

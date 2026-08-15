@@ -79,6 +79,8 @@ public final class CaptureService: @unchecked Sendable {
         if status != .authorized { throw CaptureServiceError.permissionDenied }
 
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+        try bindEngineInput(to: device)
+
         let inputNode = engine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
@@ -122,8 +124,9 @@ public final class CaptureService: @unchecked Sendable {
         do {
             newAudioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
         } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) { throw CaptureServiceError.diskFull }
+            if Self.isDiskFullError(error, stagingDirectory: stagingDirectory) {
+                throw CaptureServiceError.diskFull
+            }
             throw CaptureServiceError.engineFailed(error.localizedDescription)
         }
         let destinationFormat = newAudioFile.processingFormat
@@ -199,6 +202,36 @@ public final class CaptureService: @unchecked Sendable {
     public func currentInputLevel() -> Float {
         levelLock.lock(); defer { levelLock.unlock() }
         return inputLevel
+    }
+
+    /// AVAudioEngine's input node follows the system default unless we pin the device.
+    private func bindEngineInput(to device: AudioInputDevice) throws {
+        guard let coreAudioID = AudioInputDeviceCatalog.audioDeviceID(forUID: device.id) else {
+            throw CaptureServiceError.deviceMissing
+        }
+        if engine.isRunning {
+            engine.stop()
+        }
+        do {
+            try engine.inputNode.auAudioUnit.setDeviceID(coreAudioID)
+        } catch {
+            throw CaptureServiceError.engineFailed("Could not select \(device.name): \(error.localizedDescription)")
+        }
+    }
+
+    private static func isDiskFullError(_ error: Error, stagingDirectory: URL) -> Bool {
+        var current: NSError? = error as NSError
+        var seen: Set<Int> = []
+        while let ns = current, seen.insert(ns.hash).inserted {
+            if ns.domain == NSPOSIXErrorDomain && ns.code == Int(ENOSPC) { return true }
+            if ns.domain == NSCocoaErrorDomain && ns.code == NSFileWriteOutOfSpaceError { return true }
+            current = ns.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        if let capacity = try? stagingDirectory.resourceValues(forKeys: [.volumeAvailableCapacityKey]).volumeAvailableCapacity,
+           capacity < 4096 {
+            return true
+        }
+        return false
     }
 
     private func writeConverted(_ buffer: AVAudioPCMBuffer) {

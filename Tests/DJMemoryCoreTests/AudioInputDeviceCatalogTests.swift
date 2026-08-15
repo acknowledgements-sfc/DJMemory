@@ -29,6 +29,17 @@ final class AudioInputDeviceCatalogTests: XCTestCase {
         XCTAssertEqual(AudioInputDeviceCatalog.preferredDefault(from: [mic, xz])?.id, "xz")
         XCTAssertEqual(AudioInputDeviceCatalog.preferredDefault(from: [mic])?.id, "mic")
     }
+
+    func testUnknownUIDDoesNotResolveToAudioDeviceID() {
+        XCTAssertNil(AudioInputDeviceCatalog.audioDeviceID(forUID: ""))
+        XCTAssertNil(AudioInputDeviceCatalog.audioDeviceID(forUID: "djmemory-missing-uid-\(UUID().uuidString)"))
+    }
+
+    func testListedInputUIDsResolveToAudioDeviceIDs() {
+        for device in AudioInputDeviceCatalog.listInputs() {
+            XCTAssertNotNil(AudioInputDeviceCatalog.audioDeviceID(forUID: device.id), device.id)
+        }
+    }
 }
 
 final class DualRoutePolicyTests: XCTestCase {
