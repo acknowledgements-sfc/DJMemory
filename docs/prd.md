@@ -1,5 +1,7 @@
 # PRD: DJMemory macOS App
 
+> **Historical master PRD and milestone record.** For the current product strategy, private-beta requirements, feature inventory, and release boundaries, start with [`docs/product/README.md`](product/README.md). This file is preserved for implementation history and earlier decisions.
+
 Last updated: August 9, 2026.
 
 ## One-Line Pitch

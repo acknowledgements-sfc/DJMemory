@@ -6,9 +6,9 @@ The first scaffold is intentionally small:
 
 - a Swift core package for software detection and adapter modeling
 - a CLI probe for local discovery
-- research notes and a PRD in `docs/`
+- current product strategy and beta PRD in `docs/product/`, with research and historical milestone documentation in `docs/`
 
-## Run
+## Run  
 
 ```bash
 swift run djmemory probe
