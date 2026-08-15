@@ -33,7 +33,7 @@ Locked Mac product paths stay **sandbox-safe**. Community live-deck hacks stay *
 | Serato Twitch Now Playing / Live Playlists | Official cloud | **Do not** use as Capture or default tracklist path |
 | SSL-API (Scratch Live binary) | Community | Research only |
 | Traktor Kontrol D2 QML CSI replacement | Community (patches Traktor.app) | Research only; Pro-oriented; not App Store–safe |
-| VirtualDJ native plugin | SDK | Research (M14) — ingest implemented; `.bundle` not started |
+| VirtualDJ native plugin | SDK | Research (M14) — ingest implemented; `.bundle` scaffold compiles against public SDK, but did not load in VirtualDJ 2026 under tester's current license tier (2026-08-13 live probe) — Pro-tier license retest needed |
 
 See `docs/research.md` for per-app depth and links.
 
@@ -91,7 +91,7 @@ iPad is a **separate** app: no Mac connection; accounts only are shared. On iPad
 | M11b | App audio Capture + silence sessions | Implemented (Serato, rekordbox, djay Pro 2, VirtualDJ, Traktor DJ 2 all verified end-to-end; meter + archive write confirmed for all five 2026-08-12) |
 | M12 | Deeper history + capture match window | Implemented (post-archive autopull + configurable 6h match window + continuous history watcher: FSEvents on history folders, backstop poll, and launch catch-up sweep; late/appended exports auto-ingest and match. Hardware Capture/Pioneer sets match the nearest matchable export from any DJ app within the window; auto-matches upgrade to a closer export while user pins stay sacred) |
 | M13 | VDJ Network Control commands | Partial |
-| M14 | VDJ native plugin | Research (Artifact B JSONL ingest implemented; Artifact A C++ `.bundle` not started — SDK unverified) |
+| M14 | VDJ native plugin | Research (Artifact B JSONL ingest implemented and unit-tested; Artifact A C++ `.bundle` scaffold exists in `docs/virtualdj-plugin-scaffold/` and compiles against the public VDJ8 SDK — no download/registration blocker. Live probe 2026-08-13: plugin did not load under tester's current VirtualDJ license tier; VirtualDJ's own guidance suggests Pro licensing may be required. Next step: retest plugin load with a Pro-tier license, then live-verify getter strings and on-air signal) |
 | M15 | Opt-in cloud sync settings | Settings flags; off by default |
 | M16 | User-initiated publish pack | Local export only |
 | M17 | Process Audio Tap Capture | Implemented and live-verified (Serato, rekordbox 6, rekordbox 7, plus ScreenCaptureKit fallback) |
