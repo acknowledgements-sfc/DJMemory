@@ -70,3 +70,9 @@ Then copy the zip to a clean Mac (Downloads), open it, and confirm Gatekeeper al
 ## Sandbox
 
 Keep `packaging/DJMemory.entitlements` sandbox posture enabled for beta and App Store later. Hardened runtime is added only on the Developer ID path (`--options runtime --timestamp`).
+
+### Process Audio Tap entitlement (resolved 2026-08-13)
+
+`com.apple.security.system-audio-capture` is **not** a documented Apple entitlement — it does not exist in Apple's Entitlement Key Reference or the Core Audio Process Tap (`AudioHardwareCreateProcessTap`) documentation. Do not add it to the entitlements file; no signing change is required for Process Audio Tap before Developer ID distribution.
+
+The real risk to watch during Developer ID + notarized testing is that Core Audio Process Taps are reported elsewhere as fragile under `com.apple.security.app-sandbox`. We keep the sandbox entitlement enabled (required for Mac App Store later), so if live verification on a Developer ID–signed build shows Process Audio Tap failing where the ad-hoc build succeeded, suspect the sandbox rather than a missing entitlement — the ScreenCaptureKit backend is the confirmed working fallback either way.

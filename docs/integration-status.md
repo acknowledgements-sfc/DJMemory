@@ -9,8 +9,8 @@ Last updated: August 13, 2026.
 
 | App | Status | Current Support |
 | --- | --- | --- |
-| Serato DJ Pro | Supported | Recording folder, history import; App audio Capture verified (ScreenCaptureKit); Process Audio Tap implemented, needs live meter + archive verification |
-| rekordbox | Supported | Manual recording folder, XML Bridge / history import; App audio Capture verified end-to-end (ScreenCaptureKit meter + archive write); Process Audio Tap implemented, needs live meter + archive verification |
+| Serato DJ Pro | Supported | Recording folder, history import; App audio Capture verified end-to-end on both backends (Process Audio Tap meter + archive write; ScreenCaptureKit fallback meter + archive write) |
+| rekordbox | Supported | Manual recording folder, XML Bridge / history import; App audio Capture verified end-to-end on rekordbox 6 and rekordbox 7 via Process Audio Tap (meter + archive write); ScreenCaptureKit already verified end-to-end |
 | Traktor | Supported | Recordings + NML; App audio Capture verified end-to-end on Traktor DJ 2 (meter + archive write). Pro QML CSI live API = Research only |
 | VirtualDJ | Supported | File watch + Network Control; App audio Capture verified end-to-end (meter + archive write). Native plugin = Research (M14) |
 | djay Pro | Supported | Documented folders; App audio Capture verified end-to-end on djay Pro 2 (meter + archive write) |
@@ -23,7 +23,7 @@ Locked Mac product paths stay **sandbox-safe**. Community live-deck hacks stay *
 
 | Source | Kind | Use in DJMemory |
 | --- | --- | --- |
-| Process Audio Tap | Platform SDK | Preferred App audio Capture backend on macOS 14.2+; live verification pending |
+| Process Audio Tap | Platform SDK | Preferred App audio Capture backend on macOS 14.2+; live-verified end-to-end (Serato, rekordbox 6, rekordbox 7) |
 | ScreenCaptureKit App audio | Platform SDK | Product Capture |
 | Folder Protection + bookmarks | Product | Copy-only archive |
 | Local history CSV / XML / NML | Official exports + documented folders | Import + autopull |
@@ -68,12 +68,18 @@ Local verify (2026-08-12) — write-path bug found and fixed:
 Implementation update (2026-08-13):
 
 - `AppAudioCaptureService` now selects a backend: Process Audio Tap first on macOS 14.2+ unless `DJMEMORY_FORCE_SCK_APP_AUDIO=1`, then ScreenCaptureKit fallback. The Process Audio Tap service creates a private Core Audio tap with `CATapDescription`, attaches it to a private aggregate device, meters/writes PCM through the shared 24-bit / 48 kHz WAV path, and destroys the tap/device on stop or failed arm.
-- Packaging check: `scripts/build-app.sh` already writes `NSAudioCaptureUsageDescription`. Local SDK/header search did **not** confirm a public `com.apple.security.system-audio-capture` entitlement; keep this as a Developer ID/App Store review item until Apple documents a required entitlement or signing failure proves it.
+- Packaging check: `scripts/build-app.sh` already writes `NSAudioCaptureUsageDescription`. **Resolved (2026-08-13):** `com.apple.security.system-audio-capture` is not a real/documented Apple entitlement — it does not appear in Apple's Entitlement Key Reference, the CoreAudio/`AudioHardwareCreateProcessTap` docs, or App Sandbox docs, and no header/SDK search or public developer report confirms it exists. Do not add it to `packaging/DJMemory.entitlements`. The actual known risk for Process Audio Tap under Developer ID/App Store is different: independent reports (e.g. community writeups building CATap-based capture tools in 2026) describe CATap behavior as **fragile under App Sandbox** and disable `com.apple.security.app-sandbox` entirely for their sandboxed-unsafe builds, relying instead on `NSAudioCaptureUsageDescription` + a properly signed (not ad-hoc) binary to trigger the TCC prompt. Our entitlements file currently keeps `com.apple.security.app-sandbox = true` (required for Mac App Store distribution later) — this is the item to watch: if Process Audio Tap misbehaves under Developer ID + sandbox in live testing or on a clean Mac, the fallback is confirmed working (ScreenCaptureKit backend), not a missing entitlement. No entitlement change is needed before Developer ID signing.
 - Local probe: VirtualDJ was the only running target. Default backend reported `backend: Process Audio Tap` and forced fallback reported `backend: ScreenCaptureKit`; both armed and cleaned up. Meter was silent, so live meter + archive verification remains pending.
 - Probe update (2026-08-13): `swift run djmemory app-audio-probe <seconds> <softwareID>` and `.build/DJMemory.app/Contents/MacOS/DJMemory --app-audio-probe <seconds> <softwareID>` now archive successful metered captures through `ArchiveService.ingestCapture`, print archive + metadata paths, and confirm the new session appears in `SessionLibrary`.
 - `scripts/live-app-audio-check.sh` runs the required Serato Process Audio Tap, rekordbox Process Audio Tap, and forced Serato ScreenCaptureKit probes; it exits nonzero unless each reports `PASS meter+archive`.
 - Local attempt (2026-08-13 08:24): Serato and rekordbox probe attempts reported Screen & System Audio Recording preflight `true`, then `targets: (none)` because no shareable DJ app target was running. Forced `DJMEMORY_FORCE_SCK_APP_AUDIO=1` produced the same target-discovery result.
 - Live verification still required: open Serato and rekordbox, play real audio through Mac system output, then run `.build/DJMemory.app/Contents/MacOS/DJMemory --app-audio-probe <seconds> serato` and `rekordbox` without `DJMEMORY_FORCE_SCK_APP_AUDIO=1`; confirm backend `Process Audio Tap`, meter, staging WAV, archive write, and Library visibility. Repeat one forced `DJMEMORY_FORCE_SCK_APP_AUDIO=1` fallback check and confirm backend `ScreenCaptureKit`.
+- **Live verification complete (2026-08-14):** ran `swift run djmemory app-audio-probe 8 <id>` with real playback in each app.
+  - Serato DJ Pro — Process Audio Tap: `PASS meter+archive serato`, peak 1.0, archive + Library entry confirmed.
+  - rekordbox 6 — Process Audio Tap: `PASS meter+archive rekordbox`, peak 0.096, archive + Library entry confirmed. (rekordbox 6 and 7 share bundle ID `com.pioneerdj.rekordboxdj`, so only one instance was run at a time.)
+  - rekordbox 7 — Process Audio Tap: `PASS meter+archive rekordbox`, peak 0.076, archive + Library entry confirmed, with rekordbox 6 fully quit beforehand.
+  - Serato DJ Pro — forced `DJMEMORY_FORCE_SCK_APP_AUDIO=1` ScreenCaptureKit fallback: `PASS meter+archive serato`, backend confirmed `ScreenCaptureKit`, peak 1.0, archive + Library entry confirmed.
+  - M17 Process Audio Tap live verification is now done; no further live-audio verification blocking beta.
 
 Do **not** start Traktor QML injection, SSL-API, or Twitch Live Playlist integration in the sandboxed Mac app.
 
@@ -88,4 +94,4 @@ iPad is a **separate** app: no Mac connection; accounts only are shared. On iPad
 | M14 | VDJ native plugin | Research (Artifact B JSONL ingest implemented; Artifact A C++ `.bundle` not started — SDK unverified) |
 | M15 | Opt-in cloud sync settings | Settings flags; off by default |
 | M16 | User-initiated publish pack | Local export only |
-| M17 | Process Audio Tap Capture | Implemented in code; live Serato/rekordbox verification pending |
+| M17 | Process Audio Tap Capture | Implemented and live-verified (Serato, rekordbox 6, rekordbox 7, plus ScreenCaptureKit fallback) |
