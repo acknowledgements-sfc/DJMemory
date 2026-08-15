@@ -11,6 +11,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             UNUserNotificationCenter.current().delegate = self
         }
 
+        // Menu-bar-only launches skip the Dock/activation entirely — the app stays
+        // an accessory until the user explicitly opens the main window.
+        let menuBarOnly = (try? AppSettingsStore().load())?.menuBarOnly ?? true
+        guard !menuBarOnly else {
+            NSApp.setActivationPolicy(.accessory)
+            // SwiftUI's WindowGroup still opens a window on launch; close it so the
+            // app truly starts in the menu bar only, until the user asks for it.
+            DispatchQueue.main.async {
+                NSApp.windows.forEach { $0.close() }
+            }
+            return
+        }
+
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -82,7 +95,7 @@ struct DJMemoryApplication: App {
         MenuBarExtra {
             menuBarView
         } label: {
-            Image(systemName: model.protectionSymbolName)
+            MenuBarIconView(state: model.menuBarState)
         }
     }
 

@@ -21,6 +21,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let cloudSyncEnabled: Bool
     public let cloudArchiveBackupEnabled: Bool
     public let autoArmOnDJAppFound: Bool
+    public let menuBarOnly: Bool
+    public let showFolderScanDetailsInMenuBar: Bool
 
     public init(
         automaticScanningEnabled: Bool = true,
@@ -40,7 +42,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         appAudioEnergyThreshold: Float = 0.02,
         cloudSyncEnabled: Bool = false,
         cloudArchiveBackupEnabled: Bool = false,
-        autoArmOnDJAppFound: Bool = true
+        autoArmOnDJAppFound: Bool = true,
+        menuBarOnly: Bool = true,
+        showFolderScanDetailsInMenuBar: Bool = false
     ) {
         self.automaticScanningEnabled = automaticScanningEnabled
         self.scanIntervalSeconds = scanIntervalSeconds
@@ -60,6 +64,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.cloudSyncEnabled = cloudSyncEnabled
         self.cloudArchiveBackupEnabled = cloudArchiveBackupEnabled
         self.autoArmOnDJAppFound = autoArmOnDJAppFound
+        self.menuBarOnly = menuBarOnly
+        self.showFolderScanDetailsInMenuBar = showFolderScanDetailsInMenuBar
     }
 
     public static let `default` = AppSettings()
@@ -80,6 +86,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case lastCaptureDeviceID, captureMode, lastCaptureTargetAppID
         case appAudioIdleSeconds, appAudioMinDurationSeconds, appAudioEnergyThreshold
         case cloudSyncEnabled, cloudArchiveBackupEnabled, autoArmOnDJAppFound
+        case menuBarOnly, showFolderScanDetailsInMenuBar
     }
 
     public init(from decoder: Decoder) throws {
@@ -102,6 +109,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         cloudSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .cloudSyncEnabled) ?? false
         cloudArchiveBackupEnabled = try c.decodeIfPresent(Bool.self, forKey: .cloudArchiveBackupEnabled) ?? false
         autoArmOnDJAppFound = try c.decodeIfPresent(Bool.self, forKey: .autoArmOnDJAppFound) ?? true
+        menuBarOnly = try c.decodeIfPresent(Bool.self, forKey: .menuBarOnly) ?? true
+        showFolderScanDetailsInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showFolderScanDetailsInMenuBar) ?? false
     }
 
     public func updating(
@@ -122,7 +131,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         appAudioEnergyThreshold: Float? = nil,
         cloudSyncEnabled: Bool? = nil,
         cloudArchiveBackupEnabled: Bool? = nil,
-        autoArmOnDJAppFound: Bool? = nil
+        autoArmOnDJAppFound: Bool? = nil,
+        menuBarOnly: Bool? = nil,
+        showFolderScanDetailsInMenuBar: Bool? = nil
     ) -> AppSettings {
         AppSettings(
             automaticScanningEnabled: automaticScanningEnabled ?? self.automaticScanningEnabled,
@@ -142,7 +153,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
             appAudioEnergyThreshold: appAudioEnergyThreshold ?? self.appAudioEnergyThreshold,
             cloudSyncEnabled: cloudSyncEnabled ?? self.cloudSyncEnabled,
             cloudArchiveBackupEnabled: cloudArchiveBackupEnabled ?? self.cloudArchiveBackupEnabled,
-            autoArmOnDJAppFound: autoArmOnDJAppFound ?? self.autoArmOnDJAppFound
+            autoArmOnDJAppFound: autoArmOnDJAppFound ?? self.autoArmOnDJAppFound,
+            menuBarOnly: menuBarOnly ?? self.menuBarOnly,
+            showFolderScanDetailsInMenuBar: showFolderScanDetailsInMenuBar ?? self.showFolderScanDetailsInMenuBar
         )
     }
 }

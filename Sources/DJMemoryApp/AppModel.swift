@@ -4,6 +4,12 @@ import ServiceManagement
 import DJMemoryCore
 import UniformTypeIdentifiers
 
+/// Outcome of the most recently finished capture, for the menu bar's "previous capture" row.
+enum LastCaptureOutcome: Equatable {
+    case success(sessionID: UUID)
+    case failed(String)
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var probeResults: [SoftwareProbeResult] = []
@@ -30,8 +36,20 @@ final class AppModel: ObservableObject {
     @Published private(set) var profile = DJProfile()
     /// True when macOS registered the login item but still needs Login Items approval.
     @Published private(set) var launchAtLoginNeedsApproval = false
-    @Published private(set) var captureState = CaptureUIState()
+    @Published private(set) var captureState = CaptureUIState() {
+        didSet { handleCaptureStateChange(from: oldValue) }
+    }
     @Published private(set) var virtualDJNetworkCommandResult: VirtualDJNetworkCommandResult?
+
+    // MARK: Menu bar state
+    /// True briefly after launch while background services spin up; drives the flashing menu bar icon.
+    @Published private(set) var isLaunchingForMenuBar = true
+    /// Set when a capture just finished archiving; the menu bar shows "SAVED" until this passes.
+    @Published private(set) var justSavedUntil: Date?
+    @Published private(set) var recordingStartedAt: Date?
+    @Published private(set) var lastCaptureOutcome: LastCaptureOutcome?
+    private var savedFlashTask: Task<Void, Never>?
+    private static let savedFlashDuration: TimeInterval = 5
 
     /// Optional account license snapshot. Nil when signed out or unreachable — local features stay full.
     @Published private(set) var accountLicenseSummary: String?
@@ -162,6 +180,11 @@ final class AppModel: ObservableObject {
         // Launch catch-up: heal any set whose history export landed while the
         // app was closed, before the user ever looks at the library.
         ingestHistoryNow()
+
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run { self?.isLaunchingForMenuBar = false }
+        }
     }
 
     deinit {
@@ -207,6 +230,142 @@ final class AppModel: ObservableObject {
 
     var headlineStatus: String {
         protectionState.headline
+    }
+
+    /// Compact warning shown in the menu bar regardless of the "show folder scan details" setting.
+    var folderHealthWarning: String? {
+        guard protectionState == .attentionNeeded else { return nil }
+        let unreachableCount = folderAccesses.filter { access in
+            access.kind == .recordings && !folderAccessStore.isReachable(access)
+        }.count
+        guard unreachableCount > 0 else { return nil }
+        return "\(unreachableCount) folder\(unreachableCount == 1 ? "" : "s") unreachable"
+    }
+
+    // MARK: Menu bar
+
+    var menuBarState: MenuBarState {
+        if isLaunchingForMenuBar { return .launching }
+        if justSavedUntil != nil { return .saved }
+
+        let djName = captureState.selectedTargetApp?.software.displayName
+
+        switch captureState.phase {
+        case .idle, .requestingPermission, .needsScreenRecordingPermission:
+            return .ready
+        case .armed:
+            return .armed(djAppName: djName)
+        case .watching:
+            return .armed(djAppName: djName)
+        case .recording:
+            return .capturing(djAppName: djName)
+        case .saving:
+            return .saving
+        case .failed(let reason):
+            return .failed(reason)
+        }
+    }
+
+    var menuBarElapsedText: String? {
+        guard let recordingStartedAt else { return nil }
+        let elapsed = Int(Date().timeIntervalSince(recordingStartedAt))
+        let minutes = elapsed / 60
+        let seconds = elapsed % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    var previousCaptureSummary: String? {
+        guard let outcome = lastCaptureOutcome else { return nil }
+        switch outcome {
+        case .failed(let reason):
+            return "Last capture failed: \(reason)"
+        case .success(let sessionID):
+            guard let session = sessions.first(where: { $0.id == sessionID }) else {
+                return "Last capture saved"
+            }
+            let name = displayName(for: session.sourceAppID)
+            if let duration = session.durationSeconds {
+                return "Last capture: \(name), \(formattedDuration(duration)) — saved"
+            }
+            return "Last capture: \(name) — saved"
+        }
+    }
+
+    var lastCaptureIsFailure: Bool {
+        if case .failed = lastCaptureOutcome { return true }
+        return false
+    }
+
+    var lastCaptureSession: ArchiveMetadata? {
+        guard case .success(let sessionID) = lastCaptureOutcome else { return nil }
+        return sessions.first { $0.id == sessionID }
+    }
+
+    private func formattedDuration(_ seconds: Double) -> String {
+        let total = Int(seconds)
+        let minutes = total / 60
+        let secs = total % 60
+        return String(format: "%d:%02d", minutes, secs)
+    }
+
+    private func handleCaptureStateChange(from oldValue: CaptureUIState) {
+        if captureState.phase == .recording, oldValue.phase != .recording {
+            recordingStartedAt = Date()
+        } else if captureState.phase != .recording {
+            recordingStartedAt = nil
+        }
+
+        if case .failed(let reason) = captureState.phase, oldValue.phase != captureState.phase {
+            lastCaptureOutcome = .failed(reason)
+        }
+
+        if let newID = captureState.lastArchivedSessionID, newID != oldValue.lastArchivedSessionID {
+            lastCaptureOutcome = .success(sessionID: newID)
+            triggerSavedFlash()
+        }
+    }
+
+    private func triggerSavedFlash() {
+        justSavedUntil = Date().addingTimeInterval(Self.savedFlashDuration)
+        savedFlashTask?.cancel()
+        savedFlashTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.savedFlashDuration * 1_000_000_000))
+            await MainActor.run {
+                guard let self, let until = self.justSavedUntil, Date() >= until else { return }
+                self.justSavedUntil = nil
+            }
+        }
+    }
+
+    func openMainWindow() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.canBecomeKey }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    func viewLastCaptureInMainWindow() {
+        guard let session = lastCaptureSession else { return }
+        openMainWindow()
+        openLibrary(sessionID: session.id)
+    }
+
+    func viewLastCaptureInFinder() {
+        guard let session = lastCaptureSession else { return }
+        let url = URL(fileURLWithPath: session.archivePath)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    func updateMenuBarOnly(enabled: Bool) {
+        saveSettings(settings.updating(menuBarOnly: enabled))
+        if !enabled {
+            openMainWindow()
+        }
+    }
+
+    func updateShowFolderScanDetailsInMenuBar(enabled: Bool) {
+        saveSettings(settings.updating(showFolderScanDetailsInMenuBar: enabled))
     }
 
     var lastScanDisplayText: String {

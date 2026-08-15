@@ -139,6 +139,26 @@ private var scanningPanel: some View {
                     .buttonStyle(DJSecondaryButtonStyle())
                     .accessibilityIdentifier("settings.launchAtLogin.openLoginItems")
                 }
+
+                settingsToggle(
+                    title: "Open in menu bar only",
+                    explanation: "Skip opening the main window at launch. DJMemory stays in the menu bar; open the window any time from there.",
+                    isOn: Binding(
+                        get: { model.settings.menuBarOnly },
+                        set: { model.updateMenuBarOnly(enabled: $0) }
+                    ),
+                    id: "settings.menuBarOnly"
+                )
+
+                settingsToggle(
+                    title: "Show folder scan details in menu bar",
+                    explanation: "Adds Protected / Last scan / Next scan to the menu bar dropdown. Off by default to keep the quick look focused on capture.",
+                    isOn: Binding(
+                        get: { model.settings.showFolderScanDetailsInMenuBar },
+                        set: { model.updateShowFolderScanDetailsInMenuBar(enabled: $0) }
+                    ),
+                    id: "settings.showFolderScanDetailsInMenuBar"
+                )
             }
         }
     }
