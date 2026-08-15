@@ -24,6 +24,23 @@ struct LocalNotificationService {
         center?.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    func notifyPerformanceAttachment(_ body: String) {
+        guard let center else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Set saved"
+        content.body = body
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "archive-attached-\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+
+        center.add(request)
+    }
+
     func notifyArchiveSaved(count: Int) {
         guard let center, count > 0 else { return }
 

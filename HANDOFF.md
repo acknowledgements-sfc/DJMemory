@@ -206,6 +206,27 @@ Closest to done already. Deltas:
   known history folder(s) for a nearby export and import + match locally. Soft-fail if none found;
   manual Import remains available.
 
+### 4.4c Dual-route Pioneer (laptop + USB)
+
+Target rig: DJMemory on the Mac, Serato or rekordbox on that Mac, XDJ-XZ or CDJs over USB. The Mac
+stays in the audio loop. Pure hardware-to-mixer rigs where no audio reaches the Mac stay labeled.
+
+- **Both (default):** Folder Protection watches the DJ-app record folder. When Pioneer USB input is
+  present, Input Capture auto-selects it and records on audio / saves on idle silence. Forgetting
+  Record still produces an archive.
+- Overlapping folder and input archives are **one Library row**. DJ-software file is primary; Input
+  Capture is **Hardware backup**. Capture-only (forgot Record) is the set, not a backup. Identity is
+  the earliest member `sessionID`.
+- Copy: `Watching the XDJ-XZ input. Recording starts when audio is detected; idle silence saves the
+  take automatically. Folder Protection still watches recording folders.`
+- Hardware backup body: `Caught from the XDJ-XZ USB input. The source recording was not moved,
+  renamed, or deleted.` (device name from the capture filename).
+- Join notifications: `Hardware backup attached to this set.` / `{App} recording attached as the
+  primary file.`
+- Changing dual-route posture never deletes archives. Folder Protection of granted folders is never
+  turned off.
+- USB `PIONEERREC` and CDJs into a mixer that never reaches the Mac stay **Manual Setup**.
+
 ### 4.5 Activity
 - Filter segmented control: All / Scans / Archives / Imports / Errors / Diagnostics (needs G1).
 - Error rows get a `danger`-tinted row background and a next-action button routing to recovery.
@@ -215,8 +236,10 @@ Closest to done already. Deltas:
 ### 4.6 Settings
 - Rows in a Scanning panel: automatic scanning, scan interval, verify each copy, notify after
   archiving, launch at login (needs G4) — each with a one-line explanation under the title.
-- Capture panel: auto-arm when a DJ app is running (maps to `autoArmOnDJAppFound`); note that
-  Capture writes 24-bit / 48 kHz and stays local.
+- Capture panel: auto-arm when a DJ app is running (maps to `autoArmOnDJAppFound`); Pioneer rig
+  safety nets picker (`dualRoutePosture`: Both / Folder primary, Input on-demand / Folder only /
+  Input only) with the selected explanation; note that Capture writes 24-bit / 48 kHz and stays
+  local. Changing posture never deletes archives.
 - Scan interval description text changes per selection.
 - Archive panel: folder field + Change, naming template + Reset, and a **live** example filename.
 - Current State panel: archive folder, protected sources, archived sets, imported tracklists,

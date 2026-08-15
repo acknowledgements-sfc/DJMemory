@@ -35,6 +35,23 @@ struct SettingsView: View {
                     ),
                     id: "settings.autoArmOnDJAppFound"
                 )
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Pioneer rig safety nets")
+                        .font(.system(size: DJToken.TypeSize.body, weight: .medium))
+                    Picker("Pioneer rig safety nets", selection: Binding(
+                        get: { model.settings.dualRoutePosture },
+                        set: { model.updateDualRoutePosture($0) }
+                    )) {
+                        ForEach(DualRoutePosture.allCases, id: \.self) { posture in
+                            Text(posture.displayName).tag(posture)
+                        }
+                    }
+                    .accessibilityIdentifier("settings.dualRoutePosture")
+                    Text(model.settings.dualRoutePosture.explanation)
+                        .font(.system(size: DJToken.TypeSize.secondary))
+                        .foregroundStyle(DJToken.mutedForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text("Capture writes 24-bit / 48 kHz stereo WAV. Audio stays on this Mac.")
                     .font(.system(size: DJToken.TypeSize.secondary))
                     .foregroundStyle(DJToken.mutedForeground)
@@ -204,7 +221,7 @@ private var scanningPanel: some View {
         Panel(title: "Current State", padding: 0) {
             KeyValueRow(key: "Archive folder", value: model.archiveRoot.path, mono: true)
             KeyValueRow(key: "Protected sources", value: "\(model.protectedAdapterCount)")
-            KeyValueRow(key: "Archived sets", value: "\(model.sessions.count)")
+            KeyValueRow(key: "Archived sets", value: "\(model.librarySummaries.count)")
             KeyValueRow(key: "Imported tracklists", value: "\(model.allImportedTracklists.count)")
             KeyValueRow(key: "Archive size on disk", value: ByteCountFormatter.string(fromByteCount: archiveSize, countStyle: .file))
             KeyValueRow(key: "Version", value: appVersion, showsDivider: false)

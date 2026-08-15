@@ -28,6 +28,21 @@ public struct LibrarySessionSummary: Identifiable, Equatable, Sendable {
     public var performanceDate: Date {
         min(archive.detectedAt, hardwareBackup?.detectedAt ?? archive.detectedAt)
     }
+
+    public func relatedActivity(in events: [ActivityEvent]) -> [ActivityEvent] {
+        events.filter { event in
+            let detail = event.detail ?? ""
+            if detail.contains(archive.originalFilename)
+                || detail.contains(archive.archivePath)
+                || detail.contains(archive.sourcePath) {
+                return true
+            }
+            guard let backup = hardwareBackup else { return false }
+            return detail.contains(backup.originalFilename)
+                || detail.contains(backup.archivePath)
+                || detail.contains(backup.sourcePath)
+        }
+    }
 }
 
 public struct LibrarySessionMatcher {

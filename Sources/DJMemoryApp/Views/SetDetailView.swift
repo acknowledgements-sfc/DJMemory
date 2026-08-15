@@ -12,6 +12,7 @@ struct SetDetailView: View {
     let exportPublishPack: () -> Void
     let revealArchive: () -> Void
     let revealSource: () -> Void
+    let revealHardwareBackup: () -> Void
 
     @State private var draftContext: SetContext
     @State private var selectedTracklistID: UUID?
@@ -26,7 +27,8 @@ struct SetDetailView: View {
         importTracklist: @escaping () -> Void = {},
         exportPublishPack: @escaping () -> Void = {},
         revealArchive: @escaping () -> Void,
-        revealSource: @escaping () -> Void
+        revealSource: @escaping () -> Void,
+        revealHardwareBackup: @escaping () -> Void = {}
     ) {
         self.summary = summary
         self.appName = appName
@@ -38,44 +40,20 @@ struct SetDetailView: View {
         self.exportPublishPack = exportPublishPack
         self.revealArchive = revealArchive
         self.revealSource = revealSource
+        self.revealHardwareBackup = revealHardwareBackup
         _draftContext = State(initialValue: summary.context)
         _selectedTracklistID = State(initialValue: summary.matchedTracklist?.id)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Waveform(
-                seed: summary.archive.originalFilename,
-                barCount: 64,
-                tint: DJToken.accent(forAppID: summary.archive.sourceAppID)
+            SetDetailSourcesView(
+                summary: summary,
+                appName: appName,
+                revealArchive: revealArchive,
+                revealSource: revealSource,
+                revealHardwareBackup: revealHardwareBackup
             )
-            .frame(height: 40)
-            .padding(8)
-            .background(DJToken.muted, in: RoundedRectangle(cornerRadius: DJToken.Radius.control))
-
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(summary.archive.originalFilename)
-                        .font(.headline)
-                    Text("\(appName) | \(formatBytes(summary.archive.fileSize)) | \(formatDuration(summary.archive.durationSeconds))")
-                        .font(.caption)
-                        .foregroundStyle(DJToken.mutedForeground)
-                }
-
-                Spacer()
-
-                Button(action: revealSource) {
-                    Label("Source", systemImage: "arrow.up.forward.app")
-                }
-                .help(summary.archive.sourcePath)
-                .accessibilityIdentifier("setDetail.\(summary.id).revealSource")
-
-                Button(action: revealArchive) {
-                    Label("Archive", systemImage: "folder")
-                }
-                .help(summary.archive.archivePath)
-                .accessibilityIdentifier("setDetail.\(summary.id).revealArchive")
-            }
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
@@ -213,23 +191,5 @@ struct SetDetailView: View {
                 .textFieldStyle(.roundedBorder)
                 .help(title)
         }
-    }
-
-    private func formatDuration(_ seconds: Double?) -> String {
-        guard let seconds else { return "Unknown duration" }
-        let totalSeconds = Int(seconds.rounded())
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let remainingSeconds = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, remainingSeconds)
-        }
-
-        return String(format: "%d:%02d", minutes, remainingSeconds)
-    }
-
-    private func formatBytes(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }

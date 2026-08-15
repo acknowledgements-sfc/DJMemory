@@ -1,6 +1,6 @@
 # DJMemory Feature and Workflow Catalog
 
-Last updated: August 14, 2026.
+Last updated: August 14, 2026. Dual-route Pioneer linking and unattended Input Capture added August 15, 2026; Pioneer Input Capture remains Manual Setup until external XDJ-XZ verification.
 
 This catalog describes user-visible product behavior. Status reflects the repository and verification documents on the date above.
 
@@ -76,6 +76,8 @@ Protect a set even when the DJ forgot or could not use the DJ application's Reco
 - Lists available Core Audio input devices.
 - Requests input/microphone permission.
 - Supports manual device selection and known Pioneer/DJM preference where detected.
+- On a recognized Pioneer USB input with Both (default) or Input only posture, auto-switches to Input device mode and records on audio / saves on idle silence. Folder Protection still watches granted folders.
+- Overlapping folder and input archives of the same performance are one Library row (DJ-software file primary; Input Capture labeled Hardware backup). Neither source nor archive audio is mutated.
 - Displays input levels and recording state.
 - Records 24-bit/48 kHz stereo WAV.
 - Handles missing device, denied permission, disk-full, engine, and double-start/stop conditions.
@@ -83,7 +85,7 @@ Protect a set even when the DJ forgot or could not use the DJ application's Reco
 
 ## Library and Set Detail
 
-- Lists protected and captured sessions.
+- Lists protected and captured sessions. Overlapping Folder Protection and Input Capture files of one performance appear as a single row.
 - Searches available session context and filters by date.
 - Shows recording source, time, file information, archive location, matched history, and activity context.
 - Persists event, venue, city, tags, and private notes.
@@ -111,7 +113,7 @@ Protect a set even when the DJ forgot or could not use the DJ application's Reco
 | Traktor | Supported | NML import and matching | Supported and live-verified | App and folder paths vary by version |
 | VirtualDJ | Supported | File/Network Control paths; JSONL ingest implemented | Supported and live-verified | Native plugin remains research |
 | djay Pro | Supported documented/manual folders | Limited compared with other apps | Supported and live-verified | Manual setup may be required |
-| Pioneer/DJM hardware | Manual Setup | May match the nearest eligible app history | Input device or `PIONEERREC` folder | Device-specific verification remains important |
+| Pioneer/DJM hardware | Manual Setup | May match the nearest eligible app history | Laptop + USB Input Capture (implemented; device verification pending) or `PIONEERREC` folder | Device-specific verification remains required. Dual-route overlap is one Library row. CDJs into a mixer that never reaches the Mac stay Manual Setup. |
 
 For engineering-level detail and the latest verification, use [`../integration-status.md`](../integration-status.md).
 

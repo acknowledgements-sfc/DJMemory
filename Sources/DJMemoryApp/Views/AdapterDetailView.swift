@@ -153,17 +153,19 @@ struct AdapterDetailView: View {
             ]
         case "pioneer-hardware":
             return [
-                "Insert the USB stick used for MASTER REC (XDJ-RX2/RX3/XZ/AZ).",
-                "Choose the stick or its PIONEERREC folder as the recordings folder.",
+                "Laptop + XDJ-XZ over USB: grant the Serato or rekordbox recordings folder, then leave Input Capture armed on the XZ. Forgetting Record still produces an archive.",
+                "Overlapping folder and input recordings are one set. The DJ-software file is primary; Input Capture is the hardware backup. Sources are never moved, renamed, or deleted.",
+                "Insert the USB stick used for MASTER REC (XDJ-RX2/RX3/XZ/AZ) only when the Mac is out of the audio path.",
+                "Choose the stick or its PIONEERREC folder as the recordings folder. This path stays Manual Setup until the drive is granted and mounted.",
                 "DJMemory copies stable RECxxx.WAV files into your archive and leaves the stick unchanged.",
                 "MASTER REC files have no clock — archive time uses the file modification date.",
-                "CDJs need a DJM USB Capture path or an all-in-one MASTER REC stick."
+                "CDJs need the Mac in the USB audio path, a DJM Capture path, or a PIONEERREC folder. A mixer that never reaches the Mac is Manual Setup."
             ]
         case "djmemory-capture":
             return [
                 "Open Capture in the sidebar.",
                 "App audio (default): pick a running DJ app, Arm, and grant Screen & System Audio Recording. Recording starts when audio is detected; idle silence saves and re-arms.",
-                "Input device: select a DJM MIX (REC OUT) USB input when the mix never hits Mac system audio.",
+                "Input device: on a Pioneer USB rig, Both (default) auto-selects the device and records when audio is detected so forgetting Record still produces an archive.",
                 "Folder Protection still copies files the DJ app writes. Source files are never moved."
             ]
         default:

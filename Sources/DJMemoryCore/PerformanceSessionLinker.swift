@@ -38,7 +38,7 @@ public enum PerformanceSessionLinker {
 
     public static func groups(from archives: [ArchiveMetadata]) -> [PerformanceGroup] {
         let captures = archives.filter { $0.sourceAppID == SupportedDJSoftware.captureAppID }
-        var folders = archives.filter { folderProtectedAppIDs.contains($0.sourceAppID) }
+        let folders = archives.filter { folderProtectedAppIDs.contains($0.sourceAppID) }
         let leftovers = archives.filter {
             $0.sourceAppID != SupportedDJSoftware.captureAppID
                 && !folderProtectedAppIDs.contains($0.sourceAppID)

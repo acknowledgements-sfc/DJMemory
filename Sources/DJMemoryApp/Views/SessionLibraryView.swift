@@ -168,7 +168,14 @@ struct SessionLibraryView: View {
                         RoundedRectangle(cornerRadius: DJToken.Radius.swatch)
                             .fill(DJToken.accent(forAppID: summary.archive.sourceAppID))
                             .frame(width: 3, height: 12)
-                        Text(model.displayName(for: summary.archive.sourceAppID))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(model.displayName(for: summary.archive.sourceAppID))
+                            if summary.hardwareBackup != nil {
+                                Text("2 safety nets")
+                                    .font(.system(size: DJToken.TypeSize.secondary))
+                                    .foregroundStyle(DJToken.mutedForeground)
+                            }
+                        }
                     }
                 }
                 .width(min: 100)
@@ -258,17 +265,17 @@ struct SessionLibraryView: View {
                                 summary: summary,
                                 appName: model.displayName(for: summary.archive.sourceAppID),
                                 candidateTracklists: model.candidateTracklists(for: summary.archive),
-                                activityEvents: model.activityEvents.filter {
-                                    ($0.detail ?? "").contains(summary.archive.originalFilename)
-                                        || ($0.detail ?? "").contains(summary.archive.archivePath)
-                                        || ($0.detail ?? "").contains(summary.archive.sourcePath)
-                                },
+                                activityEvents: summary.relatedActivity(in: model.activityEvents),
                                 saveContext: model.saveSetContext,
                                 attachTracklist: { model.attachTracklist(sessionID: summary.id, tracklistID: $0) },
                                 importTracklist: { model.importHistory(appID: summary.archive.sourceAppID) },
                                 exportPublishPack: { model.exportPublishPack(sessionID: summary.id) },
                                 revealArchive: { model.revealInFinder(URL(fileURLWithPath: summary.archive.archivePath)) },
-                                revealSource: { model.revealInFinder(URL(fileURLWithPath: summary.archive.sourcePath)) }
+                                revealSource: { model.revealInFinder(URL(fileURLWithPath: summary.archive.sourcePath)) },
+                                revealHardwareBackup: {
+                                    guard let path = summary.hardwareBackup?.archivePath else { return }
+                                    model.revealInFinder(URL(fileURLWithPath: path))
+                                }
                             )
                         } else {
                             Text("Select an archived set to review details, notes, and tracklist matching.")

@@ -18,4 +18,11 @@ final class HardwareProfileTests: XCTestCase {
     func testPioneerRECFilenameIsAudio() {
         XCTAssertTrue(FileStabilityChecker().isAudioFile(URL(fileURLWithPath: "/tmp/PIONEERREC/REC001.WAV")))
     }
+
+    func testXDJXZHintDescribesLaptopUSBDualRoute() {
+        let hint = SupportedHardware.profile(id: "xdj-xz")?.captureHint ?? ""
+        XCTAssertTrue(hint.contains("Folder Protection"))
+        XCTAssertTrue(hint.contains("Input Capture"))
+        XCTAssertTrue(hint.contains("PIONEERREC"))
+    }
 }

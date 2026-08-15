@@ -67,7 +67,7 @@ struct CaptureView: View {
                                 .foregroundStyle(DJToken.mutedForeground)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        Text("CDJs need a DJM or an all-in-one MASTER REC path.")
+                        Text("CDJs need the Mac in the USB audio path, a DJM Capture path, or a PIONEERREC folder. A mixer that never reaches the Mac is Manual Setup.")
                             .font(.system(size: DJToken.TypeSize.secondary))
                             .foregroundStyle(DJToken.warn)
                     }
@@ -104,6 +104,10 @@ struct CaptureView: View {
         case .appAudio:
             return "Record audio from a running DJ app even when Record/Save is off. DJMemory uses Process Audio Tap when available, then saves after idle silence."
         case .inputDevice:
+            if model.captureState.selectedDevice?.isLikelyPioneerDJHardware == true,
+               model.settings.dualRoutePosture == .both || model.settings.dualRoutePosture == .inputOnly {
+                return "Folder Protection copies Serato or rekordbox recordings. Input Capture records this USB output if Record was forgotten. USB MASTER REC sticks stay untouched—add Pioneer Hardware to watch PIONEERREC."
+            }
             return "Record the master mix from a DJM USB input into your DJMemory archive. USB MASTER REC sticks stay untouched—add Pioneer Hardware to watch PIONEERREC."
         }
     }
@@ -187,7 +191,7 @@ struct CaptureView: View {
                         .disabled(model.captureState.phase == .saving)
                         .accessibilityIdentifier("capture.stop")
                 }
-                Button("Disarm") { model.disarmAppAudioCapture() }
+                Button("Disarm") { model.disarmCapture() }
                     .disabled(model.captureState.phase == .saving)
                     .accessibilityIdentifier("capture.disarm")
             } else {
@@ -196,6 +200,21 @@ struct CaptureView: View {
                     .disabled(model.captureState.targetApps.isEmpty || model.captureState.phase == .requestingPermission)
                     .accessibilityIdentifier("capture.arm")
             }
+        } else if model.captureState.isWatchingOrRecording {
+            if model.captureState.isRecording || model.captureState.phase == .saving {
+                Button("Stop & Save") { model.stopCapture() }
+                    .buttonStyle(DJPrimaryButtonStyle())
+                    .disabled(model.captureState.phase == .saving)
+                    .accessibilityIdentifier("capture.stop")
+            }
+            Button("Disarm") { model.disarmCapture() }
+                .disabled(model.captureState.phase == .saving)
+                .accessibilityIdentifier("capture.disarm")
+        } else if usesUnattendedInput {
+            Button("Arm") { model.armInputCaptureWatching() }
+                .buttonStyle(DJPrimaryButtonStyle())
+                .disabled(model.captureState.devices.isEmpty || model.captureState.phase == .requestingPermission)
+                .accessibilityIdentifier("capture.arm")
         } else if model.captureState.isRecording || model.captureState.phase == .saving {
             Button("Stop") { model.stopCapture() }
                 .buttonStyle(DJPrimaryButtonStyle())
@@ -206,6 +225,16 @@ struct CaptureView: View {
                 .buttonStyle(DJPrimaryButtonStyle())
                 .disabled(model.captureState.devices.isEmpty || model.captureState.phase == .requestingPermission)
                 .accessibilityIdentifier("capture.start")
+        }
+    }
+
+    private var usesUnattendedInput: Bool {
+        let pioneer = model.captureState.selectedDevice?.isLikelyPioneerDJHardware == true
+        switch model.settings.dualRoutePosture {
+        case .both, .inputOnly:
+            return pioneer
+        case .folderPrimaryInputOnDemand, .folderOnly:
+            return false
         }
     }
 }
@@ -222,5 +251,21 @@ struct CaptureView: View {
         .environmentObject(model)
         .padding()
         .frame(width: 520)
+}
+
+#Preview("Capture input watching / dark") {
+    let model = AppModel()
+    model.previewApplyCaptureState(CaptureUIState(
+        mode: .inputDevice,
+        phase: .watching,
+        devices: [AudioInputDevice(id: "xz", name: "XDJ-XZ", manufacturer: "Pioneer DJ")],
+        selectedDeviceID: "xz",
+        statusMessage: "Watching the XDJ-XZ input. Recording starts when audio is detected; idle silence saves the take automatically. Folder Protection still watches recording folders."
+    ))
+    return CaptureView()
+        .environmentObject(model)
+        .padding()
+        .frame(width: 520)
+        .preferredColorScheme(.dark)
 }
 #endif

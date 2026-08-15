@@ -7,7 +7,7 @@ struct HomeGlanceTiles: View {
     var body: some View {
         let stats = model.libraryStatistics
         VStack(spacing: 8) {
-            MetricTile(label: "Sets protected", value: "\(model.sessions.count)", meta: "\(stats.setsThisMonth) this month", tone: .ok)
+            MetricTile(label: "Sets protected", value: "\(model.librarySummaries.count)", meta: "\(stats.setsThisMonth) this month", tone: .ok)
             MetricTile(
                 label: "Hours archived",
                 value: String(format: "%.1fh", stats.totalDurationSeconds / 3600),

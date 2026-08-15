@@ -160,6 +160,11 @@ final class AppModel: ObservableObject {
     private var captureInputPollTask: Task<Void, Never>?
     /// When true, auto-arm must not re-arm until the user Arms again or changes mode.
     private var userDisarmedAppAudio = false
+    /// When true, Pioneer unattended Input Capture must not re-arm until Arm, posture change, or the device reappears.
+    private var userDisarmedInputCapture = false
+    /// When true, the DJ explicitly chose App audio and Pioneer auto-switch must wait for device reappear.
+    private var userSuppressedPioneerAutoSwitch = false
+    private var lastPioneerDeviceID: String?
     /// When true, profile mutations stay in memory (SwiftUI previews).
     private var suppressProfilePersistence = false
 
@@ -180,6 +185,7 @@ final class AppModel: ObservableObject {
         // Launch catch-up: heal any set whose history export landed while the
         // app was closed, before the user ever looks at the library.
         ingestHistoryNow()
+        refreshAudioInputs()
 
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -825,6 +831,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func updateDualRoutePosture(_ posture: DualRoutePosture) {
+        saveSettings(settings.updating(dualRoutePosture: posture))
+        userSuppressedPioneerAutoSwitch = false
+        userDisarmedInputCapture = false
+        statusMessage = posture.explanation
+        refreshAudioInputs()
+    }
+
     func updateLaunchAtLogin(enabled: Bool) {
         applyLaunchAtLogin(enabled: enabled, persistPreference: true)
     }
@@ -1394,7 +1408,9 @@ final class AppModel: ObservableObject {
                     detail: result.folderURL.path
                 )
                 if settings.notifyAfterArchiving {
-                    notificationService.notifyArchiveSaved(count: result.archivedSessions.count)
+                    for session in result.archivedSessions {
+                        notifyForNewArchive(session)
+                    }
                 }
             }
         }
@@ -1405,6 +1421,21 @@ final class AppModel: ObservableObject {
             .map(\.lastPathComponent)
             .joined(separator: ", ")
         return "\(result.folderURL.path): waiting for \(names)"
+    }
+
+    private func notifyForNewArchive(_ session: RecordingSession) {
+        guard settings.notifyAfterArchiving else { return }
+        let meta = ArchiveMetadata(session: session, originalFilename: session.sourceURL.lastPathComponent)
+        switch PerformanceSessionLinker.attachment(of: meta, existing: sessions) {
+        case .newPerformance:
+            notificationService.notifyArchiveSaved(count: 1)
+        case .hardwareBackupAttached:
+            notificationService.notifyPerformanceAttachment("Hardware backup attached to this set.")
+        case .primaryAttached(let appID):
+            notificationService.notifyPerformanceAttachment(
+                "\(displayName(for: appID)) recording attached as the primary file."
+            )
+        }
     }
 
     private func appendActivity(kind: ActivityEventKind, message: String, detail: String? = nil) {
@@ -1537,7 +1568,6 @@ final class AppModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: 15_000_000_000)
                 await MainActor.run {
                     guard let self else { return }
-                    guard self.captureState.mode == .inputDevice else { return }
                     guard !self.captureState.isRecording else { return }
                     if case .saving = self.captureState.phase { return }
                     self.refreshAudioInputs()
@@ -1598,14 +1628,22 @@ extension AppModel {
     }
 
     func setCaptureMode(_ mode: CaptureMode) {
+        applyCaptureMode(mode, userInitiated: true)
+    }
+
+    private func applyCaptureMode(_ mode: CaptureMode, userInitiated: Bool) {
         if captureState.mode == mode { return }
         if captureState.mode == .appAudio, captureState.isWatchingOrRecording {
-            disarmAppAudioCapture()
+            haltAppAudioCapture(markUserDisarmed: userInitiated)
         }
-        if captureState.mode == .inputDevice, captureState.isRecording {
-            stopCapture()
+        if captureState.mode == .inputDevice, captureService.isMonitoring || captureState.isRecording {
+            haltInputCapture(markUserDisarmed: userInitiated)
         }
-        userDisarmedAppAudio = false
+        if userInitiated {
+            userDisarmedAppAudio = false
+            userDisarmedInputCapture = false
+            userSuppressedPioneerAutoSwitch = (mode == .appAudio)
+        }
         var next = captureState
         next.mode = mode
         next.phase = .idle
@@ -1743,14 +1781,8 @@ extension AppModel {
     }
 
     func disarmAppAudioCapture() {
-        userDisarmedAppAudio = true
-        appAudioPollTask?.cancel()
-        appAudioPollTask = nil
+        haltAppAudioCapture(markUserDisarmed: true)
         Task {
-            if appAudioCaptureService.isWriting {
-                _ = try? appAudioCaptureService.endRecordingFile(discard: true)
-            }
-            await appAudioCaptureService.stopMonitoring()
             let tick = captureSession.disarm(hasTargets: !captureState.targetApps.isEmpty)
             var next = captureState
             next.phase = tick.phase
@@ -1827,10 +1859,8 @@ extension AppModel {
                     endedAt: result.endedAt,
                     sourceAppID: captureState.selectedTargetApp?.software.id ?? SupportedDJSoftware.captureAppID
                 )
+                notifyForNewArchive(session)
                 refresh()
-                if settings.notifyAfterArchiving {
-                    notificationService.notifyArchiveSaved(count: 1)
-                }
                 autopullTracklist(for: session)
                 let tick = captureSession.resumeWatchingAfterSave(
                     discarded: false,
@@ -1877,11 +1907,18 @@ extension AppModel {
             next.selectedDeviceID = AudioInputDeviceCatalog.preferredDefault(from: devices)?.id
         }
 
-        // While armed (not recording), auto-select Pioneer/DJM when it appears.
-        if next.mode == .inputDevice,
+        let preferred = devices.first(where: \.isLikelyPioneerDJHardware)
+        if lastPioneerDeviceID == nil, preferred != nil {
+            userSuppressedPioneerAutoSwitch = false
+            userDisarmedInputCapture = false
+        }
+        lastPioneerDeviceID = preferred?.id
+
+        if DualRoutePolicy.shouldAutoSelectPioneer(posture: settings.dualRoutePosture),
+           next.mode == .inputDevice,
            !next.isRecording,
            next.phase != .saving,
-           let preferred = devices.first(where: \.isLikelyPioneerDJHardware),
+           let preferred,
            next.selectedDeviceID != preferred.id
         {
             next.selectedDeviceID = preferred.id
@@ -1894,10 +1931,18 @@ extension AppModel {
         } else if next.phase == .idle {
             next.phase = devices.isEmpty ? .idle : .armed
         }
-        if next.mode == .inputDevice, !next.isRecording, next.phase != .saving {
-            next.statusMessage = devices.isEmpty ? "Connect a DJM or other audio input, then refresh devices." : "Choose an input device, then start Capture."
+        if next.mode == .inputDevice,
+           !next.isRecording,
+           next.phase != .saving,
+           next.phase != .watching,
+           next.phase != .recording
+        {
+            next.statusMessage = devices.isEmpty
+                ? "Connect a DJM or other audio input, then refresh devices."
+                : "Choose an input device, then start Capture."
         }
         captureState = next
+        applyDualRoutePolicy()
     }
 
     func selectCaptureDevice(_ deviceID: String) {
@@ -1906,6 +1951,267 @@ extension AppModel {
         captureState = next
         let newSettings = settings.updating(lastCaptureDeviceID: .some(deviceID))
         do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
+    }
+
+    private func applyDualRoutePolicy() {
+        guard captureState.phase != .saving else { return }
+        let pioneerPresent = captureState.devices.contains(where: \.isLikelyPioneerDJHardware)
+
+        if DualRoutePolicy.shouldAutoSwitchToInput(
+            posture: settings.dualRoutePosture,
+            pioneerPresent: pioneerPresent,
+            userSuppressedAutoSwitch: userSuppressedPioneerAutoSwitch
+        ), captureState.mode != .inputDevice, captureState.phase != .recording {
+            haltAppAudioCapture(markUserDisarmed: false)
+            var next = captureState
+            next.mode = .inputDevice
+            next.phase = captureState.devices.isEmpty ? .idle : .armed
+            next.statusMessage = "Choose an input device, then start Capture."
+            captureState = next
+            let newSettings = settings.updating(captureMode: .inputDevice)
+            do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
+        }
+
+        if DualRoutePolicy.shouldFallBackToAppAudio(
+            posture: settings.dualRoutePosture,
+            pioneerPresent: pioneerPresent,
+            userSuppressedAutoSwitch: userSuppressedPioneerAutoSwitch
+        ), captureState.mode == .inputDevice,
+           captureState.phase != .recording,
+           captureState.phase != .watching,
+           captureState.phase != .saving {
+            haltInputCapture(markUserDisarmed: false)
+            var next = captureState
+            next.mode = .appAudio
+            next.phase = .idle
+            next.statusMessage = "Choose a running DJ app, then arm App audio Capture."
+            captureState = next
+            let newSettings = settings.updating(captureMode: .appAudio)
+            do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
+            Task { await refreshAppAudioTargets(attemptAutoArm: true) }
+            return
+        }
+
+        if DualRoutePolicy.shouldUnattendedWatch(
+            posture: settings.dualRoutePosture,
+            pioneerPresent: pioneerPresent,
+            userDisarmedInput: userDisarmedInputCapture
+        ), captureState.mode == .inputDevice,
+           (captureState.phase == .idle || captureState.phase == .armed) {
+            armInputCaptureWatching()
+        }
+    }
+
+    func armInputCaptureWatching() {
+        userDisarmedInputCapture = false
+        guard captureState.mode == .inputDevice else { return }
+        guard let device = captureState.selectedDevice else {
+            var next = captureState
+            next.phase = .failed("Choose an audio input device before starting Capture.")
+            next.statusMessage = "Choose an audio input device before starting Capture."
+            captureState = next
+            return
+        }
+        Task {
+            var requesting = captureState
+            requesting.phase = .requestingPermission
+            requesting.statusMessage = "Requesting microphone access…"
+            captureState = requesting
+            if !CaptureService.microphonePermissionGranted() {
+                let granted = await CaptureService.requestMicrophonePermission()
+                guard granted else {
+                    var denied = captureState
+                    denied.phase = .failed("Microphone access is denied. DJMemory cannot Capture without it.")
+                    denied.statusMessage = "Microphone access is denied. Open System Settings to allow DJMemory."
+                    captureState = denied
+                    statusMessage = "Microphone access is denied"
+                    return
+                }
+            }
+            do {
+                if !captureService.isMonitoring {
+                    try captureService.startMonitoring(device: device)
+                }
+                let tick = captureSession.prepareWatching(
+                    config: settings.silenceSessionConfig,
+                    targetDisplayName: "the \(device.name) input",
+                    route: .inputDevice
+                )
+                var watching = captureState
+                watching.phase = tick.phase
+                watching.inputLevel = tick.inputLevel
+                watching.statusMessage = tick.statusMessage
+                captureState = watching
+                statusMessage = "Input device Capture armed"
+                startInputWatchPolling()
+            } catch let error as CaptureServiceError {
+                applyCaptureFailure(error)
+            } catch {
+                var failed = captureState
+                failed.phase = .failed(error.localizedDescription)
+                failed.statusMessage = error.localizedDescription
+                captureState = failed
+            }
+        }
+    }
+
+    func disarmCapture() {
+        if captureState.mode == .appAudio {
+            disarmAppAudioCapture()
+        } else {
+            disarmInputCapture()
+        }
+    }
+
+    func disarmInputCapture() {
+        haltInputCapture(markUserDisarmed: true)
+        let tick = captureSession.disarm(hasTargets: !captureState.devices.isEmpty)
+        var next = captureState
+        next.phase = tick.phase
+        next.inputLevel = 0
+        next.statusMessage = tick.statusMessage
+        captureState = next
+        statusMessage = "Input device Capture disarmed"
+    }
+
+    private func haltAppAudioCapture(markUserDisarmed: Bool) {
+        if markUserDisarmed {
+            userDisarmedAppAudio = true
+        }
+        appAudioPollTask?.cancel()
+        appAudioPollTask = nil
+        Task {
+            if appAudioCaptureService.isWriting {
+                _ = try? appAudioCaptureService.endRecordingFile(discard: true)
+            }
+            await appAudioCaptureService.stopMonitoring()
+        }
+    }
+
+    private func haltInputCapture(markUserDisarmed: Bool) {
+        if markUserDisarmed {
+            userDisarmedInputCapture = true
+        }
+        captureMeterTask?.cancel()
+        captureMeterTask = nil
+        captureService.stopMonitoring()
+        captureSession = CaptureSessionCoordinator(config: settings.silenceSessionConfig)
+    }
+
+    private func startInputWatchPolling() {
+        captureMeterTask?.cancel()
+        captureMeterTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                await MainActor.run {
+                    guard let self else { return }
+                    guard self.captureState.mode == .inputDevice else { return }
+                    guard self.captureState.phase == .watching || self.captureState.phase == .recording else { return }
+                    let level = self.captureService.currentInputLevel()
+                    let tick = self.captureSession.tick(level: level)
+                    self.applyInputCaptureSessionTick(tick)
+                }
+            }
+        }
+    }
+
+    private func applyInputCaptureSessionTick(_ tick: CaptureSessionTick) {
+        var next = captureState
+        if !tick.statusMessage.isEmpty {
+            next.statusMessage = tick.statusMessage
+        }
+        next.phase = tick.phase
+        next.inputLevel = tick.inputLevel
+        captureState = next
+
+        guard let action = tick.engineAction else { return }
+        switch action {
+        case .beginRecordingFile:
+            do {
+                try captureService.beginRecordingFile()
+                let now = Date()
+                let displayName = captureState.selectedDevice?.name ?? "input"
+                if settings.notifyAfterArchiving {
+                    notificationService.notifyCaptureStarted(displayName: displayName, at: now)
+                }
+                statusMessage = LocalNotificationService.captureStartedBody(displayName: displayName, at: now)
+            } catch let error as CaptureServiceError {
+                applyCaptureFailure(error)
+            } catch {
+                var failed = captureState
+                failed.phase = .failed(error.localizedDescription)
+                failed.statusMessage = error.localizedDescription
+                captureState = failed
+            }
+        case .endRecordingFile(let discard):
+            finalizeInputCaptureSession(discard: discard, resumeWatching: true)
+        }
+    }
+
+    private func finalizeInputCaptureSession(discard: Bool, resumeWatching: Bool) {
+        var saving = captureState
+        saving.phase = .saving
+        saving.statusMessage = discard ? "Discarding short take…" : "Saving capture into your archive…"
+        captureState = saving
+        do {
+            let result = try captureService.endRecordingFile(discard: discard)
+            if let result, !discard {
+                let session = try archiveService().ingestCapture(
+                    stagingURL: result.stagingURL,
+                    deviceID: result.deviceID,
+                    deviceName: result.deviceName,
+                    startedAt: result.startedAt,
+                    endedAt: result.endedAt
+                )
+                notifyForNewArchive(session)
+                refresh()
+                autopullTracklist(for: session)
+                var done = captureState
+                done.lastArchivedSessionID = session.id
+                if resumeWatching {
+                    let tick = captureSession.resumeWatchingAfterSave(
+                        discarded: false,
+                        minDurationSeconds: TimeInterval(settings.appAudioMinDurationSeconds),
+                        level: captureService.currentInputLevel()
+                    )
+                    done.phase = tick.phase
+                    done.inputLevel = tick.inputLevel
+                    done.statusMessage = tick.statusMessage
+                    startInputWatchPolling()
+                } else {
+                    done.phase = .armed
+                    done.inputLevel = 0
+                    done.statusMessage = "Capture saved. Import a tracklist from Set Detail when you have an export."
+                }
+                captureState = done
+                statusMessage = "Capture saved"
+            } else if resumeWatching {
+                let tick = captureSession.resumeWatchingAfterSave(
+                    discarded: true,
+                    minDurationSeconds: TimeInterval(settings.appAudioMinDurationSeconds),
+                    level: captureService.currentInputLevel()
+                )
+                var done = captureState
+                done.phase = tick.phase
+                done.inputLevel = tick.inputLevel
+                done.statusMessage = tick.statusMessage
+                captureState = done
+                startInputWatchPolling()
+            } else {
+                var done = captureState
+                done.phase = .armed
+                done.inputLevel = 0
+                captureState = done
+            }
+        } catch let error as CaptureServiceError {
+            applyCaptureFailure(error)
+        } catch {
+            var failed = captureState
+            failed.phase = .failed(error.localizedDescription)
+            failed.statusMessage = error.localizedDescription
+            captureState = failed
+            statusMessage = "Could not save capture: \(error.localizedDescription)"
+        }
     }
 
     func startCapture() {
@@ -2000,6 +2306,19 @@ extension AppModel {
             return
         }
         captureMeterTask?.cancel(); captureMeterTask = nil
+        if captureSession.currentPhase == .recording || captureState.phase == .watching {
+            if captureState.phase == .watching {
+                disarmInputCapture()
+                return
+            }
+            let tick = captureSession.requestManualSave()
+            var saving = captureState
+            saving.phase = tick.phase
+            saving.statusMessage = tick.statusMessage
+            captureState = saving
+            finalizeInputCaptureSession(discard: false, resumeWatching: true)
+            return
+        }
         var saving = captureState
         saving.phase = .saving
         saving.statusMessage = "Saving capture into your archive…"
@@ -2007,6 +2326,7 @@ extension AppModel {
         do {
             let result = try captureService.stop()
             let session = try archiveService().ingestCapture(stagingURL: result.stagingURL, deviceID: result.deviceID, deviceName: result.deviceName, startedAt: result.startedAt, endedAt: result.endedAt)
+            notifyForNewArchive(session)
             refresh()
             autopullTracklist(for: session)
             var done = captureState
@@ -2015,9 +2335,6 @@ extension AppModel {
             done.lastArchivedSessionID = session.id
             done.statusMessage = "Capture saved. Import a tracklist from Set Detail when you have an export."
             captureState = done
-            if settings.notifyAfterArchiving {
-                notificationService.notifyArchiveSaved(count: 1)
-            }
             statusMessage = "Capture saved"
         } catch let error as CaptureServiceError {
             applyCaptureFailure(error)

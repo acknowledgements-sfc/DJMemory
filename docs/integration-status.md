@@ -1,6 +1,6 @@
 # DJMemory Integration Status
 
-Last updated: August 13, 2026.
+Last updated: August 15, 2026.
 
 ## Status Labels
 - Supported / Partial / Manual Setup / Research — honest labels; never round Partial up to Supported.
@@ -15,7 +15,7 @@ Last updated: August 13, 2026.
 | VirtualDJ | Supported | File watch + Network Control; App audio Capture verified end-to-end (meter + archive write). Native plugin = Research (M14) |
 | djay Pro | Supported | Documented folders; App audio Capture verified end-to-end on djay Pro 2 (meter + archive write) |
 | DJMemory Capture | Implemented | App audio backend selector prefers Process Audio Tap on macOS 14.2+ and falls back to ScreenCaptureKit; ScreenCaptureKit verified end-to-end on Serato, rekordbox, djay Pro 2, VirtualDJ, Traktor DJ 2; Input device (Core Audio); silence session split |
-| Pioneer Hardware | Manual Setup | USB PIONEERREC / RECxxx.WAV watch |
+| Pioneer Hardware | Manual Setup | USB PIONEERREC / RECxxx.WAV watch. Laptop + XDJ-XZ USB Input Capture is implemented (auto-select + unattended silence takes + Library linking) and stays Manual Setup until Phase 1–2 external verification — see `docs/pioneer-hardware-setup.md`. |
 
 ## Source map (official vs community / sandbox-safe vs research)
 

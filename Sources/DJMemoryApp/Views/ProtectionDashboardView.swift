@@ -16,7 +16,7 @@ struct ProtectionDashboardView: View {
                 )
                 MetricTile(
                     label: "Archived Sets",
-                    value: "\(model.sessions.count)"
+                    value: "\(model.librarySummaries.count)"
                 )
                 MetricTile(
                     label: "Imported Histories",

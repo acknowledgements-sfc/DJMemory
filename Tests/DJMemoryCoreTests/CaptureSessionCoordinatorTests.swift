@@ -70,4 +70,16 @@ final class CaptureSessionCoordinatorTests: XCTestCase {
         let disarmed = coordinator.disarm(hasTargets: true)
         XCTAssertEqual(disarmed.phase, .armed)
     }
+
+    func testInputDeviceWatchingCopyNamesFolderProtection() {
+        var coordinator = CaptureSessionCoordinator(config: config)
+        let watching = coordinator.prepareWatching(
+            config: config,
+            targetDisplayName: "the XDJ-XZ input",
+            route: .inputDevice
+        )
+        XCTAssertTrue(watching.statusMessage.contains("Watching the XDJ-XZ input."))
+        XCTAssertTrue(watching.statusMessage.contains("Folder Protection still watches recording folders."))
+        XCTAssertFalse(watching.statusMessage.contains("app audio"))
+    }
 }
