@@ -28,6 +28,7 @@ public struct CaptureResult: Equatable, Sendable {
 
 public final class CaptureService: @unchecked Sendable {
     public private(set) var isRecording = false
+    public private(set) var isMonitoring = false
     public private(set) var inputLevel: Float = 0
     public private(set) var startedAt: Date?
 
@@ -66,44 +67,28 @@ public final class CaptureService: @unchecked Sendable {
     }
 
     public func start(device: AudioInputDevice) throws {
-        guard !isRecording else { throw CaptureServiceError.alreadyRecording }
+        if !isMonitoring {
+            try startMonitoring(device: device)
+        }
+        try beginRecordingFile()
+    }
+
+    public func startMonitoring(device: AudioInputDevice) throws {
+        guard !isMonitoring else { throw CaptureServiceError.alreadyRecording }
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
         if status != .authorized { throw CaptureServiceError.permissionDenied }
 
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
-        let url = stagingDirectory.appendingPathComponent("capture-\(UUID().uuidString).wav")
         let inputNode = engine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw CaptureServiceError.engineFailed("Input device has no usable audio format.")
         }
-        let newAudioFile: AVAudioFile
-        do {
-            newAudioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
-        } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) { throw CaptureServiceError.diskFull }
-            throw CaptureServiceError.engineFailed(error.localizedDescription)
-        }
-        // AVAudioFile.write(from:) requires the buffer format to match the file's own
-        // processingFormat (Float32 deinterleaved) — it packs down to the on-disk `settings`
-        // bit depth internally. Convert to that, not to a standalone 24-bit format.
-        let destinationFormat = newAudioFile.processingFormat
-        guard let audioConverter = CaptureAudioFormat.makeConverter(from: inputFormat, to: destinationFormat) else {
-            throw CaptureServiceError.engineFailed(
-                "Could not convert \(Int(inputFormat.sampleRate)) Hz input to 24-bit / 48 kHz. Choose another device, or use App audio Capture / folder Protection."
-            )
-        }
 
-        audioFile = newAudioFile
-        stagingURL = url
-        self.writeFormat = destinationFormat
-        self.converter = audioConverter
-        lastWriteErrorDetail = nil
         deviceID = device.id
         deviceName = device.name
-        startedAt = Date()
         inputLevel = 0
+        lastWriteErrorDetail = nil
         inputNode.removeTap(onBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
             guard let self else { return }
@@ -121,21 +106,44 @@ public final class CaptureService: @unchecked Sendable {
             try engine.start()
         } catch {
             inputNode.removeTap(onBus: 0)
-            audioFile = nil
-            self.converter = nil
-            self.writeFormat = nil
-            if let stagingURL { try? fileManager.removeItem(at: stagingURL) }
-            self.stagingURL = nil
-            startedAt = nil
             throw CaptureServiceError.engineFailed(error.localizedDescription)
         }
+        isMonitoring = true
+    }
+
+    public func beginRecordingFile() throws {
+        guard isMonitoring else { throw CaptureServiceError.notRecording }
+        guard !isRecording else { throw CaptureServiceError.alreadyRecording }
+
+        let url = stagingDirectory.appendingPathComponent("capture-\(UUID().uuidString).wav")
+        let inputNode = engine.inputNode
+        let inputFormat = inputNode.inputFormat(forBus: 0)
+        let newAudioFile: AVAudioFile
+        do {
+            newAudioFile = try AVAudioFile(forWriting: url, settings: CaptureAudioFormat.writeSettings)
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC) { throw CaptureServiceError.diskFull }
+            throw CaptureServiceError.engineFailed(error.localizedDescription)
+        }
+        let destinationFormat = newAudioFile.processingFormat
+        guard let audioConverter = CaptureAudioFormat.makeConverter(from: inputFormat, to: destinationFormat) else {
+            throw CaptureServiceError.engineFailed(
+                "Could not convert \(Int(inputFormat.sampleRate)) Hz input to 24-bit / 48 kHz. Choose another device, or use App audio Capture / folder Protection."
+            )
+        }
+
+        audioFile = newAudioFile
+        stagingURL = url
+        writeFormat = destinationFormat
+        converter = audioConverter
+        lastWriteErrorDetail = nil
+        startedAt = Date()
         isRecording = true
     }
 
-    public func stop() throws -> CaptureResult {
+    public func endRecordingFile(discard: Bool) throws -> CaptureResult? {
         guard isRecording else { throw CaptureServiceError.notRecording }
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
         audioFile = nil
         converter = nil
         writeFormat = nil
@@ -149,12 +157,42 @@ public final class CaptureService: @unchecked Sendable {
             self.stagingURL = nil
             throw CaptureServiceError.engineFailed(detail)
         }
+        if discard {
+            try? fileManager.removeItem(at: stagingURL)
+            self.stagingURL = nil
+            return nil
+        }
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: stagingURL.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
             throw CaptureServiceError.engineFailed("Capture staging file is missing.")
         }
         let result = CaptureResult(stagingURL: stagingURL, deviceID: deviceID, deviceName: deviceName, startedAt: started, endedAt: endedAt)
         self.stagingURL = nil
+        return result
+    }
+
+    public func stopMonitoring() {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        if isRecording {
+            audioFile = nil
+            converter = nil
+            writeFormat = nil
+            isRecording = false
+            if let stagingURL {
+                try? fileManager.removeItem(at: stagingURL)
+            }
+            self.stagingURL = nil
+            startedAt = nil
+        }
+        isMonitoring = false
+        inputLevel = 0
+    }
+
+    public func stop() throws -> CaptureResult {
+        let result = try endRecordingFile(discard: false)
+        stopMonitoring()
+        guard let result else { throw CaptureServiceError.engineFailed("Capture staging file is missing.") }
         return result
     }
 
@@ -177,3 +215,4 @@ public final class CaptureService: @unchecked Sendable {
         }
     }
 }
+

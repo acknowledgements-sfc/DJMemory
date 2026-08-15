@@ -3,22 +3,30 @@ import Foundation
 public struct LibrarySessionSummary: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let archive: ArchiveMetadata
+    public let hardwareBackup: ArchiveMetadata?
     public let matchedTracklist: ImportedTracklist?
     public let context: SetContext
 
     public init(
         archive: ArchiveMetadata,
         matchedTracklist: ImportedTracklist?,
-        context: SetContext? = nil
+        context: SetContext? = nil,
+        hardwareBackup: ArchiveMetadata? = nil,
+        id: UUID? = nil
     ) {
-        self.id = archive.id
+        self.id = id ?? archive.id
         self.archive = archive
+        self.hardwareBackup = hardwareBackup
         self.matchedTracklist = matchedTracklist
-        self.context = context ?? SetContext(sessionID: archive.id)
+        self.context = context ?? SetContext(sessionID: id ?? archive.id)
     }
 
     public var trackCount: Int {
         matchedTracklist?.tracks.count ?? 0
+    }
+
+    public var performanceDate: Date {
+        min(archive.detectedAt, hardwareBackup?.detectedAt ?? archive.detectedAt)
     }
 }
 
@@ -43,16 +51,18 @@ public struct LibrarySessionMatcher {
         importedTracklists: [ImportedTracklist],
         setContexts: [SetContext] = []
     ) -> [LibrarySessionSummary] {
-        archives.map { archive in
-            let context = setContexts.first { $0.sessionID == archive.id } ?? SetContext(sessionID: archive.id)
+        PerformanceSessionLinker.groups(from: archives).map { group in
+            let context = setContexts.first { $0.sessionID == group.id } ?? SetContext(sessionID: group.id)
             return LibrarySessionSummary(
-                archive: archive,
+                archive: group.primary,
                 matchedTracklist: bestMatch(
-                    for: archive,
+                    for: group.primary,
                     context: context,
                     importedTracklists: importedTracklists
                 ),
-                context: context
+                context: context,
+                hardwareBackup: group.hardwareBackup,
+                id: group.id
             )
         }
     }

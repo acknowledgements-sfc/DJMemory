@@ -30,15 +30,15 @@ public enum LibraryStatisticsCalculator {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> LibraryStatistics {
-        let totalDuration = archives.reduce(0.0) { $0 + ($1.durationSeconds ?? 0) }
+        let totalDuration = summaries.reduce(0.0) { $0 + ($1.archive.durationSeconds ?? 0) }
         let totalSize = archives.reduce(Int64(0)) { $0 + $1.fileSize }
         let month = calendar.dateComponents([.year, .month], from: now)
-        let setsThisMonth = archives.filter {
-            let c = calendar.dateComponents([.year, .month], from: $0.detectedAt)
+        let setsThisMonth = summaries.filter {
+            let c = calendar.dateComponents([.year, .month], from: $0.performanceDate)
             return c.year == month.year && c.month == month.month
         }.count
         let unmatched = summaries.filter { $0.matchedTracklist == nil }.count
-        let streak = consecutiveWeeks(archives: archives, now: now, calendar: calendar)
+        let streak = consecutiveWeeks(dates: summaries.map(\.performanceDate), now: now, calendar: calendar)
 
         return LibraryStatistics(
             totalDurationSeconds: totalDuration,
@@ -50,11 +50,11 @@ public enum LibraryStatisticsCalculator {
     }
 
     private static func consecutiveWeeks(
-        archives: [ArchiveMetadata],
+        dates: [Date],
         now: Date,
         calendar: Calendar
     ) -> Int? {
-        guard !archives.isEmpty else { return nil }
+        guard !dates.isEmpty else { return nil }
 
         var cal = calendar
         cal.firstWeekday = 2 // ISO-ish Monday start when possible
@@ -62,7 +62,7 @@ public enum LibraryStatisticsCalculator {
             cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
         }
 
-        let archiveWeeks = Set(archives.map { weekOfYear($0.detectedAt) })
+        let archiveWeeks = Set(dates.map { weekOfYear($0) })
         var cursor = weekOfYear(now)
 
         // If current week has no archive, start from previous week.

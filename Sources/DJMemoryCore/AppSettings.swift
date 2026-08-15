@@ -23,6 +23,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let autoArmOnDJAppFound: Bool
     public let menuBarOnly: Bool
     public let showFolderScanDetailsInMenuBar: Bool
+    public let dualRoutePosture: DualRoutePosture
 
     public init(
         automaticScanningEnabled: Bool = true,
@@ -44,7 +45,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         cloudArchiveBackupEnabled: Bool = false,
         autoArmOnDJAppFound: Bool = true,
         menuBarOnly: Bool = true,
-        showFolderScanDetailsInMenuBar: Bool = false
+        showFolderScanDetailsInMenuBar: Bool = false,
+        dualRoutePosture: DualRoutePosture = .both
     ) {
         self.automaticScanningEnabled = automaticScanningEnabled
         self.scanIntervalSeconds = scanIntervalSeconds
@@ -66,6 +68,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.autoArmOnDJAppFound = autoArmOnDJAppFound
         self.menuBarOnly = menuBarOnly
         self.showFolderScanDetailsInMenuBar = showFolderScanDetailsInMenuBar
+        self.dualRoutePosture = dualRoutePosture
     }
 
     public static let `default` = AppSettings()
@@ -86,7 +89,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case lastCaptureDeviceID, captureMode, lastCaptureTargetAppID
         case appAudioIdleSeconds, appAudioMinDurationSeconds, appAudioEnergyThreshold
         case cloudSyncEnabled, cloudArchiveBackupEnabled, autoArmOnDJAppFound
-        case menuBarOnly, showFolderScanDetailsInMenuBar
+        case menuBarOnly, showFolderScanDetailsInMenuBar, dualRoutePosture
     }
 
     public init(from decoder: Decoder) throws {
@@ -111,6 +114,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         autoArmOnDJAppFound = try c.decodeIfPresent(Bool.self, forKey: .autoArmOnDJAppFound) ?? true
         menuBarOnly = try c.decodeIfPresent(Bool.self, forKey: .menuBarOnly) ?? true
         showFolderScanDetailsInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showFolderScanDetailsInMenuBar) ?? false
+        dualRoutePosture = try c.decodeIfPresent(DualRoutePosture.self, forKey: .dualRoutePosture) ?? .both
     }
 
     public func updating(
@@ -133,7 +137,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         cloudArchiveBackupEnabled: Bool? = nil,
         autoArmOnDJAppFound: Bool? = nil,
         menuBarOnly: Bool? = nil,
-        showFolderScanDetailsInMenuBar: Bool? = nil
+        showFolderScanDetailsInMenuBar: Bool? = nil,
+        dualRoutePosture: DualRoutePosture? = nil
     ) -> AppSettings {
         AppSettings(
             automaticScanningEnabled: automaticScanningEnabled ?? self.automaticScanningEnabled,
@@ -155,7 +160,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
             cloudArchiveBackupEnabled: cloudArchiveBackupEnabled ?? self.cloudArchiveBackupEnabled,
             autoArmOnDJAppFound: autoArmOnDJAppFound ?? self.autoArmOnDJAppFound,
             menuBarOnly: menuBarOnly ?? self.menuBarOnly,
-            showFolderScanDetailsInMenuBar: showFolderScanDetailsInMenuBar ?? self.showFolderScanDetailsInMenuBar
+            showFolderScanDetailsInMenuBar: showFolderScanDetailsInMenuBar ?? self.showFolderScanDetailsInMenuBar,
+            dualRoutePosture: dualRoutePosture ?? self.dualRoutePosture
         )
     }
 }

@@ -32,22 +32,29 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
     private var silence: SilenceSessionController
     private var phase: CapturePhase
     private var targetDisplayName: String
+    private var route: CaptureMode
 
     public init(config: SilenceSessionConfig = .default) {
         self.silence = SilenceSessionController(config: config)
         self.phase = .idle
         self.targetDisplayName = ""
+        self.route = .appAudio
     }
 
     public var currentPhase: CapturePhase { phase }
 
-    public mutating func prepareWatching(config: SilenceSessionConfig, targetDisplayName: String) -> CaptureSessionTick {
+    public mutating func prepareWatching(
+        config: SilenceSessionConfig,
+        targetDisplayName: String,
+        route: CaptureMode = .appAudio
+    ) -> CaptureSessionTick {
         silence = SilenceSessionController(config: config)
         self.targetDisplayName = targetDisplayName
+        self.route = route
         phase = .watching
         return CaptureSessionTick(
             phase: .watching,
-            statusMessage: "Watching \(targetDisplayName). Recording starts when audio is detected; idle silence saves the take automatically."
+            statusMessage: watchingMessage
         )
     }
 
@@ -56,7 +63,7 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
         phase = hasTargets ? .armed : .idle
         return CaptureSessionTick(
             phase: phase,
-            statusMessage: "App audio Capture is disarmed. Folder Protection still watches recording folders."
+            statusMessage: disarmMessage
         )
     }
 
@@ -72,9 +79,7 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
             return CaptureSessionTick(
                 phase: phase,
                 inputLevel: level,
-                statusMessage: phase == .recording
-                    ? "Recording \(targetDisplayName) app audio…"
-                    : "Watching \(targetDisplayName). Recording starts when audio is detected; idle silence saves the take automatically."
+                statusMessage: phase == .recording ? recordingMessage : watchingMessage
             )
 
         case .startedRecording:
@@ -82,7 +87,7 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
             return CaptureSessionTick(
                 phase: .recording,
                 inputLevel: level,
-                statusMessage: "Recording \(targetDisplayName) app audio…",
+                statusMessage: recordingMessage,
                 engineAction: .beginRecordingFile
             )
 
@@ -91,7 +96,7 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
             return CaptureSessionTick(
                 phase: .saving,
                 inputLevel: level,
-                statusMessage: discard ? "Discarding short take…" : "Saving app audio into your archive…",
+                statusMessage: discard ? "Discarding short take…" : savingMessage,
                 engineAction: .endRecordingFile(discard: discard)
             )
         }
@@ -103,7 +108,7 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
         phase = .saving
         return CaptureSessionTick(
             phase: .saving,
-            statusMessage: "Saving app audio into your archive…",
+            statusMessage: savingMessage,
             engineAction: .endRecordingFile(discard: false)
         )
     }
@@ -112,7 +117,7 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
         phase = .watching
         let message = discarded
             ? "Short take discarded (under \(Int(minDurationSeconds))s). Still watching."
-            : "App audio saved. Watching for the next set. Source DJ app files were not moved."
+            : savedWatchingMessage
         return CaptureSessionTick(phase: .watching, inputLevel: level, statusMessage: message)
     }
 
@@ -123,5 +128,50 @@ public struct CaptureSessionCoordinator: Equatable, Sendable {
             inputLevel: level,
             statusMessage: "Manual stop saved. Still watching for the next set."
         )
+    }
+
+    private var watchingMessage: String {
+        switch route {
+        case .appAudio:
+            return "Watching \(targetDisplayName). Recording starts when audio is detected; idle silence saves the take automatically."
+        case .inputDevice:
+            return "Watching \(targetDisplayName). Recording starts when audio is detected; idle silence saves the take automatically. Folder Protection still watches recording folders."
+        }
+    }
+
+    private var recordingMessage: String {
+        switch route {
+        case .appAudio:
+            return "Recording \(targetDisplayName) app audio…"
+        case .inputDevice:
+            return "Recording \(targetDisplayName)…"
+        }
+    }
+
+    private var savingMessage: String {
+        switch route {
+        case .appAudio:
+            return "Saving app audio into your archive…"
+        case .inputDevice:
+            return "Saving capture into your archive…"
+        }
+    }
+
+    private var savedWatchingMessage: String {
+        switch route {
+        case .appAudio:
+            return "App audio saved. Watching for the next set. Source DJ app files were not moved."
+        case .inputDevice:
+            return "Capture saved. Watching for the next set. Folder Protection still watches recording folders."
+        }
+    }
+
+    private var disarmMessage: String {
+        switch route {
+        case .appAudio:
+            return "App audio Capture is disarmed. Folder Protection still watches recording folders."
+        case .inputDevice:
+            return "Input device Capture is disarmed. Folder Protection still watches recording folders."
+        }
     }
 }
