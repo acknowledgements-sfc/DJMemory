@@ -1554,8 +1554,10 @@ final class AppModel: ObservableObject {
                     guard self.captureState.mode == .appAudio else { return }
                     guard !self.captureState.isWatchingOrRecording else { return }
                     switch self.captureState.phase {
-                    case .requestingPermission, .needsScreenRecordingPermission:
+                    case .requestingPermission:
                         return
+                    case .needsScreenRecordingPermission:
+                        guard AppAudioCaptureService.screenCapturePermissionGranted() else { return }
                     default:
                         break
                     }
