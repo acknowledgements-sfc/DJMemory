@@ -525,18 +525,21 @@ public final class ProcessAudioTapCaptureService: @unchecked Sendable, AppAudioC
         pcm.frameLength = AVAudioFrameCount(frameLength)
         guard let floatChannels = pcm.floatChannelData else { return }
 
-        var sumSquares: Float = 0
-        var sampleCount = 0
+        var meter = CaptureDSP.MeanSquareAccumulator()
         if isInterleaved, let first = list.first, let src = first.mData {
             let interleaved = src.bindMemory(to: Float.self, capacity: frameLength * sourceChannels)
-            for frame in 0..<frameLength {
-                for channel in 0..<Int(sourceFormat.channelCount) {
-                    let srcChannel = min(channel, sourceChannels - 1)
-                    let sample = interleaved[frame * sourceChannels + srcChannel]
-                    floatChannels[channel][frame] = sample
-                    sumSquares += sample * sample
-                    sampleCount += 1
-                }
+            for channel in 0..<Int(sourceFormat.channelCount) {
+                let srcChannel = min(channel, sourceChannels - 1)
+                meter.add(
+                    meanSquare: CaptureDSP.copyInterleavedChannelAndMeasure(
+                        from: interleaved,
+                        sourceChannel: srcChannel,
+                        sourceChannelCount: sourceChannels,
+                        frameCount: frameLength,
+                        to: floatChannels[channel]
+                    ),
+                    count: frameLength
+                )
             }
         } else {
             for channel in 0..<Int(sourceFormat.channelCount) {
@@ -544,16 +547,18 @@ public final class ProcessAudioTapCaptureService: @unchecked Sendable, AppAudioC
                 guard srcIndex >= 0, let src = list[srcIndex].mData else { continue }
                 let count = min(frameLength, Int(list[srcIndex].mDataByteSize) / MemoryLayout<Float>.size)
                 let samples = src.bindMemory(to: Float.self, capacity: count)
-                for frame in 0..<count {
-                    let sample = samples[frame]
-                    floatChannels[channel][frame] = sample
-                    sumSquares += sample * sample
-                    sampleCount += 1
-                }
+                meter.add(
+                    meanSquare: CaptureDSP.copyPlanarChannelAndMeasure(
+                        from: samples,
+                        count: count,
+                        to: floatChannels[channel]
+                    ),
+                    count: count
+                )
             }
         }
-        if sampleCount > 0 {
-            setInputLevel(min(1, sqrt(sumSquares / Float(sampleCount)) * 4))
+        if let inputLevel = meter.inputLevel {
+            setInputLevel(inputLevel)
         }
 
         let conversion = CapturePCMWriter.convert(buffer: pcm, converter: converter, writeFormat: writeFormat)
@@ -919,23 +924,17 @@ public final class ScreenCaptureKitAppAudioCaptureService: NSObject, @unchecked 
         let isInterleaved = asbd.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
         let sourceChannels = Int(asbd.mChannelsPerFrame)
 
-        var sumSquares: Float = 0
-        var sampleCount = 0
+        var meter = CaptureDSP.MeanSquareAccumulator()
         if isFloat {
             for buffer in ablPointer {
                 guard let data = buffer.mData else { continue }
                 let frameCount = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
                 let samples = data.bindMemory(to: Float.self, capacity: frameCount)
-                for i in 0..<frameCount {
-                    let s = samples[i]
-                    sumSquares += s * s
-                }
-                sampleCount += frameCount
+                meter.add(samples: samples, count: frameCount)
             }
         }
-        if sampleCount > 0 {
-            let rms = sqrt(sumSquares / Float(sampleCount))
-            setInputLevel(min(1, rms * 4))
+        if let inputLevel = meter.inputLevel {
+            setInputLevel(inputLevel)
         }
 
         // Convert every buffer while monitoring — not only while writing — so the pre-roll ring
@@ -981,19 +980,29 @@ public final class ScreenCaptureKitAppAudioCaptureService: NSObject, @unchecked 
         guard let floatChannels = pcm.floatChannelData else { return }
 
         if isInterleaved, ablPointer.count >= 1, let src = ablPointer[0].mData {
-            let interleaved = src.bindMemory(to: Float.self, capacity: Int(frameLength) * max(sourceChannels, 1))
-            for frame in 0..<Int(frameLength) {
-                for channel in 0..<channelCount {
-                    let srcChannel = min(channel, max(sourceChannels, 1) - 1)
-                    floatChannels[channel][frame] = interleaved[frame * max(sourceChannels, 1) + srcChannel]
-                }
+            let sourceChannelCount = max(sourceChannels, 1)
+            let interleaved = src.bindMemory(to: Float.self, capacity: Int(frameLength) * sourceChannelCount)
+            for channel in 0..<channelCount {
+                let srcChannel = min(channel, sourceChannelCount - 1)
+                CaptureDSP.copyInterleavedChannel(
+                    from: interleaved,
+                    sourceChannel: srcChannel,
+                    sourceChannelCount: sourceChannelCount,
+                    frameCount: Int(frameLength),
+                    to: floatChannels[channel]
+                )
             }
         } else {
             for channel in 0..<channelCount {
                 let srcIndex = min(channel, ablPointer.count - 1)
                 guard srcIndex >= 0, let src = ablPointer[srcIndex].mData else { continue }
                 let count = min(Int(frameLength), Int(ablPointer[srcIndex].mDataByteSize) / MemoryLayout<Float>.size)
-                memcpy(floatChannels[channel], src, count * MemoryLayout<Float>.size)
+                let samples = src.bindMemory(to: Float.self, capacity: count)
+                CaptureDSP.copyPlanarChannel(
+                    from: samples,
+                    count: count,
+                    to: floatChannels[channel]
+                )
             }
         }
 

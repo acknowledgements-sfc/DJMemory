@@ -98,10 +98,9 @@ public final class CaptureService: @unchecked Sendable {
             guard let channelData = buffer.floatChannelData?[0] else { return }
             let frameLength = Int(buffer.frameLength)
             guard frameLength > 0 else { return }
-            var sum: Float = 0
-            for i in 0..<frameLength { let s = channelData[i]; sum += s * s }
-            let rms = sqrt(sum / Float(frameLength))
-            self.levelLock.lock(); self.inputLevel = min(1, rms * 4); self.levelLock.unlock()
+            if let inputLevel = CaptureDSP.inputLevel(samples: channelData, count: frameLength) {
+                self.levelLock.lock(); self.inputLevel = inputLevel; self.levelLock.unlock()
+            }
         }
 
         do {
