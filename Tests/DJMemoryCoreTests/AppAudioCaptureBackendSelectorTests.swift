@@ -23,10 +23,25 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
         )
     }
 
-    // NOTE: `virtualEnabled: true` is passed explicitly to the tests below so they exercise
-    // the virtual-selection LOGIC (app-context, transport match, etc.) independent of the
-    // PR2.1 safety gate, which defaults OFF. The gate itself is covered by
-    // `testSafetyGateDisablesVirtualBackendByDefault`.
+    // `virtualEnabled` is explicit below so selection logic remains deterministic regardless
+    // of the process environment used to launch the test suite.
+
+    func testVirtualBackendIsEnabledByDefault() {
+        XCTAssertTrue(AppAudioCaptureBackendSelector.virtualAppAudioEnabled(environment: [:]))
+        XCTAssertTrue(
+            AppAudioCaptureBackendSelector.virtualAppAudioEnabled(
+                environment: ["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO": "1"]
+            )
+        )
+    }
+
+    func testEmergencyEnvironmentOverrideDisablesVirtualBackend() {
+        XCTAssertFalse(
+            AppAudioCaptureBackendSelector.virtualAppAudioEnabled(
+                environment: ["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO": "0"]
+            )
+        )
+    }
 
     func testPrefersSeratoVirtualDeviceWhenSeratoIsRunning() {
         let selection = AppAudioCaptureBackendSelector.preferredSelection(
@@ -45,9 +60,7 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
         XCTAssertEqual(selection.kind, .virtualInputDevice)
     }
 
-    func testSafetyGateDisablesVirtualBackendByDefault() {
-        // With the gate OFF (the default), even the ideal virtual-device conditions must fall
-        // back to Process Audio Tap — the AVAudioEngine virtual backend OOMs the machine.
+    func testExplicitDisableFallsBackToProcessAudioTap() {
         let selection = AppAudioCaptureBackendSelector.preferredSelection(
             targetSoftware: Self.serato,
             inputDevices: [Self.seratoVirtualAudio],

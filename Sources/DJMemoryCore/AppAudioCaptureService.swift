@@ -83,15 +83,15 @@ public enum AppAudioCaptureBackendSelector {
         return .screenCaptureKit
     }
 
-    /// SAFETY GATE (PR2.1): the AVAudioEngine-based virtual-device backend leaks unbounded
-    /// memory (input on the software virtual device, output on the speakers → mismatched clocks
-    /// → AVAudioEngine buffers the drift → ~8 GB/s, OOM'd the machine to 194 GB). Until the
-    /// backend is reimplemented with a direct Core Audio IOProc on the virtual device, the
-    /// virtual path is OFF by default; App Audio uses Process Audio Tap. Opt in with
-    /// `DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO=1` only for testing the fix. See
-    /// docs/handoff-codex-pr2-1-virtual-ioproc-*.md.
+    /// The direct Core Audio IOProc virtual-device backend is enabled by default after live
+    /// bounded-memory and clean-audio verification. Set `DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO=0`
+    /// to disable it in an emergency and fall back to Process Audio Tap / ScreenCaptureKit.
     public static var virtualAppAudioEnabled: Bool {
-        ProcessInfo.processInfo.environment["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO"] == "1"
+        virtualAppAudioEnabled(environment: ProcessInfo.processInfo.environment)
+    }
+
+    static func virtualAppAudioEnabled(environment: [String: String]) -> Bool {
+        environment["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO"] != "0"
     }
 
     /// Precedence: verified virtual input device for the target app > Process Audio Tap > ScreenCaptureKit.
