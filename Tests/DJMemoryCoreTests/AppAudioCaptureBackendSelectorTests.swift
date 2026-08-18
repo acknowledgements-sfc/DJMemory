@@ -23,13 +23,19 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
         )
     }
 
+    // NOTE: `virtualEnabled: true` is passed explicitly to the tests below so they exercise
+    // the virtual-selection LOGIC (app-context, transport match, etc.) independent of the
+    // PR2.1 safety gate, which defaults OFF. The gate itself is covered by
+    // `testSafetyGateDisablesVirtualBackendByDefault`.
+
     func testPrefersSeratoVirtualDeviceWhenSeratoIsRunning() {
         let selection = AppAudioCaptureBackendSelector.preferredSelection(
             targetSoftware: Self.serato,
             inputDevices: [Self.seratoVirtualAudio],
             runningSoftwareIDs: ["serato"],
             processTapSupported: true,
-            forceScreenCaptureKit: false
+            forceScreenCaptureKit: false,
+            virtualEnabled: true
         )
         guard case .virtualInputDevice(let device, let softwareID) = selection else {
             return XCTFail("expected virtualInputDevice, got \(selection)")
@@ -39,13 +45,28 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
         XCTAssertEqual(selection.kind, .virtualInputDevice)
     }
 
+    func testSafetyGateDisablesVirtualBackendByDefault() {
+        // With the gate OFF (the default), even the ideal virtual-device conditions must fall
+        // back to Process Audio Tap — the AVAudioEngine virtual backend OOMs the machine.
+        let selection = AppAudioCaptureBackendSelector.preferredSelection(
+            targetSoftware: Self.serato,
+            inputDevices: [Self.seratoVirtualAudio],
+            runningSoftwareIDs: ["serato"],
+            processTapSupported: true,
+            forceScreenCaptureKit: false,
+            virtualEnabled: false
+        )
+        XCTAssertEqual(selection, .processAudioTap)
+    }
+
     func testFallsBackToProcessTapWhenSeratoHasNoVirtualDevice() {
         let selection = AppAudioCaptureBackendSelector.preferredSelection(
             targetSoftware: Self.serato,
             inputDevices: [],
             runningSoftwareIDs: ["serato"],
             processTapSupported: true,
-            forceScreenCaptureKit: false
+            forceScreenCaptureKit: false,
+            virtualEnabled: true
         )
         XCTAssertEqual(selection, .processAudioTap)
     }
@@ -56,7 +77,8 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
             inputDevices: [Self.seratoVirtualAudio],
             runningSoftwareIDs: ["rekordbox", "serato"],
             processTapSupported: true,
-            forceScreenCaptureKit: false
+            forceScreenCaptureKit: false,
+            virtualEnabled: true
         )
         XCTAssertEqual(selection, .processAudioTap)
     }
@@ -67,7 +89,8 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
             inputDevices: [Self.seratoVirtualAudio],
             runningSoftwareIDs: [],
             processTapSupported: true,
-            forceScreenCaptureKit: false
+            forceScreenCaptureKit: false,
+            virtualEnabled: true
         )
         XCTAssertEqual(selection, .processAudioTap)
 
@@ -76,7 +99,8 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
             inputDevices: [Self.seratoVirtualAudio],
             runningSoftwareIDs: ["serato"],
             processTapSupported: true,
-            forceScreenCaptureKit: false
+            forceScreenCaptureKit: false,
+            virtualEnabled: true
         )
         XCTAssertEqual(nilTarget, .processAudioTap)
     }
