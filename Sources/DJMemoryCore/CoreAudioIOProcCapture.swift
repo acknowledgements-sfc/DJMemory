@@ -63,9 +63,14 @@ final class CoreAudioIOProcCapture: @unchecked Sendable {
         guard deviceID != kAudioObjectUnknown else {
             throw AppAudioCaptureError.engineFailed("\(sourceLabel) input device is unavailable.")
         }
-        guard let sourceFormat = AVAudioFormat(
-            streamDescription: withUnsafePointer(to: sourceASBD) { $0 }
-        ) else {
+        guard sourceASBD.mFormatFlags & kAudioFormatFlagIsFloat != 0,
+              let sourceFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: sourceASBD.mSampleRate,
+                channels: max(1, AVAudioChannelCount(sourceASBD.mChannelsPerFrame)),
+                interleaved: false
+              )
+        else {
             throw AppAudioCaptureError.engineFailed("\(sourceLabel) returned an unsupported audio format.")
         }
         guard let writeFormat = CaptureAudioFormat.processingFormat(),
