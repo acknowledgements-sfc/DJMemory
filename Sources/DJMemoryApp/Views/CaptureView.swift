@@ -46,7 +46,9 @@ struct CaptureView: View {
                             Button("Open Screen Recording Settings") { model.openScreenRecordingPrivacySettings() }
                                 .accessibilityIdentifier("capture.openScreenRecordingSettings")
                         }
-                        if case .failed = model.captureState.phase, model.captureState.mode == .inputDevice {
+                        if case .failed = model.captureState.phase,
+                           model.captureState.mode == .inputDevice
+                            || model.captureState.statusMessage.contains("Microphone access") {
                             Button("Open Microphone Settings") { model.openMicrophonePrivacySettings() }
                                 .accessibilityIdentifier("capture.openPrivacySettings")
                         }

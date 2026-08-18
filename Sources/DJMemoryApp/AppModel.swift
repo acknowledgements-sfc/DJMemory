@@ -1653,6 +1653,7 @@ extension AppModel {
         next.statusMessage = mode == .appAudio
             ? "Choose a running DJ app, then arm App audio Capture."
             : "Choose an input device, then start Capture."
+        next.appAudioSourceName = nil
         captureState = next
         let newSettings = settings.updating(captureMode: mode)
         do { try appSettingsStore.save(newSettings); settings = newSettings } catch {}
@@ -1726,15 +1727,39 @@ extension AppModel {
                 return
             }
 
+            let inputDevices = AudioInputDeviceCatalog.listInputs()
+            let runningIDs = currentDJSoftwareIDs()
+            let selection = AppAudioCaptureService.preferredSelection(
+                targetSoftware: target.software,
+                inputDevices: inputDevices,
+                runningSoftwareIDs: runningIDs
+            )
+
             var requesting = captureState
             requesting.phase = .requestingPermission
-            let preferredBackend = AppAudioCaptureService.preferredBackendKind()
-            requesting.statusMessage = preferredBackend == .processAudioTap
-                ? "Requesting System Audio Recording access for Process Audio Tap…"
-                : "Requesting Screen & System Audio Recording access…"
+            switch selection {
+            case .virtualInputDevice(let device, _):
+                requesting.statusMessage = "Requesting microphone access for \(device.name)…"
+            case .processAudioTap:
+                requesting.statusMessage = "Requesting System Audio Recording access for Process Audio Tap…"
+            case .screenCaptureKit:
+                requesting.statusMessage = "Requesting Screen & System Audio Recording access…"
+            }
             captureState = requesting
 
-            if preferredBackend == .screenCaptureKit, !AppAudioCaptureService.screenCapturePermissionGranted() {
+            if case .virtualInputDevice = selection {
+                if !CaptureService.microphonePermissionGranted() {
+                    let granted = await CaptureService.requestMicrophonePermission()
+                    guard granted else {
+                        var denied = captureState
+                        denied.phase = .failed("Microphone access is denied. DJMemory cannot Capture without it.")
+                        denied.statusMessage = "Microphone access is denied. Open System Settings to allow DJMemory."
+                        captureState = denied
+                        statusMessage = "Microphone access is denied"
+                        return
+                    }
+                }
+            } else if selection.kind == .screenCaptureKit, !AppAudioCaptureService.screenCapturePermissionGranted() {
                 // CGRequestScreenCaptureAccess often returns before the user finishes Settings.
                 _ = AppAudioCaptureService.requestScreenCapturePermission()
                 // Brief settle for in-process grants; Settings toggles still require Arm again.
@@ -1755,7 +1780,10 @@ extension AppModel {
                     displayName: target.software.displayName,
                     // Buffer at least the start hold (plus margin) so takes begin at the true first
                     // signal, not after the silence session's start-hold delay.
-                    prerollSeconds: settings.silenceSessionConfig.startHoldSeconds + 0.5
+                    prerollSeconds: settings.silenceSessionConfig.startHoldSeconds + 0.5,
+                    softwareID: target.software.id,
+                    inputDevices: inputDevices,
+                    runningSoftwareIDs: runningIDs
                 )
                 let tick = captureSession.prepareWatching(
                     config: settings.silenceSessionConfig,
@@ -1764,12 +1792,15 @@ extension AppModel {
                 var watching = captureState
                 watching.phase = tick.phase
                 watching.inputLevel = tick.inputLevel
-                watching.statusMessage = appAudioCaptureService.activeBackendKind == .screenCaptureKit
-                    && preferredBackend == .processAudioTap
-                    ? "Process audio capture is unavailable on this Mac; using fallback capture. \(tick.statusMessage)"
-                    : tick.statusMessage
+                watching.appAudioSourceName = appAudioCaptureService.captureSourceDisplayName
+                watching.statusMessage = appAudioArmedStatusMessage(tick: tick, selection: selection)
                 captureState = watching
-                statusMessage = "\(appAudioCaptureService.activeBackendKind.displayName) Capture armed"
+                statusMessage = "App Audio Capture: \(appAudioCaptureService.captureSourceDisplayName)"
+                appendActivity(
+                    kind: .capture,
+                    message: "App audio backend \(appAudioCaptureService.activeBackendKind.rawValue)",
+                    detail: appAudioBackendLogDetail()
+                )
                 startAppAudioPolling()
             } catch let error as AppAudioCaptureError {
                 applyAppAudioCaptureFailure(error)
@@ -1782,6 +1813,38 @@ extension AppModel {
         }
     }
 
+    private func appAudioArmedStatusMessage(
+        tick: CaptureSessionTick,
+        selection: AppAudioCaptureBackendSelection
+    ) -> String {
+        let sourceLine = "App Audio Capture: \(appAudioCaptureService.captureSourceDisplayName)"
+        if appAudioCaptureService.virtualBindDidFallBack {
+            return "\(sourceLine) could not bind; using \(appAudioCaptureService.activeBackendKind.displayName). \(tick.statusMessage)"
+        }
+        if appAudioCaptureService.activeBackendKind == .screenCaptureKit,
+           selection.kind == .processAudioTap || selection.kind == .virtualInputDevice {
+            return "Process audio capture is unavailable on this Mac; using fallback capture. \(tick.statusMessage)"
+        }
+        if appAudioCaptureService.activeBackendKind == .virtualInputDevice {
+            return "\(sourceLine). \(tick.statusMessage)"
+        }
+        return tick.statusMessage
+    }
+
+    private func appAudioBackendLogDetail() -> String {
+        let kind = appAudioCaptureService.activeBackendKind.rawValue
+        if let device = appAudioCaptureService.activeVirtualDevice {
+            return "backend=\(kind) device=\(device.name) uid=\(device.id) transport=\(device.transportType.archiveLabel)"
+        }
+        return "backend=\(kind)"
+    }
+
+    private func currentDJSoftwareIDs() -> Set<String> {
+        var ids = Set(probeResults.filter(\.isRunning).map(\.software.id))
+        ids.formUnion(captureState.targetApps.map(\.software.id))
+        return ids
+    }
+
     func disarmAppAudioCapture() {
         haltAppAudioCapture(markUserDisarmed: true)
         Task {
@@ -1790,6 +1853,7 @@ extension AppModel {
             next.phase = tick.phase
             next.inputLevel = 0
             next.statusMessage = tick.statusMessage
+            next.appAudioSourceName = nil
             captureState = next
             statusMessage = "App audio Capture disarmed"
         }
@@ -1859,7 +1923,12 @@ extension AppModel {
                     deviceName: result.deviceName,
                     startedAt: result.startedAt,
                     endedAt: result.endedAt,
-                    sourceAppID: captureState.selectedTargetApp?.software.id ?? SupportedDJSoftware.captureAppID
+                    sourceAppID: captureState.selectedTargetApp?.software.id ?? SupportedDJSoftware.captureAppID,
+                    captureRoute: result.captureRoute ?? .appAudio,
+                    captureBackend: result.captureBackend
+                        ?? appAudioCaptureService.activeBackendKind.archiveBackend,
+                    captureDeviceTransport: result.deviceTransport?.archiveLabel
+                        ?? appAudioCaptureService.activeVirtualDevice?.transportType.archiveLabel
                 )
                 notifyForNewArchive(session)
                 refresh()
@@ -1900,13 +1969,21 @@ extension AppModel {
     }
 
     func refreshAudioInputs() {
-        let devices = AudioInputDeviceCatalog.listInputs()
+        let allDevices = AudioInputDeviceCatalog.listInputs()
+        let devices = AudioInputDeviceCatalog.selectableInputs(from: allDevices)
         var next = captureState
         next.devices = devices
         if next.selectedDeviceID == nil {
-            next.selectedDeviceID = settings.lastCaptureDeviceID ?? AudioInputDeviceCatalog.preferredDefault(from: devices)?.id
+            let persisted = settings.lastCaptureDeviceID.flatMap { id in devices.first(where: { $0.id == id }) }
+            next.selectedDeviceID = persisted?.id ?? AudioInputDeviceCatalog.preferredDefault(
+                from: devices,
+                currentSoftwareIDs: currentDJSoftwareIDs()
+            )?.id
         } else if !devices.contains(where: { $0.id == next.selectedDeviceID }) {
-            next.selectedDeviceID = AudioInputDeviceCatalog.preferredDefault(from: devices)?.id
+            next.selectedDeviceID = AudioInputDeviceCatalog.preferredDefault(
+                from: devices,
+                currentSoftwareIDs: currentDJSoftwareIDs()
+            )?.id
         }
 
         let preferred = devices.first(where: \.isLikelyPioneerDJHardware)
@@ -2082,6 +2159,9 @@ extension AppModel {
         }
         appAudioPollTask?.cancel()
         appAudioPollTask = nil
+        var next = captureState
+        next.appAudioSourceName = nil
+        captureState = next
         Task {
             if appAudioCaptureService.isWriting {
                 _ = try? appAudioCaptureService.endRecordingFile(discard: true)
@@ -2163,7 +2243,9 @@ extension AppModel {
                     deviceID: result.deviceID,
                     deviceName: result.deviceName,
                     startedAt: result.startedAt,
-                    endedAt: result.endedAt
+                    endedAt: result.endedAt,
+                    captureRoute: result.captureRoute ?? .inputDevice,
+                    captureDeviceTransport: result.deviceTransport?.archiveLabel
                 )
                 notifyForNewArchive(session)
                 refresh()
@@ -2327,7 +2409,15 @@ extension AppModel {
         captureState = saving
         do {
             let result = try captureService.stop()
-            let session = try archiveService().ingestCapture(stagingURL: result.stagingURL, deviceID: result.deviceID, deviceName: result.deviceName, startedAt: result.startedAt, endedAt: result.endedAt)
+            let session = try archiveService().ingestCapture(
+                stagingURL: result.stagingURL,
+                deviceID: result.deviceID,
+                deviceName: result.deviceName,
+                startedAt: result.startedAt,
+                endedAt: result.endedAt,
+                captureRoute: result.captureRoute ?? .inputDevice,
+                captureDeviceTransport: result.deviceTransport?.archiveLabel
+            )
             notifyForNewArchive(session)
             refresh()
             autopullTracklist(for: session)

@@ -22,4 +22,94 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
             .screenCaptureKit
         )
     }
+
+    func testPrefersSeratoVirtualDeviceWhenSeratoIsRunning() {
+        let selection = AppAudioCaptureBackendSelector.preferredSelection(
+            targetSoftware: Self.serato,
+            inputDevices: [Self.seratoVirtualAudio],
+            runningSoftwareIDs: ["serato"],
+            processTapSupported: true,
+            forceScreenCaptureKit: false
+        )
+        guard case .virtualInputDevice(let device, let softwareID) = selection else {
+            return XCTFail("expected virtualInputDevice, got \(selection)")
+        }
+        XCTAssertEqual(device.id, Self.seratoVirtualAudio.id)
+        XCTAssertEqual(softwareID, "serato")
+        XCTAssertEqual(selection.kind, .virtualInputDevice)
+    }
+
+    func testFallsBackToProcessTapWhenSeratoHasNoVirtualDevice() {
+        let selection = AppAudioCaptureBackendSelector.preferredSelection(
+            targetSoftware: Self.serato,
+            inputDevices: [],
+            runningSoftwareIDs: ["serato"],
+            processTapSupported: true,
+            forceScreenCaptureKit: false
+        )
+        XCTAssertEqual(selection, .processAudioTap)
+    }
+
+    func testRekordboxDoesNotSelectSeratoVirtualDevice() {
+        let selection = AppAudioCaptureBackendSelector.preferredSelection(
+            targetSoftware: Self.rekordbox,
+            inputDevices: [Self.seratoVirtualAudio],
+            runningSoftwareIDs: ["rekordbox", "serato"],
+            processTapSupported: true,
+            forceScreenCaptureKit: false
+        )
+        XCTAssertEqual(selection, .processAudioTap)
+    }
+
+    func testNoDetectedAppDoesNotSelectVirtualBackend() {
+        let selection = AppAudioCaptureBackendSelector.preferredSelection(
+            targetSoftware: Self.serato,
+            inputDevices: [Self.seratoVirtualAudio],
+            runningSoftwareIDs: [],
+            processTapSupported: true,
+            forceScreenCaptureKit: false
+        )
+        XCTAssertEqual(selection, .processAudioTap)
+
+        let nilTarget = AppAudioCaptureBackendSelector.preferredSelection(
+            targetSoftware: nil,
+            inputDevices: [Self.seratoVirtualAudio],
+            runningSoftwareIDs: ["serato"],
+            processTapSupported: true,
+            forceScreenCaptureKit: false
+        )
+        XCTAssertEqual(nilTarget, .processAudioTap)
+    }
+
+    func testVirtualBindFailureFallsBackToProcessTap() {
+        XCTAssertEqual(
+            AppAudioCaptureBackendSelector.fallbackAfterVirtualBindFailure(
+                processTapSupported: true,
+                forceScreenCaptureKit: false
+            ),
+            .processAudioTap
+        )
+        XCTAssertEqual(
+            AppAudioCaptureBackendSelector.fallbackAfterVirtualBindFailure(
+                processTapSupported: false,
+                forceScreenCaptureKit: false
+            ),
+            .screenCaptureKit
+        )
+    }
+
+    private static let seratoVirtualAudio = AudioInputDevice(
+        id: "sva",
+        name: "Serato Virtual Audio",
+        manufacturer: "Serato",
+        transportType: .virtual
+    )
+
+    private static var serato: DJSoftware {
+        SupportedDJSoftware.all.first { $0.id == "serato" }!
+    }
+
+    private static var rekordbox: DJSoftware {
+        SupportedDJSoftware.all.first { $0.id == "rekordbox" }!
+    }
 }

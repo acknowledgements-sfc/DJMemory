@@ -56,7 +56,10 @@ public struct ArchiveService {
         startedAt: Date,
         endedAt: Date = Date(),
         sourceAppID: String = SupportedDJSoftware.captureAppID,
-        removeStagingAfterCopy: Bool = true
+        removeStagingAfterCopy: Bool = true,
+        captureRoute: CaptureArchiveRoute? = nil,
+        captureBackend: CaptureArchiveBackend? = nil,
+        captureDeviceTransport: String? = nil
     ) throws -> RecordingSession {
         try withSecurityScopedArchiveRoot {
             try ingestCaptureWithAccess(
@@ -66,7 +69,10 @@ public struct ArchiveService {
                 startedAt: startedAt,
                 endedAt: endedAt,
                 sourceAppID: sourceAppID,
-                removeStagingAfterCopy: removeStagingAfterCopy
+                removeStagingAfterCopy: removeStagingAfterCopy,
+                captureRoute: captureRoute,
+                captureBackend: captureBackend,
+                captureDeviceTransport: captureDeviceTransport
             )
         }
     }
@@ -127,7 +133,10 @@ public struct ArchiveService {
         startedAt: Date,
         endedAt: Date,
         sourceAppID: String,
-        removeStagingAfterCopy: Bool
+        removeStagingAfterCopy: Bool,
+        captureRoute: CaptureArchiveRoute?,
+        captureBackend: CaptureArchiveBackend?,
+        captureDeviceTransport: String?
     ) throws -> RecordingSession {
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: stagingURL.path, isDirectory: &isDirectory) else {
@@ -158,7 +167,16 @@ public struct ArchiveService {
                 fileSize: Int64(fileSize),
                 status: .archived
             )
-            try writeMetadata(for: session, originalFilename: syntheticSourceName, sourceFingerprint: sourceFingerprint)
+            try writeMetadata(
+                for: session,
+                originalFilename: syntheticSourceName,
+                sourceFingerprint: sourceFingerprint,
+                captureRoute: captureRoute,
+                captureBackend: captureBackend,
+                captureDeviceUID: deviceID,
+                captureDeviceName: deviceName,
+                captureDeviceTransport: captureDeviceTransport
+            )
             return session
         } catch {
             try? fileManager.removeItem(at: destinationURL)
@@ -275,7 +293,16 @@ public struct ArchiveService {
         )
     }
 
-    private func writeMetadata(for session: RecordingSession, originalFilename: String, sourceFingerprint: String) throws {
+    private func writeMetadata(
+        for session: RecordingSession,
+        originalFilename: String,
+        sourceFingerprint: String,
+        captureRoute: CaptureArchiveRoute? = nil,
+        captureBackend: CaptureArchiveBackend? = nil,
+        captureDeviceUID: String? = nil,
+        captureDeviceName: String? = nil,
+        captureDeviceTransport: String? = nil
+    ) throws {
         guard let archiveURL = session.archiveURL else { return }
 
         let metadata = ArchiveMetadata(
@@ -288,7 +315,12 @@ public struct ArchiveService {
             fileSize: session.fileSize ?? 0,
             originalFilename: originalFilename,
             durationSeconds: durationReader.durationSeconds(for: archiveURL),
-            sourceFingerprint: sourceFingerprint
+            sourceFingerprint: sourceFingerprint,
+            captureRoute: captureRoute,
+            captureBackend: captureBackend,
+            captureDeviceUID: captureDeviceUID,
+            captureDeviceName: captureDeviceName,
+            captureDeviceTransport: captureDeviceTransport
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

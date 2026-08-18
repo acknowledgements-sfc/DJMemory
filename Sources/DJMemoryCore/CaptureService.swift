@@ -16,13 +16,28 @@ public struct CaptureResult: Equatable, Sendable {
     public let deviceName: String
     public let startedAt: Date
     public let endedAt: Date
+    public let captureRoute: CaptureArchiveRoute?
+    public let captureBackend: CaptureArchiveBackend?
+    public let deviceTransport: AudioDeviceTransport?
 
-    public init(stagingURL: URL, deviceID: String, deviceName: String, startedAt: Date, endedAt: Date) {
+    public init(
+        stagingURL: URL,
+        deviceID: String,
+        deviceName: String,
+        startedAt: Date,
+        endedAt: Date,
+        captureRoute: CaptureArchiveRoute? = nil,
+        captureBackend: CaptureArchiveBackend? = nil,
+        deviceTransport: AudioDeviceTransport? = nil
+    ) {
         self.stagingURL = stagingURL
         self.deviceID = deviceID
         self.deviceName = deviceName
         self.startedAt = startedAt
         self.endedAt = endedAt
+        self.captureRoute = captureRoute
+        self.captureBackend = captureBackend
+        self.deviceTransport = deviceTransport
     }
 }
 
@@ -39,6 +54,7 @@ public final class CaptureService: @unchecked Sendable {
     private var stagingURL: URL?
     private var deviceID = ""
     private var deviceName = ""
+    private var boundTransport: AudioDeviceTransport?
     private let levelLock = NSLock()
     private var writeFormat: AVAudioFormat?
     private var converter: AVAudioConverter?
@@ -89,6 +105,7 @@ public final class CaptureService: @unchecked Sendable {
 
         deviceID = device.id
         deviceName = device.name
+        boundTransport = device.transportType
         inputLevel = 0
         lastWriteErrorDetail = nil
         inputNode.removeTap(onBus: 0)
@@ -168,7 +185,16 @@ public final class CaptureService: @unchecked Sendable {
         guard fileManager.fileExists(atPath: stagingURL.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
             throw CaptureServiceError.engineFailed("Capture staging file is missing.")
         }
-        let result = CaptureResult(stagingURL: stagingURL, deviceID: deviceID, deviceName: deviceName, startedAt: started, endedAt: endedAt)
+        let result = CaptureResult(
+            stagingURL: stagingURL,
+            deviceID: deviceID,
+            deviceName: deviceName,
+            startedAt: started,
+            endedAt: endedAt,
+            captureRoute: .inputDevice,
+            captureBackend: nil,
+            deviceTransport: boundTransport
+        )
         self.stagingURL = nil
         return result
     }

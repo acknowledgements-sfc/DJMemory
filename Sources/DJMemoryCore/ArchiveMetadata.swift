@@ -1,5 +1,19 @@
 import Foundation
 
+/// How this archive was produced. Folder scans leave this nil; Capture fills it in.
+public enum CaptureArchiveRoute: String, Codable, Equatable, Sendable {
+    case appAudio
+    case inputDevice
+    case folder
+}
+
+/// App Audio capture engine. Nil for folder copies and Input Device Capture.
+public enum CaptureArchiveBackend: String, Codable, Equatable, Sendable {
+    case virtualInputDevice
+    case processAudioTap
+    case screenCaptureKit
+}
+
 public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
     public let sessionID: UUID
     public let sourceAppID: String
@@ -11,6 +25,11 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
     public let originalFilename: String
     public let durationSeconds: Double?
     public let sourceFingerprint: String?
+    public let captureRoute: CaptureArchiveRoute?
+    public let captureBackend: CaptureArchiveBackend?
+    public let captureDeviceUID: String?
+    public let captureDeviceName: String?
+    public let captureDeviceTransport: String?
 
     public var id: UUID { sessionID }
 
@@ -25,6 +44,11 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
         self.originalFilename = originalFilename
         self.durationSeconds = nil
         self.sourceFingerprint = nil
+        self.captureRoute = nil
+        self.captureBackend = nil
+        self.captureDeviceUID = nil
+        self.captureDeviceName = nil
+        self.captureDeviceTransport = nil
     }
 
     public init(
@@ -37,7 +61,12 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
         fileSize: Int64,
         originalFilename: String,
         durationSeconds: Double?,
-        sourceFingerprint: String? = nil
+        sourceFingerprint: String? = nil,
+        captureRoute: CaptureArchiveRoute? = nil,
+        captureBackend: CaptureArchiveBackend? = nil,
+        captureDeviceUID: String? = nil,
+        captureDeviceName: String? = nil,
+        captureDeviceTransport: String? = nil
     ) {
         self.sessionID = sessionID
         self.sourceAppID = sourceAppID
@@ -49,5 +78,10 @@ public struct ArchiveMetadata: Identifiable, Codable, Equatable, Sendable {
         self.originalFilename = originalFilename
         self.durationSeconds = durationSeconds
         self.sourceFingerprint = sourceFingerprint
+        self.captureRoute = captureRoute
+        self.captureBackend = captureBackend
+        self.captureDeviceUID = captureDeviceUID
+        self.captureDeviceName = captureDeviceName
+        self.captureDeviceTransport = captureDeviceTransport
     }
 }

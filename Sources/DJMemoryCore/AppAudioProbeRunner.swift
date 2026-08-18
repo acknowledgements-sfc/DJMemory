@@ -39,11 +39,21 @@ public enum AppAudioProbeRunner {
                 }
 
                 print("monitoring: \(chosen.software.displayName) id=\(chosen.software.id)")
+                let devices = AudioInputDeviceCatalog.listInputs()
+                let runningIDs = Set(apps.map(\.software.id))
                 try await service.startMonitoring(
                     bundleIdentifier: chosen.matchedBundleIdentifier,
-                    displayName: chosen.software.displayName
+                    displayName: chosen.software.displayName,
+                    softwareID: chosen.software.id,
+                    inputDevices: devices,
+                    runningSoftwareIDs: runningIDs
                 )
                 print("backend: \(service.activeBackendKind.displayName)")
+                if let device = service.activeVirtualDevice {
+                    print(
+                        "device: \(device.name) uid=\(device.id) transport=\(device.transportType.archiveLabel)"
+                    )
+                }
                 var peak: Float = 0
                 let ticks = max(1, seconds * 5)
                 for i in 0..<ticks {
@@ -64,10 +74,13 @@ public enum AppAudioProbeRunner {
                         print("staging: \(result.stagingURL.path) bytes=\(size)")
                         let session = try ArchiveService().ingestCapture(
                             stagingURL: result.stagingURL,
-                            deviceID: chosen.matchedBundleIdentifier,
-                            deviceName: "\(chosen.software.displayName) App Audio",
+                            deviceID: result.deviceID,
+                            deviceName: result.deviceName,
                             startedAt: recordingStartedAt,
-                            sourceAppID: chosen.software.id
+                            sourceAppID: chosen.software.id,
+                            captureRoute: result.captureRoute ?? .appAudio,
+                            captureBackend: result.captureBackend ?? service.activeBackendKind.archiveBackend,
+                            captureDeviceTransport: result.deviceTransport?.archiveLabel
                         )
                         guard let archiveURL = session.archiveURL else {
                             print("ERROR: archive session missing archive URL \(session.id.uuidString)")

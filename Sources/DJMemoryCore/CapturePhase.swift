@@ -21,6 +21,8 @@ public struct CaptureUIState: Equatable, Sendable {
     public var inputLevel: Float
     public var lastArchivedSessionID: UUID?
     public var statusMessage: String
+    /// Device name when App Audio is capturing a virtual input (e.g. Serato Virtual Audio).
+    public var appAudioSourceName: String?
 
     public init(
         mode: CaptureMode = .appAudio,
@@ -31,7 +33,8 @@ public struct CaptureUIState: Equatable, Sendable {
         selectedTargetAppID: String? = nil,
         inputLevel: Float = 0,
         lastArchivedSessionID: UUID? = nil,
-        statusMessage: String = "Choose a running DJ app, then arm App audio Capture."
+        statusMessage: String = "Choose a running DJ app, then arm App audio Capture.",
+        appAudioSourceName: String? = nil
     ) {
         self.mode = mode
         self.phase = phase
@@ -42,6 +45,7 @@ public struct CaptureUIState: Equatable, Sendable {
         self.inputLevel = inputLevel
         self.lastArchivedSessionID = lastArchivedSessionID
         self.statusMessage = statusMessage
+        self.appAudioSourceName = appAudioSourceName
     }
 
     public var selectedDevice: AudioInputDevice? {
