@@ -1,28 +1,36 @@
 #if os(macOS)
 import AppKit
+import CoreAudio
 import Foundation
 
-/// App Audio backend that records a verified DJ-software virtual device through
-/// `CaptureService`'s AVAudioEngine path. Owns its own `CaptureService` so App Audio
-/// never mutates the user's Input Device selection or double-drives that singleton.
+/// App Audio backend that records a verified DJ-software virtual input directly through a
+/// Core Audio device IOProc. It intentionally has no AVAudioEngine output side, avoiding the
+/// unbounded clock-drift buffering that occurs when a virtual input and speakers use different
+/// clocks.
 public final class VirtualInputDeviceCaptureService: @unchecked Sendable, AppAudioCaptureBackend {
     public let backendKind: AppAudioCaptureBackendKind = .virtualInputDevice
     public var onStreamStopped: ((AppAudioCaptureError) -> Void)?
 
     public var isMonitoring: Bool { capture.isMonitoring }
-    public var isWriting: Bool { capture.isRecording }
+    public var isWriting: Bool { capture.isWriting }
 
-    private let capture: CaptureService
+    private let capture: CoreAudioIOProcCapture
     private var boundDevice: AudioInputDevice?
-    private var boundSoftwareID = ""
 
-    public init(stagingDirectory: URL = CaptureService.defaultStagingDirectory(), fileManager: FileManager = .default) {
-        self.capture = CaptureService(stagingDirectory: stagingDirectory, fileManager: fileManager)
+    public init(
+        stagingDirectory: URL = CaptureService.defaultStagingDirectory(),
+        fileManager: FileManager = .default
+    ) {
+        self.capture = CoreAudioIOProcCapture(
+            stagingDirectory: stagingDirectory,
+            fileManager: fileManager,
+            queueLabel: "app.djmemory.VirtualInputDevice.sample"
+        )
     }
 
     public func bind(device: AudioInputDevice, softwareID: String) {
+        _ = softwareID
         boundDevice = device
-        boundSoftwareID = softwareID
     }
 
     public func listShareableDJApps() async throws -> [MatchedDJApp] {
@@ -37,72 +45,60 @@ public final class VirtualInputDeviceCaptureService: @unchecked Sendable, AppAud
     ) async throws {
         _ = bundleIdentifier
         _ = displayName
-        _ = prerollSeconds
         guard let device = boundDevice else {
-            throw AppAudioCaptureError.engineFailed("No virtual input device is bound for App audio Capture.")
+            throw AppAudioCaptureError.engineFailed(
+                "No virtual input device is bound for App audio Capture."
+            )
         }
+        guard let deviceID = AudioInputDeviceCatalog.audioDeviceID(forUID: device.id) else {
+            throw unavailableDeviceError(device.name)
+        }
+
+        let sourceASBD: AudioStreamBasicDescription
         do {
-            try capture.startMonitoring(device: device)
-        } catch let error as CaptureServiceError {
-            throw mapCaptureError(error)
+            sourceASBD = try AudioInputDeviceCatalog.inputStreamFormat(for: deviceID)
+        } catch {
+            throw AppAudioCaptureError.engineFailed(
+                "\(device.name) input format is unavailable. Open the DJ app, then Arm again, or use Process Audio Tap / folder Protection."
+            )
         }
+
+        try capture.start(
+            deviceID: deviceID,
+            sourceASBD: sourceASBD,
+            prerollSeconds: prerollSeconds,
+            sourceLabel: device.name,
+            filePrefix: "virtual-input",
+            resultMetadata: .init(
+                deviceID: device.id,
+                deviceName: device.name,
+                captureBackend: .virtualInputDevice,
+                deviceTransport: device.transportType
+            )
+        )
     }
 
     public func stopMonitoring() async {
-        capture.stopMonitoring()
+        capture.stop()
         boundDevice = nil
-        boundSoftwareID = ""
     }
 
     public func beginRecordingFile() throws {
-        do {
-            try capture.beginRecordingFile()
-        } catch let error as CaptureServiceError {
-            throw mapCaptureError(error)
-        }
+        try capture.beginRecordingFile()
     }
 
     public func endRecordingFile(discard: Bool) throws -> CaptureResult? {
-        let result: CaptureResult?
-        do {
-            result = try capture.endRecordingFile(discard: discard)
-        } catch let error as CaptureServiceError {
-            throw mapCaptureError(error)
-        }
-        guard let result else { return nil }
-        let device = boundDevice
-        return CaptureResult(
-            stagingURL: result.stagingURL,
-            deviceID: device?.id ?? result.deviceID,
-            deviceName: device?.name ?? result.deviceName,
-            startedAt: result.startedAt,
-            endedAt: result.endedAt,
-            captureRoute: .appAudio,
-            captureBackend: .virtualInputDevice,
-            deviceTransport: device?.transportType ?? result.deviceTransport
-        )
+        try capture.endRecordingFile(discard: discard)
     }
 
     public func currentInputLevel() -> Float {
         capture.currentInputLevel()
     }
 
-    private func mapCaptureError(_ error: CaptureServiceError) -> AppAudioCaptureError {
-        switch error {
-        case .permissionDenied:
-            return .permissionDenied
-        case .deviceMissing:
-            let name = boundDevice?.name ?? "virtual audio device"
-            return .engineFailed("\(name) is not available as an input. Open the DJ app, then Arm again, or use Process Audio Tap / folder Protection.")
-        case .diskFull:
-            return .diskFull
-        case .engineFailed(let detail):
-            return .engineFailed(detail)
-        case .alreadyRecording:
-            return isWriting ? .alreadyWriting : .alreadyMonitoring
-        case .notRecording:
-            return isWriting ? .notWriting : .notMonitoring
-        }
+    private func unavailableDeviceError(_ name: String) -> AppAudioCaptureError {
+        .engineFailed(
+            "\(name) is not available as an input. Open the DJ app, then Arm again, or use Process Audio Tap / folder Protection."
+        )
     }
 }
 #endif

@@ -96,6 +96,22 @@ final class AudioInputDeviceCatalogTests: XCTestCase {
         }
     }
 
+    func testListedInputDevicesExposeInputStreamFormats() throws {
+        let devices = AudioInputDeviceCatalog.listInputs()
+        guard !devices.isEmpty else {
+            throw XCTSkip("No Core Audio input devices are available on this host.")
+        }
+        for device in devices {
+            let deviceID = try XCTUnwrap(
+                AudioInputDeviceCatalog.audioDeviceID(forUID: device.id),
+                device.id
+            )
+            let format = try AudioInputDeviceCatalog.inputStreamFormat(for: deviceID)
+            XCTAssertGreaterThan(format.mSampleRate, 0, device.name)
+            XCTAssertGreaterThan(format.mChannelsPerFrame, 0, device.name)
+        }
+    }
+
     // MARK: PR2 — Serato Virtual Audio matching and trust
 
     func testSeratoVirtualDeviceIsTrustedWhenSeratoIsRunning() {

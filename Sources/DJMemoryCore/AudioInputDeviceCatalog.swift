@@ -1,6 +1,10 @@
 import CoreAudio
 import Foundation
 
+public enum AudioInputDeviceCatalogError: Error, Equatable, Sendable {
+    case streamFormatUnavailable(OSStatus)
+}
+
 /// Core Audio transport type for an input device, used to decide whether a device is safe to
 /// auto-select / record from. Sourced from `kAudioDevicePropertyTransportType`, which is
 /// robust and localization-independent (unlike device names).
@@ -220,6 +224,31 @@ public enum AudioInputDeviceCatalog {
             inputChannelCount(deviceID) > 0
                 && cfStringProperty(deviceID, kAudioDevicePropertyDeviceUID) == uid
         }
+    }
+
+    /// Current input-scope stream format for a Core Audio device.
+    public static func inputStreamFormat(
+        for deviceID: AudioDeviceID
+    ) throws -> AudioStreamBasicDescription {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamFormat,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var format = AudioStreamBasicDescription()
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            &size,
+            &format
+        )
+        guard status == noErr else {
+            throw AudioInputDeviceCatalogError.streamFormatUnavailable(status)
+        }
+        return format
     }
 
     private static func matchingVirtualSoftware(
