@@ -26,8 +26,8 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
     // `virtualEnabled` is explicit below so selection logic remains deterministic regardless
     // of the process environment used to launch the test suite.
 
-    func testVirtualBackendIsEnabledByDefault() {
-        XCTAssertTrue(AppAudioCaptureBackendSelector.virtualAppAudioEnabled(environment: [:]))
+    func testVirtualBackendIsDisabledByDefault() {
+        XCTAssertFalse(AppAudioCaptureBackendSelector.virtualAppAudioEnabled(environment: [:]))
         XCTAssertTrue(
             AppAudioCaptureBackendSelector.virtualAppAudioEnabled(
                 environment: ["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO": "1"]
@@ -35,7 +35,7 @@ final class AppAudioCaptureBackendSelectorTests: XCTestCase {
         )
     }
 
-    func testEmergencyEnvironmentOverrideDisablesVirtualBackend() {
+    func testNonOptInEnvironmentValuesKeepVirtualBackendDisabled() {
         XCTAssertFalse(
             AppAudioCaptureBackendSelector.virtualAppAudioEnabled(
                 environment: ["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO": "0"]

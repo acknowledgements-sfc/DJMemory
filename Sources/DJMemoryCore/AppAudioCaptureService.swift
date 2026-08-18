@@ -83,15 +83,15 @@ public enum AppAudioCaptureBackendSelector {
         return .screenCaptureKit
     }
 
-    /// The direct Core Audio IOProc virtual-device backend is enabled by default after live
-    /// bounded-memory and clean-audio verification. Set `DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO=0`
-    /// to disable it in an emergency and fall back to Process Audio Tap / ScreenCaptureKit.
+    /// SAFETY GATE: virtual-device capture remains opt-in while the reported long-running OOM
+    /// regression is investigated. Set `DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO=1` only for guarded
+    /// verification; the default falls back to Process Audio Tap / ScreenCaptureKit.
     public static var virtualAppAudioEnabled: Bool {
         virtualAppAudioEnabled(environment: ProcessInfo.processInfo.environment)
     }
 
     static func virtualAppAudioEnabled(environment: [String: String]) -> Bool {
-        environment["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO"] != "0"
+        environment["DJMEMORY_ENABLE_VIRTUAL_APP_AUDIO"] == "1"
     }
 
     /// Precedence: verified virtual input device for the target app > Process Audio Tap > ScreenCaptureKit.
